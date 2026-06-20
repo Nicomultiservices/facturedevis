@@ -182,15 +182,10 @@ tbody tr:hover td{background:#F8FAFC;}
 .save-toast-close{background:none;border:none;color:#64748B;cursor:pointer;font-size:16px;padding:2px 4px;border-radius:4px;flex-shrink:0;}.save-toast-close:hover{color:#F1F5F9;}
 
 /* INDICATEUR AUTOSAVE */
-.autobackup-indicator{position:fixed;bottom:24px;left:24px;background:#0F172A;color:#94A3B8;padding:8px 14px;border-radius:99px;font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:7px;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:9998;opacity:0;transform:translateY(8px);transition:all .3s ease;pointer-events:none;}
-.autobackup-indicator.show{opacity:1;transform:translateY(0);}
 .autobackup-dot{width:7px;height:7px;border-radius:50%;background:#0D9F6E;animation:pulse-dot 1.2s ease-in-out infinite;}
 @keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:.4;}}
 
 /* TOGGLE AUTOSAVE PARAMETRES */
-.autosave-setting{display:flex;align-items:center;justify-content:space-between;background:#F8FAFC;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-top:16px;}
-.autosave-setting-text h4{font-size:13px;font-weight:700;margin-bottom:2px;}
-.autosave-setting-text p{font-size:11.5px;color:var(--muted);}
 
 /* INFO BULLE DOSSIER */
 .folder-info{display:flex;align-items:center;gap:8px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:10px 14px;font-size:12px;color:#1D4ED8;margin-top:10px;}
@@ -308,13 +303,74 @@ body.mobile-view tbody td{padding:8px 10px;}
 body.mobile-view .lines-hd{padding:4px 2px;}
 body.mobile-view .line-row input,.mobile-view .line-row select{font-size:12px;padding:5px 6px;}
 body.mobile-view .sync-status{top:auto;bottom:14px;left:14px;right:auto;font-size:10px;padding:5px 10px;}
-body.mobile-view .mobile-toggle-btn{bottom:14px;right:14px;width:44px;height:44px;font-size:20px;}
+body.mobile-view .mobile-toggle-btn{bottom:78px;right:14px;width:44px;height:44px;font-size:20px;z-index:61;}
 body.mobile-view .pv{border-radius:8px;font-size:12px;}
 body.mobile-view .pv-box{min-width:100px;font-size:13px;}
 body.mobile-view .topbar{flex-wrap:nowrap;background:var(--surface);border-bottom:1px solid var(--border);}
 body.mobile-view .sidebar-nav::-webkit-scrollbar{height:3px;}
 body.mobile-view .sidebar-nav::-webkit-scrollbar-track{background:transparent;}
 body.mobile-view .sidebar-nav::-webkit-scrollbar-thumb{background:#475569;border-radius:2px;}
+
+/* ── MODE MOBILE V2 : sidebar masquee, vraie bottom-nav + menu "Plus" ── */
+body.mobile-view .sidebar{display:none !important;}
+body.mobile-view .app{padding-bottom:62px;}
+body.mobile-view .main{width:100%;}
+
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:62px;background:#0F172A;border-top:1px solid #1E293B;z-index:60;box-shadow:0 -4px 16px rgba(0,0,0,.25);}
+body.mobile-view .bottom-nav{display:flex;align-items:stretch;}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#64748B;font-size:10px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:.15s;}
+.bn-item.active{color:#3B82F6;}
+.bn-item svg{width:20px;height:20px;}
+.bn-more-sheet{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:70;align-items:flex-end;}
+.bn-more-sheet.open{display:flex;}
+.bn-more-panel{background:#fff;width:100%;border-radius:18px 18px 0 0;padding:8px 0 calc(env(safe-area-inset-bottom,0px) + 10px);max-height:75vh;overflow-y:auto;animation:bn-slide-up .25s ease;}
+@keyframes bn-slide-up{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.bn-more-handle{width:36px;height:4px;background:#E2E8F0;border-radius:99px;margin:8px auto 6px;}
+.bn-more-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94A3B8;padding:10px 20px 4px;}
+.bn-more-item{display:flex;align-items:center;gap:14px;padding:13px 20px;font-size:14.5px;font-weight:600;color:#1A202C;cursor:pointer;}
+.bn-more-item:active{background:#F1F5F9;}
+.bn-more-item svg{width:19px;height:19px;color:#475569;flex-shrink:0;}
+.bn-more-item.active{color:#1A56DB;}
+.bn-more-item.active svg{color:#1A56DB;}
+
+/* Topbar mobile : bouton retour/menu */
+body.mobile-view .topbar{position:sticky;top:0;z-index:30;}
+.mobile-menu-btn{display:none;background:none;border:none;width:34px;height:34px;border-radius:8px;align-items:center;justify-content:center;color:var(--text);cursor:pointer;flex-shrink:0;}
+body.mobile-view .mobile-menu-btn{display:flex;}
+body.mobile-view .topbar h1{font-size:14.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+body.mobile-view .topbar{gap:8px;flex-wrap:wrap;height:auto;min-height:48px;padding:8px 12px;}
+body.mobile-view .topbar .btn{flex-shrink:0;white-space:nowrap;}
+
+/* Tables -> cartes empilees sur mobile (lisibilite) */
+body.mobile-view .tw table,body.mobile-view .tw thead{display:none;}
+body.mobile-view .tw tbody{display:block;}
+body.mobile-view .tw tbody tr{display:block;background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
+body.mobile-view .tw tbody tr:hover td{background:transparent;}
+body.mobile-view .tw tbody td{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0;border-bottom:none;font-size:13px;text-align:right;}
+body.mobile-view .tw tbody td:empty{display:none;}
+body.mobile-view .tw tbody td:before{content:attr(data-label);font-weight:700;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;text-align:left;flex-shrink:0;}
+body.mobile-view .tw tbody td:last-child{justify-content:flex-end;padding-top:8px;border-top:1px solid #F1F5F9;margin-top:4px;}
+body.mobile-view .tw tbody td:last-child:before{display:none;}
+
+/* Modals plein ecran sur mobile */
+body.mobile-view .modal-overlay{padding:0;align-items:flex-end;}
+body.mobile-view .modal{max-width:100vw;width:100vw;max-height:92vh;border-radius:18px 18px 0 0;animation:bn-slide-up .25s ease;}
+body.mobile-view .modal-header,body.mobile-view .modal-footer{padding:14px 16px;}
+body.mobile-view .modal-body{padding:16px;}
+body.mobile-view .modal-footer{flex-wrap:wrap;}
+body.mobile-view .modal-footer .btn{flex:1;justify-content:center;min-width:110px;}
+
+/* Aperçu document : empile sous la liste plutot qu'a cote sur mobile */
+body.mobile-view [style*="grid-template-columns:1fr 420px"]{display:flex !important;flex-direction:column;}
+
+/* Calendrier mobile */
+body.mobile-view .cal-day{min-height:42px;padding:3px;}
+body.mobile-view .cal-ev{font-size:8px;padding:1px 3px;}
+body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
+
+@media(max-width:680px){
+  /* Detection ecran etroit : propose automatiquement le mode mobile au 1er chargement via JS (voir script) */
+}
 </style>
 </head>
 <body>
@@ -357,6 +413,72 @@ body.mobile-view .sidebar-nav::-webkit-scrollbar-thumb{background:#475569;border
 
 <!-- BOUTON TOGGLE MODE MOBILE/DESKTOP -->
 <button id="mobile-toggle-btn" class="mobile-toggle-btn" onclick="toggleMobileView()" title="Basculer mode mobile/desktop">📱</button>
+
+<!-- BOTTOM NAV MOBILE -->
+<nav class="bottom-nav" id="bottom-nav">
+  <div class="bn-item" data-page="dashboard" onclick="bnGoTo('dashboard')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    <span>Accueil</span>
+  </div>
+  <div class="bn-item" data-page="devis" onclick="bnGoTo('devis')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="9" y1="13" x2="15" y2="13"/></svg>
+    <span>Devis</span>
+  </div>
+  <div class="bn-item" data-page="factures" onclick="bnGoTo('factures')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="12" y2="17"/></svg>
+    <span>Factures</span>
+  </div>
+  <div class="bn-item" data-page="clients" onclick="bnGoTo('clients')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+    <span>Clients</span>
+  </div>
+  <div class="bn-item" id="bn-more-btn" onclick="openMoreSheet()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+    <span>Plus</span>
+  </div>
+</nav>
+
+<!-- MENU "PLUS" MOBILE (bottom sheet) -->
+<div class="bn-more-sheet" id="bn-more-sheet" onclick="if(event.target===this)closeMoreSheet()">
+  <div class="bn-more-panel">
+    <div class="bn-more-handle"></div>
+    <div class="bn-more-title">Base de donnees</div>
+    <div class="bn-more-item" data-page="produits" onclick="bnGoTo('produits')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+      Produits & Services
+    </div>
+    <div class="bn-more-title">Outils</div>
+    <div class="bn-more-item" data-page="interventions" onclick="bnGoTo('interventions')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/></svg>
+      Bons d'intervention
+    </div>
+    <div class="bn-more-item" data-page="relances" onclick="bnGoTo('relances')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+      Relances clients
+    </div>
+    <div class="bn-more-item" data-page="urssaf" onclick="bnGoTo('urssaf')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      Cotisations URSSAF
+    </div>
+    <div class="bn-more-item" data-page="planning" onclick="bnGoTo('planning')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Planning Chantiers
+    </div>
+    <div class="bn-more-item" data-page="sauvegarde" onclick="bnGoTo('sauvegarde')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Sauvegarde & Partage
+    </div>
+    <div class="bn-more-item" data-page="scans" onclick="bnGoTo('scans')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      Documents scannes
+    </div>
+    <div class="bn-more-title">Parametres</div>
+    <div class="bn-more-item" data-page="parametres" onclick="bnGoTo('parametres')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Mon entreprise
+    </div>
+  </div>
+</div>
 
 <div class="app">
 <aside class="sidebar">
@@ -585,10 +707,7 @@ body.mobile-view .sidebar-nav::-webkit-scrollbar-thumb{background:#475569;border
             </div>
           </div>
         </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn btn-primary" onclick="downloadBlankPDF()">⬇ Télécharger le modèle vierge</button>
-          <button class="btn btn-ghost" onclick="printBlankPDF()" title="Imprimer">🖨 Imprimer le modèle</button>
-        </div>
+        <button class="btn btn-primary" onclick="downloadBlankPDF()">⬇ Télécharger le modèle vierge</button>
       </div>
     </div>
 
@@ -598,7 +717,10 @@ body.mobile-view .sidebar-nav::-webkit-scrollbar-thumb{background:#475569;border
         <div style="padding:12px 16px;background:#FEF9C3;border:1px solid #FDE68A;border-radius:8px;font-size:12.5px;color:#92400E">
           ⚠️ <strong>Important :</strong> Les données sont dans votre navigateur. Exportez régulièrement pour éviter toute perte.
         </div>
-        <div style="margin-top:10px"><button class="btn btn-danger btn-sm" onclick="resetAll()">🗑 Réinitialiser toutes les données</button></div>
+        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+          <div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">Remet l'application a zero comme a la premiere ouverture (clients, devis, factures, parametres, photos...). Votre connexion reste active.</div>
+          <button class="btn btn-danger btn-sm" onclick="resetAll()">🗑 Réinitialiser l'application</button>
+        </div>
       </div>
     </div>
   </div>
@@ -684,19 +806,6 @@ body.mobile-view .sidebar-nav::-webkit-scrollbar-thumb{background:#475569;border
         </div>
         <button class="btn btn-primary" style="margin-top:16px" onclick="saveParams()">Enregistrer</button>
         <span id="params-ok" style="display:none;margin-left:10px;color:var(--accent);font-size:13px;font-weight:600">✓ Enregistré</span>
-
-        <div class="autosave-setting">
-          <div class="autosave-setting-text">
-            <h4>💾 Sauvegarde automatique</h4>
-            <p>Écrit un fichier horodaté dans votre dossier de sauvegarde quelques secondes après chaque modification.</p>
-          </div>
-          <label class="tog"><input type="checkbox" id="toggle-autosave" checked onchange="toggleAutosave()"><span class="tog-sl"></span></label>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;background:#FAFBFC;border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-top:10px;gap:12px">
-          <div style="font-size:12.5px" id="backup-folder-name"><span style="color:var(--muted)">Aucun dossier choisi — sauvegarde dans Téléchargements</span></div>
-          <button class="btn btn-ghost btn-sm" id="backup-folder-btn" onclick="chooseBackupFolder()" style="flex-shrink:0">📁 Choisir un dossier</button>
-        </div>
-        <p style="font-size:11px;color:var(--muted);margin-top:6px">Disponible sur Chrome et Edge. Le dossier reste mémorisé même après fermeture du navigateur.</p>
       </div></div>
       <div class="card"><div class="card-header"><h3>✍️ Signature numérique</h3></div><div class="card-body">
         <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Dessinez votre signature — elle sera intégrée dans vos PDF.</p>
@@ -886,7 +995,6 @@ body.mobile-view .sidebar-nav::-webkit-scrollbar-thumb{background:#475569;border
       <button class="btn btn-ghost" onclick="closeModal('modal-bi')">Annuler</button>
       <button id="bi-del-btn" class="btn btn-danger" style="display:none" onclick="deleteBI()">🗑 Supprimer</button>
       <button class="btn btn-ghost" onclick="downloadBIPDF()">⬇ PDF</button>
-      <button class="btn btn-ghost" onclick="printBIPDF()" title="Imprimer">🖨 Imprimer</button>
       <button class="btn btn-primary" onclick="saveBI()">💾 Enregistrer</button>
     </div>
   </div>
@@ -903,7 +1011,6 @@ body.mobile-view .sidebar-nav::-webkit-scrollbar-thumb{background:#475569;border
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-relance')">Annuler</button>
       <button class="btn btn-ghost" onclick="sendRelanceEmail()">📧 Envoyer par email</button>
-      <button class="btn btn-ghost" onclick="printRelancePDF()" title="Imprimer">🖨 Imprimer</button>
       <button class="btn btn-primary" onclick="downloadRelancePDF()">⬇ Télécharger PDF</button>
     </div>
   </div>
@@ -1178,7 +1285,6 @@ function lDB(){try{var s=localStorage.getItem('gdf_v5');if(s)db=JSON.parse(s);}c
 var sDBTimer=null;
 function sDB(){
   try{localStorage.setItem('gdf_v5',JSON.stringify(db));}catch(e){}
-  scheduleAutoBackup();
   // Synchronisation Firestore (debounce 1.5s pour grouper les ecritures rapides)
   if(FIREBASE_ENABLED&&fbUser){
     if(sDBTimer)clearTimeout(sDBTimer);
@@ -1383,160 +1489,6 @@ if(FIREBASE_ENABLED){
   setSyncStatus('local');
 }
 
-// ═══ SAUVEGARDE AUTOMATIQUE ═════════════════════════════
-// Telecharge un fichier complet quelques secondes apres chaque modification,
-// avec un nom de fichier fixe (ecrase la version precedente dans la plupart des navigateurs)
-var autoBackupTimer=null;
-var AUTO_BACKUP_DELAY=8000; // 8 secondes apres la derniere modification
-
-function scheduleAutoBackup(){
-  if(autoBackupTimer)clearTimeout(autoBackupTimer);
-  autoBackupTimer=setTimeout(runAutoBackup,AUTO_BACKUP_DELAY);
-}
-
-function toggleAutosave(){
-  db.autosaveEnabled=document.getElementById('toggle-autosave').checked;
-  try{localStorage.setItem('gdf_autosave_enabled',db.autosaveEnabled?'1':'0');}catch(e){}
-  if(db.autosaveEnabled&&!backupDirHandle)chooseBackupFolder();
-}
-
-function isAutosaveEnabled(){
-  try{var v=localStorage.getItem('gdf_autosave_enabled');return v===null?true:v==='1';}catch(e){return true;}
-}
-
-// ── DOSSIER DE SAUVEGARDE PERSISTANT (File System Access API) ──
-var backupDirHandle=null;
-var BACKUP_DB_NAME='gdf_backup_handle_db';
-var BACKUP_STORE='handles';
-
-function openHandleDB(){
-  return new Promise(function(resolve,reject){
-    var req=indexedDB.open(BACKUP_DB_NAME,1);
-    req.onupgradeneeded=function(){req.result.createObjectStore(BACKUP_STORE);};
-    req.onsuccess=function(){resolve(req.result);};
-    req.onerror=function(){reject(req.error);};
-  });
-}
-function saveDirHandle(handle){
-  openHandleDB().then(function(idb){
-    var tx=idb.transaction(BACKUP_STORE,'readwrite');
-    tx.objectStore(BACKUP_STORE).put(handle,'backupDir');
-  }).catch(function(){});
-}
-function loadDirHandle(){
-  return openHandleDB().then(function(idb){
-    return new Promise(function(resolve){
-      var tx=idb.transaction(BACKUP_STORE,'readonly');
-      var req=tx.objectStore(BACKUP_STORE).get('backupDir');
-      req.onsuccess=function(){resolve(req.result||null);};
-      req.onerror=function(){resolve(null);};
-    });
-  }).catch(function(){return null;});
-}
-
-async function chooseBackupFolder(){
-  if(!window.showDirectoryPicker){
-    alert("Votre navigateur ne supporte pas la selection de dossier (fonctionne sur Chrome et Edge). Les sauvegardes utiliseront le dossier Telechargements a la place.");
-    return;
-  }
-  try{
-    var handle=await window.showDirectoryPicker({mode:'readwrite'});
-    backupDirHandle=handle;
-    saveDirHandle(handle);
-    updateBackupFolderUI();
-    alert('Dossier de sauvegarde configure : "'+handle.name+'". Les sauvegardes automatiques y seront ecrites desormais.');
-  }catch(e){
-    // utilisateur a annule
-  }
-}
-
-async function verifyBackupPermission(handle){
-  try{
-    var opts={mode:'readwrite'};
-    if((await handle.queryPermission(opts))==='granted')return true;
-    if((await handle.requestPermission(opts))==='granted')return true;
-    return false;
-  }catch(e){return false;}
-}
-
-function updateBackupFolderUI(){
-  var el=document.getElementById('backup-folder-name');
-  if(!el)return;
-  if(backupDirHandle){
-    el.innerHTML='📁 <strong>'+esc(backupDirHandle.name)+'</strong>';
-    var btn=document.getElementById('backup-folder-btn');
-    if(btn)btn.textContent='Changer de dossier';
-  }else{
-    el.innerHTML='<span style="color:var(--muted)">Aucun dossier choisi — sauvegarde dans Telechargements</span>';
-  }
-}
-
-// Tente de recharger le dossier deja autorise au demarrage
-(function initBackupFolder(){
-  loadDirHandle().then(async function(handle){
-    if(!handle)return;
-    var ok=await verifyBackupPermission(handle);
-    if(ok){backupDirHandle=handle;updateBackupFolderUI();}
-  });
-})();
-
-function pad2(n){return String(n).padStart(2,'0');}
-function backupFilename(){
-  var d=new Date();
-  return 'backup_'+d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+'_'+pad2(d.getHours())+'-'+pad2(d.getMinutes())+'.json';
-}
-
-async function runAutoBackup(){
-  if(!isAutosaveEnabled())return;
-  try{
-    var full={
-      params:db.params,
-      clients:db.clients,
-      produits:db.produits,
-      documents:db.documents,
-      events:db.events||[],
-      interventions:db.interventions||[],
-      scans:db.scans||[],
-      counters:db.counters
-    };
-    var content=JSON.stringify(full,null,2);
-    var filename=backupFilename();
-
-    if(backupDirHandle){
-      var ok=await verifyBackupPermission(backupDirHandle);
-      if(ok){
-        try{
-          var fileHandle=await backupDirHandle.getFileHandle(filename,{create:true});
-          var writable=await fileHandle.createWritable();
-          await writable.write(content);
-          await writable.close();
-          showAutoBackupIndicator(backupDirHandle.name+'/'+filename);
-          return;
-        }catch(e){}
-      }
-    }
-    // Fallback : telechargement classique si pas de dossier configure ou permission perdue
-    var blob=new Blob([content],{type:'application/json'});
-    var a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download=filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(a.href);
-    showAutoBackupIndicator('Telechargements/'+filename);
-  }catch(e){}
-}
-
-function showAutoBackupIndicator(path){
-  var el=document.getElementById('autobackup-indicator');
-  if(!el)return;
-  var textEl=el.querySelector('span');
-  if(textEl&&path)textEl.textContent='Sauvegarde : '+path;
-  el.classList.add('show');
-  setTimeout(function(){el.classList.remove('show');},3500);
-}
-
 // ═══ NAV ════════════════════════════════════════════════
 document.querySelectorAll('.nav-item[data-page]').forEach(function(el){
   el.addEventListener('click',function(){showPage(el.getAttribute('data-page'));});
@@ -1593,9 +1545,6 @@ function loadParams(){
   if(p.logo){document.getElementById('logo-preview').src=p.logo;document.getElementById('logo-preview').style.display='block';document.getElementById('logo-ph').style.display='none';}
   document.getElementById('sidebar-company').textContent=p.nom||'Mon Entreprise';
   if(p.signature)document.getElementById('sig-status').innerHTML='<span style="color:var(--accent);font-weight:700">✓ Signature enregistree</span>';
-  var asToggle=document.getElementById('toggle-autosave');
-  if(asToggle)asToggle.checked=isAutosaveEnabled();
-  updateBackupFolderUI();
   var actEl=document.getElementById('p-activite-urssaf');if(actEl)actEl.value=p.activiteUrssaf||'bic_service';
   var freqEl=document.getElementById('p-frequence-urssaf');if(freqEl)freqEl.value=p.frequenceUrssaf||'trimestriel';
   var acreEl=document.getElementById('p-acre');if(acreEl)acreEl.value=p.acre||'non';
@@ -1775,7 +1724,6 @@ function renderDevis(){
       '<button class="btn btn-ghost btn-sm" onclick="openDocModal(\'devis\','+d.id+')">✏️</button>'+
       '<button class="btn btn-accent btn-sm" onclick="convertToF('+d.id+')" title="Convertir en facture">→F</button>'+
       '<button class="btn btn-primary btn-sm" onclick="downloadPDF('+d.id+',true)">⬇</button>'+
-      '<button class="btn btn-ghost btn-sm" title="Imprimer" onclick="printDocPDF('+d.id+',true)">🖨</button>'+
       '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteDoc('+d.id+')">🗑</button>'+
     '</td></tr>';
   }).join('');
@@ -1792,10 +1740,9 @@ function renderFactures(){
     return '<tr><td><strong>'+esc(d.numero)+'</strong></td><td>'+(c?esc(c.nom):'—')+'</td><td>'+fmtDate(d.date)+'</td><td><strong>'+fmt(d.totalHT)+' €</strong></td><td><span class="badge '+bc+'">'+lb+'</span></td><td style="display:flex;gap:3px;flex-wrap:wrap">'+
       '<button class="btn btn-ghost btn-sm" onclick="showPv('+d.id+')">👁</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="openDocModal(\'facture\','+d.id+')">✏️</button>'+
-      (!paid?'<button class="btn btn-accent btn-sm" onclick="openReceiptModal('+d.id+')">💰</button>':'<button class="btn btn-ghost btn-sm" onclick="downloadReceiptPDF('+d.id+')" title="Recu">🧾</button><button class="btn btn-ghost btn-sm" onclick="printReceiptPDF('+d.id+')" title="Imprimer recu">🖨</button>')+
+      (!paid?'<button class="btn btn-accent btn-sm" onclick="openReceiptModal('+d.id+')">💰</button>':'<button class="btn btn-ghost btn-sm" onclick="downloadReceiptPDF('+d.id+')" title="Recu">🧾</button>')+
       '<button class="btn btn-primary btn-sm" onclick="downloadPDF('+d.id+',true)">⬇ Moi</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="downloadPDF('+d.id+',false)">⬇ Client</button>'+
-      '<button class="btn btn-ghost btn-sm" title="Imprimer" onclick="printDocPDF('+d.id+',true)">🖨</button>'+
       '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteDoc('+d.id+')">🗑</button>'+
     '</td></tr>';
   }).join('');
@@ -1811,7 +1758,7 @@ function renderDash(){
   tb.innerHTML=docs.map(function(d){
     var c=db.clients.find(function(x){return x.id===d.clientId;});
     var bc=d.statut==='payee'?'bp':d.statut==='annulee'?'ban':(d.type==='devis'?'bd':'ba');
-    return '<tr><td>'+esc(d.numero)+'</td><td><span class="badge '+(d.type==='devis'?'bd':'bf')+'">'+d.type+'</span></td><td>'+(c?esc(c.nom):'—')+'</td><td>'+fmtDate(d.date)+'</td><td><strong>'+fmt(d.totalHT)+' €</strong></td><td><span class="badge '+bc+'">'+d.statut+'</span></td><td style="display:flex;gap:3px"><button class="btn btn-ghost btn-sm" onclick="showPv('+d.id+')">👁</button><button class="btn btn-primary btn-sm" onclick="downloadPDF('+d.id+',true)">⬇</button><button class="btn btn-ghost btn-sm" title="Imprimer" onclick="printDocPDF('+d.id+',true)">🖨</button></td></tr>';
+    return '<tr><td>'+esc(d.numero)+'</td><td><span class="badge '+(d.type==='devis'?'bd':'bf')+'">'+d.type+'</span></td><td>'+(c?esc(c.nom):'—')+'</td><td>'+fmtDate(d.date)+'</td><td><strong>'+fmt(d.totalHT)+' €</strong></td><td><span class="badge '+bc+'">'+d.statut+'</span></td><td style="display:flex;gap:3px"><button class="btn btn-ghost btn-sm" onclick="showPv('+d.id+')">👁</button><button class="btn btn-primary btn-sm" onclick="downloadPDF('+d.id+',true)">⬇</button></td></tr>';
   }).join('');
 }
 
@@ -2117,7 +2064,28 @@ function showAttachReminder(filename){
   document.getElementById('attach-reminder-filename').textContent=filename;
   openModal('modal-attach-reminder');
 }
-function resetAll(){if(!confirm('Effacer TOUTES les donnees ? Action irreversible.'))return;localStorage.removeItem('gdf_v5');location.reload();}
+function resetAll(){
+  if(!confirm("Reinitialiser l'application ? Toutes les donnees seront definitivement effacees : clients, devis, factures, produits, planning, interventions, documents scannes et parametres.\n\nCette action est irreversible."))return;
+  if(!confirm("Derniere confirmation : etes-vous certain de vouloir tout effacer ?"))return;
+
+  // Remet l'objet en memoire a l'etat initial (comme au premier chargement)
+  db={
+    params:{nom:'',siret:'',adresse:'',ville:'',tel:'',email:'',iban:'',paiement:'Paiement a reception de facture.',logo:'',signature:''},
+    clients:[],produits:[],documents:[],events:[],counters:{devis:1,facture:1},interventions:[],scans:[]
+  };
+
+  // Vide le stockage local
+  try{localStorage.removeItem('gdf_v5');}catch(e){}
+
+  // Si connecte a Firebase, vide aussi les donnees distantes pour que la remise a zero soit complete sur tous les appareils
+  if(FIREBASE_ENABLED&&fbUser){
+    fbDb.collection('users').doc(fbUser.uid).set({db:db,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+      .catch(function(e){console.error('Erreur reset Firestore:',e);})
+      .finally(function(){location.reload();});
+  }else{
+    location.reload();
+  }
+}
 function generateQR(){
   var id=parseInt(document.getElementById('qr-doc-sel').value);if(!id){alert('Selectionnez un document.');return;}
   var doc=db.documents.find(function(x){return x.id===id;});
@@ -2508,7 +2476,6 @@ function renderBI(){
       '<td style="display:flex;gap:4px">'+
         '<button class="btn btn-ghost btn-sm" onclick="openBIModal('+bi.id+')">✏️</button>'+
         '<button class="btn btn-primary btn-sm" onclick="editBIId='+bi.id+';downloadBIPDF()">⬇ PDF</button>'+
-        '<button class="btn btn-ghost btn-sm" title="Imprimer" onclick="editBIId='+bi.id+';printBIPDF()">🖨</button>'+
         '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteBIById('+bi.id+')">🗑</button>'+
       '</td></tr>';
   }).join('');
@@ -3048,28 +3015,8 @@ function downloadBlankPDF(){
 
 // ═══ SAUVEGARDE PDF — CHOIX DU DOSSIER ════════════════
 // Essaie File System Access API (Chrome/Edge), sinon téléchargement classique
-async function savePDF(pdf,filename){
-  // Essayer showSaveFilePicker (Chrome 86+, Edge 86+)
-  if(window.showSaveFilePicker){
-    try{
-      var ext=filename.split('.').pop();
-      var handle=await window.showSaveFilePicker({
-        suggestedName:filename,
-        startIn:'documents',
-        types:[{description:'Fichier PDF',accept:{'application/pdf':['.pdf']}}]
-      });
-      var blob=pdf.output('blob');
-      var writable=await handle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-      showSaveToast(handle.name||filename);
-      return;
-    }catch(e){
-      // Annule par l'utilisateur ou non supporté -> fallback
-      if(e.name==='AbortError')return; // utilisateur a annulé
-    }
-  }
-  // Fallback : téléchargement classique dans le dossier Téléchargements
+function savePDF(pdf,filename){
+  // Telechargement direct dans le dossier Telechargements du navigateur
   pdf.save(filename);
   showSaveToast(filename);
 }
@@ -3288,93 +3235,6 @@ function renderUrssafPlafond(year){
   }
 }
 
-// ═══ IMPRESSION PDF (ouvre l'apercu navigateur + boite d'impression) ══
-function printPDF(pdf){
-  try{
-    var blobUrl=pdf.output('bloburl');
-    var win=window.open(blobUrl,'_blank');
-    if(!win){
-      alert("La fenetre d'impression a ete bloquee par le navigateur. Autorisez les pop-ups pour ce site, ou utilisez le bouton telecharger puis imprimez le fichier PDF.");
-      return;
-    }
-    win.addEventListener('load',function(){
-      setTimeout(function(){
-        try{win.print();}catch(e){}
-      },350);
-    });
-  }catch(e){
-    alert("Impossible d'ouvrir l'apercu d'impression. Telechargez le PDF puis imprimez-le depuis votre lecteur PDF.");
-  }
-}
-
-function printDocPDF(id,withStamp){var pdf=buildDocPDF(id,withStamp);printPDF(pdf);}
-function printReceiptPDF(id){var pdf=buildReceiptPDF(id);if(pdf)printPDF(pdf);}
-function printBIPDF(){var pdf=buildBIPDF();if(pdf)printPDF(pdf);}
-function printRelancePDFFn(){var pdf=buildRelancePDF();if(pdf)printPDF(pdf);}
-function printBlankPDF(){var pdf=buildBlankPDF();printPDF(pdf);}
-
-// ═══ IMPRESSION PDF ═════════════════════════════════════
-function printPDF(pdfObj){
-  try{
-    var blobUrl=pdfObj.output('bloburl');
-    var win=window.open(blobUrl,'_blank');
-    if(!win){
-      alert('Impression bloquee par le navigateur. Autorisez les popups pour ce site, ou telechargez le PDF et imprimez depuis votre lecteur PDF.');
-      return;
-    }
-    win.onload=function(){
-      setTimeout(function(){
-        try{win.print();}catch(e){}
-      },600);
-    };
-    // Fallback si onload ne se declenche pas (some browsers)
-    setTimeout(function(){
-      try{if(win&&!win.closed)win.print();}catch(e){}
-    },1800);
-  }catch(e){
-    alert('Erreur lors de l impression : '+e.message);
-  }
-}
-function printDocPDF(id,withStamp){printPDF(buildDocPDF(id,withStamp));}
-function printReceiptPDF(id){
-  var doc=db.documents.find(function(x){return x.id===id;});
-  if(!doc.receipt){alert('Aucun paiement enregistre pour cette facture.');return;}
-  // Rebuild receipt pdf object without saving
-  var origSavePDF=window.savePDF;
-  var capturedPdf=null;
-  window.savePDF=function(pdf){capturedPdf=pdf;};
-  downloadReceiptPDF(id);
-  window.savePDF=origSavePDF;
-  if(capturedPdf)printPDF(capturedPdf);
-}
-function printBIPDF(){
-  if(!editBIId){alert('Ouvrez un bon d intervention pour l imprimer.');return;}
-  var origSavePDF=window.savePDF;
-  var capturedPdf=null;
-  window.savePDF=function(pdf){capturedPdf=pdf;};
-  downloadBIPDF();
-  window.savePDF=origSavePDF;
-  if(capturedPdf)printPDF(capturedPdf);
-}
-function printBlankPDF(){
-  var origSavePDF=window.savePDF;
-  var capturedPdf=null;
-  window.savePDF=function(pdf){capturedPdf=pdf;};
-  downloadBlankPDF();
-  window.savePDF=origSavePDF;
-  if(capturedPdf)printPDF(capturedPdf);
-}
-
-function printRelancePDF(){
-  var origSavePDF=window.savePDF;
-  var capturedPdf=null;
-  window.savePDF=function(pdf){capturedPdf=pdf;};
-  downloadRelancePDF();
-  window.savePDF=origSavePDF;
-  if(capturedPdf)printPDF(capturedPdf);
-  else alert('Enregistrez d abord la relance pour pouvoir l imprimer.');
-}
-
 // ═══ DOCUMENTS SCANNÉS ══════════════════════════════════
 if(!db.scans)db.scans=[];
 var scanPendingFiles=[]; // [{name,dataUrl,type:'image'|'pdf'}]
@@ -3523,7 +3383,8 @@ function deleteScanFromView(){
   sDB();closeModal('modal-scan-view');renderScans();
 }
 
-// GESTION MODE MOBILE
+// ═══ GESTION MODE MOBILE ════════════════════════════════
+var MOBILE_AUTO_KEY='mobileViewAutoDetected';
 var isMobileViewEnabled=localStorage.getItem('mobileViewEnabled')==='true';
 
 function toggleMobileView(){
@@ -3535,35 +3396,122 @@ function toggleMobileView(){
 function applyMobileView(){
   var body=document.body;
   var btn=document.getElementById('mobile-toggle-btn');
-  
+
   if(isMobileViewEnabled){
     body.classList.add('mobile-view');
     if(btn)btn.classList.add('active');
     if(btn)btn.title='Basculer au mode desktop';
+    injectMobileMenuButtons();
+    syncBottomNavActiveState();
   }else{
     body.classList.remove('mobile-view');
     if(btn)btn.classList.remove('active');
     if(btn)btn.title='Basculer au mode mobile';
+    closeMoreSheet();
   }
-  
-  // Ajuster la disposition si nécessaire
+
   if(typeof refreshCurrentPage==='function')refreshCurrentPage();
 }
 
-// Appliquer le mode mobile sauvegardé au démarrage
+// Detection automatique au premier chargement sur petit ecran (une seule fois, l'utilisateur reste libre de revenir au mode bureau ensuite)
+(function autoDetectMobile(){
+  var alreadyAsked=localStorage.getItem(MOBILE_AUTO_KEY);
+  if(!alreadyAsked&&window.innerWidth<=820){
+    isMobileViewEnabled=true;
+    localStorage.setItem('mobileViewEnabled','true');
+    localStorage.setItem(MOBILE_AUTO_KEY,'1');
+  }
+})();
+
+// Ajoute un petit bouton "menu" (≡) dans chaque topbar visible, pour ouvrir le menu Plus sans redescendre en bas
+function injectMobileMenuButtons(){
+  document.querySelectorAll('.topbar').forEach(function(tb){
+    if(tb.querySelector('.mobile-menu-btn'))return;
+    var h1=tb.querySelector('h1');
+    if(!h1)return;
+    var btn=document.createElement('button');
+    btn.className='mobile-menu-btn';
+    btn.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
+    btn.onclick=openMoreSheet;
+    tb.insertBefore(btn,h1);
+  });
+}
+
+// ── Bottom navigation ──
+function bnGoTo(page){
+  closeMoreSheet();
+  showPage(page);
+  syncBottomNavActiveState();
+}
+
+function syncBottomNavActiveState(){
+  var current=document.querySelector('.page.active');
+  var pageName=current?current.id.replace('page-',''):'';
+  document.querySelectorAll('.bn-item[data-page]').forEach(function(el){
+    el.classList.toggle('active',el.getAttribute('data-page')===pageName);
+  });
+  var inMore=!document.querySelector('.bn-item[data-page="'+pageName+'"]')&&pageName;
+  var moreBtn=document.getElementById('bn-more-btn');
+  if(moreBtn)moreBtn.classList.toggle('active',inMore);
+  document.querySelectorAll('.bn-more-item[data-page]').forEach(function(el){
+    el.classList.toggle('active',el.getAttribute('data-page')===pageName);
+  });
+}
+
+function openMoreSheet(){document.getElementById('bn-more-sheet').classList.add('open');}
+function closeMoreSheet(){document.getElementById('bn-more-sheet').classList.remove('open');}
+
+// Patch discret de showPage pour garder la bottom-nav synchronisee a chaque navigation
+var _origShowPageForMobile=showPage;
+showPage=function(name){
+  _origShowPageForMobile(name);
+  if(document.body.classList.contains('mobile-view'))syncBottomNavActiveState();
+};
+
+// Appliquer le mode mobile (sauvegarde ou auto-detecte) au demarrage
 window.addEventListener('load',function(){
   setTimeout(applyMobileView,100);
 });
+window.addEventListener('resize',function(){
+  if(document.body.classList.contains('mobile-view'))syncBottomNavActiveState();
+});
+
+// ═══ AUTO-LABELS POUR LES TABLEAUX EN MODE CARTE MOBILE ══
+// Ajoute automatiquement data-label sur chaque <td> a partir des <th> correspondants,
+// pour que le CSS body.mobile-view .tw td:before{content:attr(data-label)} fonctionne
+// sur TOUS les tableaux de l'app sans avoir a modifier chaque fonction render...()
+function applyTableLabels(){
+  document.querySelectorAll('.tw table').forEach(function(table){
+    var headers=table.querySelectorAll('thead th');
+    if(!headers.length)return;
+    var labels=Array.prototype.map.call(headers,function(th){return th.textContent.trim();});
+    table.querySelectorAll('tbody tr').forEach(function(tr){
+      var cells=tr.querySelectorAll('td');
+      cells.forEach(function(td,i){
+        if(labels[i])td.setAttribute('data-label',labels[i]);
+      });
+    });
+  });
+}
+
+// Observe les changements de contenu pour reappliquer les labels automatiquement
+// (chaque render...() regenere le innerHTML des tbody, donc on observe le conteneur principal)
+var tableLabelObserver=new MutationObserver(function(){
+  if(document.body.classList.contains('mobile-view'))applyTableLabels();
+});
+document.addEventListener('DOMContentLoaded',function(){
+  var mainEl=document.querySelector('.main');
+  if(mainEl)tableLabelObserver.observe(mainEl,{childList:true,subtree:true});
+});
+// Fallback immediat si DOMContentLoaded est deja passe
+if(document.querySelector('.main')){
+  tableLabelObserver.observe(document.querySelector('.main'),{childList:true,subtree:true});
+}
 
 // INIT
 renderDash();
+setTimeout(applyTableLabels,200);
 </script>
-<!-- INDICATEUR AUTOSAVE -->
-<div id="autobackup-indicator" class="autobackup-indicator">
-  <div class="autobackup-dot"></div>
-  <span>Sauvegarde automatique effectuée</span>
-</div>
-
 <!-- LIGHTBOX PHOTO -->
 <div class="photo-lightbox" id="photo-lightbox" onclick="closeLightbox(event)">
   <button class="photo-lightbox-close" onclick="closeLightbox(event)">✕</button>
