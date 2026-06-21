@@ -11,6 +11,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<!-- MSAL.js (authentification Microsoft + OneDrive via Microsoft Graph) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/msal/2.38.3/msal-browser.min.js"></script>
 <style>
 :root{
   --bg:#F0F4F8;--surface:#FFF;--border:#DDE3EC;
@@ -182,7 +184,6 @@ tbody tr:hover td{background:#F8FAFC;}
 .save-toast-close{background:none;border:none;color:#64748B;cursor:pointer;font-size:16px;padding:2px 4px;border-radius:4px;flex-shrink:0;}.save-toast-close:hover{color:#F1F5F9;}
 
 /* INDICATEUR AUTOSAVE */
-.autobackup-dot{width:7px;height:7px;border-radius:50%;background:#0D9F6E;animation:pulse-dot 1.2s ease-in-out infinite;}
 @keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:.4;}}
 
 /* TOGGLE AUTOSAVE PARAMETRES */
@@ -321,9 +322,9 @@ body.mobile-view .bottom-nav{display:flex;align-items:stretch;}
 .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#64748B;font-size:10px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:.15s;}
 .bn-item.active{color:#3B82F6;}
 .bn-item svg{width:20px;height:20px;}
-.bn-more-sheet{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:70;align-items:flex-end;}
+.bn-more-sheet{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:80;align-items:flex-end;}
 .bn-more-sheet.open{display:flex;}
-.bn-more-panel{background:#fff;width:100%;border-radius:18px 18px 0 0;padding:8px 0 calc(env(safe-area-inset-bottom,0px) + 10px);max-height:75vh;overflow-y:auto;animation:bn-slide-up .25s ease;}
+.bn-more-panel{background:#fff;width:100%;border-radius:18px 18px 0 0;padding:8px 0 calc(env(safe-area-inset-bottom,0px) + 72px);max-height:80vh;overflow-y:auto;-webkit-overflow-scrolling:touch;animation:bn-slide-up .25s ease;}
 @keyframes bn-slide-up{from{transform:translateY(100%);}to{transform:translateY(0);}}
 .bn-more-handle{width:36px;height:4px;background:#E2E8F0;border-radius:99px;margin:8px auto 6px;}
 .bn-more-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94A3B8;padding:10px 20px 4px;}
@@ -730,6 +731,12 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
 <div class="page" id="page-scans">
   <div class="topbar"><h1>📷 Documents scannés</h1><button class="btn btn-primary" onclick="openScanModal()">+ Ajouter un document</button></div>
   <div class="content">
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div style="font-size:13px"><strong>☁️ Stockage cloud :</strong> les documents sont sauvegardes sur votre OneDrive personnel.</div>
+        <div id="onedrive-status"></div>
+      </div>
+    </div>
     <div class="card" style="margin-bottom:18px">
       <div class="card-body">
         <div class="g3">
@@ -1200,7 +1207,7 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
       <div id="scan-preview-list" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px"></div>
       <div class="g2">
         <div class="fg"><label>Type de document</label>
-          <select id="scan-type">
+          <select id="scan-type" onchange="toggleScanNumField()">
             <option value="devis">Devis</option>
             <option value="facture">Facture</option>
             <option value="autre">Autre document</option>
@@ -1209,8 +1216,13 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
         <div class="fg"><label>Client associé (optionnel)</label>
           <select id="scan-client"><option value="">-- Aucun --</option></select>
         </div>
-        <div class="fg s2"><label>Notes</label><input id="scan-notes" placeholder="Reference, description..."></div>
+        <div class="fg" id="scan-numero-wrap">
+          <label>Numéro sur le papier</label>
+          <input id="scan-numero" placeholder="Ex: D2025-0042 ou 42">
+        </div>
+        <div class="fg"><label>Notes</label><input id="scan-notes" placeholder="Reference, description..."></div>
       </div>
+      <div id="scan-numero-info" style="font-size:11.5px;color:var(--muted);margin-top:6px"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-scan')">Annuler</button>
@@ -1274,6 +1286,139 @@ if(FIREBASE_ENABLED){
   }
 }
 
+// ═══════════════════════════════════════════════════════
+// ⚠️ CONFIGURATION ONEDRIVE — A COMPLETER ⚠️
+// ═══════════════════════════════════════════════════════
+// Les documents scannes (photos/PDF) sont stockes sur VOTRE OneDrive personnel.
+// 1. Va sur https://entra.microsoft.com (ou https://portal.azure.com > Microsoft Entra ID)
+// 2. Inscriptions d'applications > Nouvelle inscription
+//    - Nom : "Gestion Devis Factures" (ou ce que tu veux)
+//    - Types de comptes : "Comptes dans n'importe quel annuaire organisationnel et comptes Microsoft personnels"
+//    - URI de redirection : type "Application a page unique (SPA)", valeur = l'URL exacte ou tourne cette page
+// 3. Une fois cree, copie l'"ID d'application (client)" affiche sur la page d'apercu
+// 4. Dans "Autorisations API" > Ajouter une autorisation > Microsoft Graph > Delegue > coche : Files.ReadWrite, User.Read
+// 5. Colle l'ID client ci-dessous
+var ONEDRIVE_CLIENT_ID="XXX";
+var ONEDRIVE_ENABLED=ONEDRIVE_CLIENT_ID!=='XXX';
+
+var msalInstance=null,odAccount=null;
+var ONEDRIVE_FOLDER='GestionDevisFactures'; // dossier cree automatiquement a la racine du OneDrive
+
+if(ONEDRIVE_ENABLED&&window.msal){
+  try{
+    msalInstance=new msal.PublicClientApplication({
+      auth:{clientId:ONEDRIVE_CLIENT_ID,authority:'https://login.microsoftonline.com/common',redirectUri:window.location.href.split('#')[0]},
+      cache:{cacheLocation:'localStorage'}
+    });
+    msalInstance.initialize().then(function(){
+      msalInstance.handleRedirectPromise().then(function(resp){
+        if(resp&&resp.account){odAccount=resp.account;onOneDriveConnected();}
+        else{
+          var accts=msalInstance.getAllAccounts();
+          if(accts.length){odAccount=accts[0];onOneDriveConnected();}
+        }
+      }).catch(function(e){console.error('Erreur retour connexion OneDrive:',e);});
+    });
+  }catch(e){
+    console.error('Erreur init MSAL:',e);
+    ONEDRIVE_ENABLED=false;
+  }
+}
+
+function connectOneDrive(){
+  if(!ONEDRIVE_ENABLED||!msalInstance){alert('OneDrive n est pas configure dans cette application.');return;}
+  msalInstance.loginPopup({scopes:['Files.ReadWrite','User.Read']}).then(function(resp){
+    odAccount=resp.account;
+    onOneDriveConnected();
+  }).catch(function(e){console.error('Erreur connexion OneDrive:',e);alert('Connexion OneDrive annulee ou impossible.');});
+}
+
+function disconnectOneDrive(){
+  odAccount=null;
+  updateOneDriveStatusUI();
+}
+
+async function getOneDriveToken(){
+  if(!odAccount)return null;
+  try{
+    var resp=await msalInstance.acquireTokenSilent({scopes:['Files.ReadWrite','User.Read'],account:odAccount});
+    return resp.accessToken;
+  }catch(e){
+    try{
+      var resp2=await msalInstance.acquireTokenPopup({scopes:['Files.ReadWrite','User.Read']});
+      odAccount=resp2.account;
+      return resp2.accessToken;
+    }catch(e2){
+      console.error('Erreur acquisition jeton OneDrive:',e2);
+      return null;
+    }
+  }
+}
+
+function onOneDriveConnected(){
+  updateOneDriveStatusUI();
+  ensureOneDriveFolder();
+}
+
+function updateOneDriveStatusUI(){
+  var el=document.getElementById('onedrive-status');
+  if(!el)return;
+  if(odAccount){
+    el.innerHTML='<span style="color:var(--accent);font-weight:700">✓ Connecte : '+esc(odAccount.username)+'</span> <button class="btn btn-ghost btn-sm" onclick="disconnectOneDrive()" style="margin-left:8px">Deconnecter</button>';
+  }else{
+    el.innerHTML='<button class="btn btn-primary btn-sm" onclick="connectOneDrive()">🔗 Connecter mon compte OneDrive</button>';
+  }
+}
+
+async function ensureOneDriveFolder(){
+  var token=await getOneDriveToken();
+  if(!token)return;
+  try{
+    await fetch('https://graph.microsoft.com/v1.0/me/drive/root/children',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({name:ONEDRIVE_FOLDER,folder:{},'@microsoft.graph.conflictBehavior':'rename'===undefined?'fail':'replace'})
+    });
+  }catch(e){
+    // Le dossier existe probablement deja -- on ignore l'erreur de creation
+  }
+}
+
+// Upload un fichier (dataUrl) vers OneDrive dans le dossier dedie. Retourne le chemin/lien ou null si echec.
+async function uploadToOneDrive(filename,dataUrl){
+  var token=await getOneDriveToken();
+  if(!token)return null;
+  try{
+    var resp=await fetch(dataUrl);
+    var blob=await resp.blob();
+    var safeName=filename.replace(/[\\\/:*?"<>|]/g,'_');
+    var uploadUrl='https://graph.microsoft.com/v1.0/me/drive/root:/'+ONEDRIVE_FOLDER+'/'+encodeURIComponent(safeName)+':/content';
+    var uploadResp=await fetch(uploadUrl,{
+      method:'PUT',
+      headers:{Authorization:'Bearer '+token,'Content-Type':blob.type||'application/octet-stream'},
+      body:blob
+    });
+    if(!uploadResp.ok)throw new Error('Echec upload OneDrive: '+uploadResp.status);
+    var data=await uploadResp.json();
+    return {path:ONEDRIVE_FOLDER+'/'+safeName,webUrl:data.webUrl||'',itemId:data.id||''};
+  }catch(e){
+    console.error('Erreur upload OneDrive pour '+filename+':',e);
+    return null;
+  }
+}
+
+// Supprime un fichier sur OneDrive par son itemId
+async function deleteFromOneDrive(itemId){
+  if(!itemId)return;
+  var token=await getOneDriveToken();
+  if(!token)return;
+  try{
+    await fetch('https://graph.microsoft.com/v1.0/me/drive/items/'+itemId,{method:'DELETE',headers:{Authorization:'Bearer '+token}});
+  }catch(e){
+    console.error('Erreur suppression fichier OneDrive:',e);
+  }
+}
+
 // ═══ DATA ═══════════════════════════════════════════════
 var db = {
   params:{nom:'',siret:'',adresse:'',ville:'',tel:'',email:'',iban:'',paiement:'Paiement a reception de facture.',logo:'',signature:''},
@@ -1284,7 +1429,15 @@ function lDB(){try{var s=localStorage.getItem('gdf_v5');if(s)db=JSON.parse(s);}c
 
 var sDBTimer=null;
 function sDB(){
-  try{localStorage.setItem('gdf_v5',JSON.stringify(db));}catch(e){}
+  try{
+    localStorage.setItem('gdf_v5',JSON.stringify(db));
+  }catch(e){
+    if(e.name==='QuotaExceededError'||e.code===22){
+      alert("Stockage local plein : impossible d'enregistrer.\n\nVos documents scannes (photos/PDF) prennent trop de place dans le navigateur.\n\nSolution : supprimez quelques documents scannes anciens dans la section 'Documents scannes', ou exportez vos donnees puis videz-en une partie.");
+    }else{
+      console.error('Erreur sauvegarde locale:',e);
+    }
+  }
   // Synchronisation Firestore (debounce 1.5s pour grouper les ecritures rapides)
   if(FIREBASE_ENABLED&&fbUser){
     if(sDBTimer)clearTimeout(sDBTimer);
@@ -1295,9 +1448,18 @@ function sDB(){
 
 function pushToFirestore(){
   if(!FIREBASE_ENABLED||!fbUser)return;
-  fbDb.collection('users').doc(fbUser.uid).set({db:db,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+  // On exclut les scans (photos/PDF lourds) du document principal pour rester sous la limite Firestore de 1 Mo/document.
+  // Les scans sont synchronises a part, dans une sous-collection, document par document.
+  var dbWithoutScans=Object.assign({},db,{scans:[]});
+  fbDb.collection('users').doc(fbUser.uid).set({db:dbWithoutScans,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
     .then(function(){setSyncStatus('online');})
-    .catch(function(e){console.error('Erreur sync Firestore:',e);setSyncStatus('offline');});
+    .catch(function(e){
+      console.error('Erreur sync Firestore:',e);
+      if(e.code==='invalid-argument'||(e.message&&e.message.indexOf('1048487')>-1)){
+        alert("Certaines donnees sont trop volumineuses pour la synchronisation en ligne (document Firestore limite a 1 Mo).\n\nVos donnees restent enregistrees sur cet appareil, mais ne se synchroniseront pas tant que vous n'aurez pas reduit la taille des documents scannes.");
+      }
+      setSyncStatus('offline');
+    });
 }
 
 function startFirestoreListener(){
@@ -1308,7 +1470,11 @@ function startFirestoreListener(){
     if(doc.exists){
       var remote=doc.data().db;
       if(remote){
+        // Les scans restent geres uniquement en local (localStorage), jamais envoyes a Firestore
+        // (trop volumineux). On les preserve donc systematiquement, quoi que contienne le document distant.
+        var keptScans=db.scans||[];
         db=remote;
+        db.scans=keptScans;
         try{localStorage.setItem('gdf_v5',JSON.stringify(db));}catch(e){}
         refreshCurrentPage();
       }
@@ -1511,7 +1677,7 @@ function showPage(name){
   else if(name==='interventions'){if(!db.interventions)db.interventions=[];renderBI();}
   else if(name==='relances')renderRelances();
   else if(name==='urssaf')initUrssafPage();
-  else if(name==='scans'){if(!db.scans)db.scans=[];renderScans();}
+  else if(name==='scans'){if(!db.scans)db.scans=[];renderScans();updateOneDriveStatusUI();}
   else if(name==='parametres'){loadParams();setTimeout(function(){initSig('params');if(db.params.signature)setSig('params',db.params.signature);},80);}
 }
 
@@ -3244,9 +3410,33 @@ function openScanModal(){
   document.getElementById('scan-preview-list').innerHTML='';
   document.getElementById('scan-type').value='devis';
   document.getElementById('scan-notes').value='';
+  document.getElementById('scan-numero').value='';
   var sel=document.getElementById('scan-client');
   sel.innerHTML='<option value="">-- Aucun --</option>'+db.clients.map(function(c){return'<option value="'+c.id+'">'+esc(c.nom)+'</option>';}).join('');
+  toggleScanNumField();
   openModal('modal-scan');
+}
+
+// Redimensionne et recompresse une image cote client avant stockage (reduit fortement le poids base64)
+function compressImage(file,maxDim,quality,callback){
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var img=new Image();
+    img.onload=function(){
+      var w=img.width,h=img.height;
+      if(w>maxDim||h>maxDim){
+        if(w>h){h=Math.round(h*maxDim/w);w=maxDim;}
+        else{w=Math.round(w*maxDim/h);h=maxDim;}
+      }
+      var canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      callback(canvas.toDataURL('image/jpeg',quality));
+    };
+    img.onerror=function(){callback(ev.target.result);}; // fallback : image originale si echec
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 function onScanFilesSelected(e){
@@ -3254,12 +3444,20 @@ function onScanFilesSelected(e){
   for(var i=0;i<files.length;i++){
     (function(file){
       var isPdf=file.type==='application/pdf';
-      var reader=new FileReader();
-      reader.onload=function(ev){
-        scanPendingFiles.push({name:file.name,dataUrl:ev.target.result,kind:isPdf?'pdf':'image'});
-        renderScanPreviewList();
-      };
-      reader.readAsDataURL(file);
+      if(isPdf){
+        var reader=new FileReader();
+        reader.onload=function(ev){
+          scanPendingFiles.push({name:file.name,dataUrl:ev.target.result,kind:'pdf'});
+          renderScanPreviewList();
+        };
+        reader.readAsDataURL(file);
+      }else{
+        // Compression des images cote client pour eviter de saturer le stockage (localStorage 5-10Mo, Firestore 1Mo/document)
+        compressImage(file,1280,0.72,function(compressedDataUrl){
+          scanPendingFiles.push({name:file.name,dataUrl:compressedDataUrl,kind:'image'});
+          renderScanPreviewList();
+        });
+      }
     })(files[i]);
   }
   e.target.value='';
@@ -3280,24 +3478,88 @@ function renderScanPreviewList(){
 
 function removeScanPending(i){scanPendingFiles.splice(i,1);renderScanPreviewList();}
 
-function saveScans(){
+// Extrait un numero entier depuis n'importe quel format saisi : "42", "0042", "D2025-0042", "F2025-42"...
+// Prend toujours le DERNIER groupe de chiffres trouve (c'est generalement le numero sequentiel, pas l'annee).
+function extractScanNumero(raw){
+  if(!raw)return null;
+  var matches=raw.match(/\d+/g);
+  if(!matches||!matches.length)return null;
+  var last=matches[matches.length-1];
+  var n=parseInt(last,10);
+  return isNaN(n)?null:n;
+}
+
+// Met a jour le compteur de numerotation (devis ou facture) si le numero papier scanne est superieur
+// au compteur actuel -- pour que le PROCHAIN document cree dans l'app continue bien apres celui-ci.
+function syncCounterFromScan(type,numero){
+  if(type!=='devis'&&type!=='facture')return;
+  var n=extractScanNumero(numero);
+  if(n===null)return;
+  var nextExpected=n+1; // le prochain document doit avoir un numero strictement superieur a celui scanne
+  if(nextExpected>db.counters[type]){
+    db.counters[type]=nextExpected;
+  }
+}
+
+function toggleScanNumField(){
+  var type=document.getElementById('scan-type').value;
+  var wrap=document.getElementById('scan-numero-wrap');
+  var info=document.getElementById('scan-numero-info');
+  if(wrap)wrap.style.display=(type==='devis'||type==='facture')?'':'none';
+  if(info)info.textContent='';
+}
+
+async function saveScans(){
   if(!scanPendingFiles.length){alert('Ajoutez au moins un fichier.');return;}
   var type=document.getElementById('scan-type').value;
   var clientId=document.getElementById('scan-client').value;
   var notes=document.getElementById('scan-notes').value;
+  var numeroPapier=document.getElementById('scan-numero')?document.getElementById('scan-numero').value.trim():'';
   if(!db.scans)db.scans=[];
-  scanPendingFiles.forEach(function(f){
-    db.scans.push({
-      id:Date.now()+Math.floor(Math.random()*1000),
+
+  var canUseOneDrive=ONEDRIVE_ENABLED&&odAccount;
+  var saveBtn=document.querySelector('#modal-scan .modal-footer .btn-primary');
+  var originalBtnText=saveBtn?saveBtn.textContent:'';
+
+  for(var i=0;i<scanPendingFiles.length;i++){
+    var f=scanPendingFiles[i];
+    var scanObj={
+      id:Date.now()+Math.floor(Math.random()*1000)+i,
       name:f.name,
-      dataUrl:f.dataUrl,
+      dataUrl:f.dataUrl, // copie locale immediate (fonctionne meme hors-ligne ou sans OneDrive)
+      onedrivePath:'',
+      onedriveItemId:'',
       kind:f.kind,
       type:type,
       clientId:clientId,
       notes:notes,
+      numeroPapier:numeroPapier,
       dateAjout:new Date().toISOString().split('T')[0]
-    });
-  });
+    };
+    db.scans.push(scanObj);
+
+    if(canUseOneDrive){
+      if(saveBtn)saveBtn.textContent='⬆ OneDrive '+(i+1)+'/'+scanPendingFiles.length+'...';
+      var uploaded=await uploadToOneDrive(f.name,f.dataUrl);
+      if(uploaded){
+        scanObj.onedrivePath=uploaded.path;
+        scanObj.onedriveItemId=uploaded.itemId;
+        scanObj.onedriveUrl=uploaded.webUrl;
+      }
+    }
+  }
+
+  if(saveBtn)saveBtn.textContent=originalBtnText;
+
+  if(numeroPapier&&(type==='devis'||type==='facture')){
+    var before=db.counters[type];
+    syncCounterFromScan(type,numeroPapier);
+    var info=document.getElementById('scan-numero-info');
+    if(info&&db.counters[type]>before){
+      info.textContent='✓ Compteur '+(type==='devis'?'devis':'facture')+' mis a jour : le prochain document commencera a '+db.counters[type]+'.';
+    }
+  }
+
   sDB();closeModal('modal-scan');renderScans();
 }
 
@@ -3333,7 +3595,9 @@ function renderScans(){
     var thumb=s.kind==='pdf'
       ?'<div style="height:120px;background:#FEF2F2;display:flex;align-items:center;justify-content:center;font-size:36px">📄</div>'
       :'<img src="'+s.dataUrl+'" style="width:100%;height:120px;object-fit:cover">';
-    return '<div class="card" style="overflow:hidden;cursor:pointer" onclick="viewScan('+s.id+')">'+
+    var onOneDrive=!!s.onedrivePath;
+    return '<div class="card" style="overflow:hidden;cursor:pointer;position:relative" onclick="viewScan('+s.id+')">'+
+      (onOneDrive?'<div style="position:absolute;top:6px;right:6px;background:rgba(15,23,42,.75);color:#fff;font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:99px">☁️ OneDrive</div>':'')+
       thumb+
       '<div style="padding:10px 12px">'+
         '<div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(s.name)+'</div>'+
@@ -3342,6 +3606,7 @@ function renderScans(){
           '<span style="font-size:10.5px;color:var(--muted)">'+fmtDate(s.dateAjout)+'</span>'+
         '</div>'+
         (c?'<div style="font-size:11px;color:var(--muted);margin-top:4px">👤 '+esc(c.nom)+'</div>':'')+
+        (s.numeroPapier?'<div style="font-size:11px;color:var(--muted);margin-top:2px">📋 N° '+esc(s.numeroPapier)+'</div>':'')+
       '</div>'+
     '</div>';
   }).join('');
@@ -3378,8 +3643,11 @@ function downloadScanFile(){
 }
 
 function deleteScanFromView(){
-  if(!confirm('Supprimer ce document ?'))return;
-  db.scans=(db.scans||[]).filter(function(x){return x.id!==currentScanViewId;});
+  if(!confirm('Supprimer ce document ? Il sera aussi retire de OneDrive si present.'))return;
+  var idToDelete=currentScanViewId;
+  var scan=(db.scans||[]).find(function(x){return x.id===idToDelete;});
+  db.scans=(db.scans||[]).filter(function(x){return x.id!==idToDelete;});
+  if(scan&&scan.onedriveItemId)deleteFromOneDrive(scan.onedriveItemId);
   sDB();closeModal('modal-scan-view');renderScans();
 }
 
@@ -3477,9 +3745,8 @@ window.addEventListener('resize',function(){
 });
 
 // ═══ AUTO-LABELS POUR LES TABLEAUX EN MODE CARTE MOBILE ══
-// Ajoute automatiquement data-label sur chaque <td> a partir des <th> correspondants,
-// pour que le CSS body.mobile-view .tw td:before{content:attr(data-label)} fonctionne
-// sur TOUS les tableaux de l'app sans avoir a modifier chaque fonction render...()
+// Version legere sans MutationObserver (evite tout risque de boucle/ralentissement) :
+// on reapplique simplement les labels apres chaque navigation de page, une seule fois.
 function applyTableLabels(){
   document.querySelectorAll('.tw table').forEach(function(table){
     var headers=table.querySelectorAll('thead th');
@@ -3488,25 +3755,18 @@ function applyTableLabels(){
     table.querySelectorAll('tbody tr').forEach(function(tr){
       var cells=tr.querySelectorAll('td');
       cells.forEach(function(td,i){
-        if(labels[i])td.setAttribute('data-label',labels[i]);
+        if(labels[i]&&td.getAttribute('data-label')!==labels[i])td.setAttribute('data-label',labels[i]);
       });
     });
   });
 }
 
-// Observe les changements de contenu pour reappliquer les labels automatiquement
-// (chaque render...() regenere le innerHTML des tbody, donc on observe le conteneur principal)
-var tableLabelObserver=new MutationObserver(function(){
-  if(document.body.classList.contains('mobile-view'))applyTableLabels();
-});
-document.addEventListener('DOMContentLoaded',function(){
-  var mainEl=document.querySelector('.main');
-  if(mainEl)tableLabelObserver.observe(mainEl,{childList:true,subtree:true});
-});
-// Fallback immediat si DOMContentLoaded est deja passe
-if(document.querySelector('.main')){
-  tableLabelObserver.observe(document.querySelector('.main'),{childList:true,subtree:true});
-}
+// Reapplique les labels juste apres chaque changement de page (showPage est deja patchee plus haut pour la bottom-nav)
+var _origShowPageForLabels=showPage;
+showPage=function(name){
+  _origShowPageForLabels(name);
+  if(document.body.classList.contains('mobile-view'))setTimeout(applyTableLabels,30);
+};
 
 // INIT
 renderDash();
