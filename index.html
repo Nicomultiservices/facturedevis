@@ -11,8 +11,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<!-- MSAL.js (authentification Microsoft + OneDrive via Microsoft Graph) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/msal/2.38.3/msal-browser.min.js"></script>
 <style>
 :root{
   --bg:#F0F4F8;--surface:#FFF;--border:#DDE3EC;
@@ -343,7 +341,8 @@ body.mobile-view .topbar{gap:8px;flex-wrap:wrap;height:auto;min-height:48px;padd
 body.mobile-view .topbar .btn{flex-shrink:0;white-space:nowrap;}
 
 /* Tables -> cartes empilees sur mobile (lisibilite) */
-body.mobile-view .tw table,body.mobile-view .tw thead{display:none;}
+body.mobile-view .tw table{display:block;}
+body.mobile-view .tw thead{display:none;}
 body.mobile-view .tw tbody{display:block;}
 body.mobile-view .tw tbody tr{display:block;background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
 body.mobile-view .tw tbody tr:hover td{background:transparent;}
@@ -731,12 +730,6 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
 <div class="page" id="page-scans">
   <div class="topbar"><h1>📷 Documents scannés</h1><button class="btn btn-primary" onclick="openScanModal()">+ Ajouter un document</button></div>
   <div class="content">
-    <div class="card" style="margin-bottom:18px">
-      <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-        <div style="font-size:13px"><strong>☁️ Stockage cloud :</strong> les documents sont sauvegardes sur votre OneDrive personnel.</div>
-        <div id="onedrive-status"></div>
-      </div>
-    </div>
     <div class="card" style="margin-bottom:18px">
       <div class="card-body">
         <div class="g3">
@@ -1213,14 +1206,25 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
             <option value="autre">Autre document</option>
           </select>
         </div>
-        <div class="fg"><label>Client associé (optionnel)</label>
+        <div class="fg"><label>Client associé</label>
           <select id="scan-client"><option value="">-- Aucun --</option></select>
         </div>
         <div class="fg" id="scan-numero-wrap">
           <label>Numéro sur le papier</label>
           <input id="scan-numero" placeholder="Ex: D2025-0042 ou 42">
         </div>
-        <div class="fg"><label>Notes</label><input id="scan-notes" placeholder="Reference, description..."></div>
+        <div class="fg" id="scan-montant-wrap">
+          <label>Montant (€)</label>
+          <input id="scan-montant" type="number" step="0.01" min="0" placeholder="0.00">
+        </div>
+        <div class="fg" id="scan-statut-wrap" style="display:none">
+          <label>Statut</label>
+          <select id="scan-statut">
+            <option value="non-paye">Non payée</option>
+            <option value="paye">Payée</option>
+          </select>
+        </div>
+        <div class="fg s2"><label>Notes</label><input id="scan-notes" placeholder="Reference, description..."></div>
       </div>
       <div id="scan-numero-info" style="font-size:11.5px;color:var(--muted);margin-top:6px"></div>
     </div>
@@ -1286,143 +1290,10 @@ if(FIREBASE_ENABLED){
   }
 }
 
-// ═══════════════════════════════════════════════════════
-// ⚠️ CONFIGURATION ONEDRIVE — A COMPLETER ⚠️
-// ═══════════════════════════════════════════════════════
-// Les documents scannes (photos/PDF) sont stockes sur VOTRE OneDrive personnel.
-// 1. Va sur https://entra.microsoft.com (ou https://portal.azure.com > Microsoft Entra ID)
-// 2. Inscriptions d'applications > Nouvelle inscription
-//    - Nom : "Gestion Devis Factures" (ou ce que tu veux)
-//    - Types de comptes : "Comptes dans n'importe quel annuaire organisationnel et comptes Microsoft personnels"
-//    - URI de redirection : type "Application a page unique (SPA)", valeur = l'URL exacte ou tourne cette page
-// 3. Une fois cree, copie l'"ID d'application (client)" affiche sur la page d'apercu
-// 4. Dans "Autorisations API" > Ajouter une autorisation > Microsoft Graph > Delegue > coche : Files.ReadWrite, User.Read
-// 5. Colle l'ID client ci-dessous
-var ONEDRIVE_CLIENT_ID="XXX";
-var ONEDRIVE_ENABLED=ONEDRIVE_CLIENT_ID!=='XXX';
-
-var msalInstance=null,odAccount=null;
-var ONEDRIVE_FOLDER='GestionDevisFactures'; // dossier cree automatiquement a la racine du OneDrive
-
-if(ONEDRIVE_ENABLED&&window.msal){
-  try{
-    msalInstance=new msal.PublicClientApplication({
-      auth:{clientId:ONEDRIVE_CLIENT_ID,authority:'https://login.microsoftonline.com/common',redirectUri:window.location.href.split('#')[0]},
-      cache:{cacheLocation:'localStorage'}
-    });
-    msalInstance.initialize().then(function(){
-      msalInstance.handleRedirectPromise().then(function(resp){
-        if(resp&&resp.account){odAccount=resp.account;onOneDriveConnected();}
-        else{
-          var accts=msalInstance.getAllAccounts();
-          if(accts.length){odAccount=accts[0];onOneDriveConnected();}
-        }
-      }).catch(function(e){console.error('Erreur retour connexion OneDrive:',e);});
-    });
-  }catch(e){
-    console.error('Erreur init MSAL:',e);
-    ONEDRIVE_ENABLED=false;
-  }
-}
-
-function connectOneDrive(){
-  if(!ONEDRIVE_ENABLED||!msalInstance){alert('OneDrive n est pas configure dans cette application.');return;}
-  msalInstance.loginPopup({scopes:['Files.ReadWrite','User.Read']}).then(function(resp){
-    odAccount=resp.account;
-    onOneDriveConnected();
-  }).catch(function(e){console.error('Erreur connexion OneDrive:',e);alert('Connexion OneDrive annulee ou impossible.');});
-}
-
-function disconnectOneDrive(){
-  odAccount=null;
-  updateOneDriveStatusUI();
-}
-
-async function getOneDriveToken(){
-  if(!odAccount)return null;
-  try{
-    var resp=await msalInstance.acquireTokenSilent({scopes:['Files.ReadWrite','User.Read'],account:odAccount});
-    return resp.accessToken;
-  }catch(e){
-    try{
-      var resp2=await msalInstance.acquireTokenPopup({scopes:['Files.ReadWrite','User.Read']});
-      odAccount=resp2.account;
-      return resp2.accessToken;
-    }catch(e2){
-      console.error('Erreur acquisition jeton OneDrive:',e2);
-      return null;
-    }
-  }
-}
-
-function onOneDriveConnected(){
-  updateOneDriveStatusUI();
-  ensureOneDriveFolder();
-}
-
-function updateOneDriveStatusUI(){
-  var el=document.getElementById('onedrive-status');
-  if(!el)return;
-  if(odAccount){
-    el.innerHTML='<span style="color:var(--accent);font-weight:700">✓ Connecte : '+esc(odAccount.username)+'</span> <button class="btn btn-ghost btn-sm" onclick="disconnectOneDrive()" style="margin-left:8px">Deconnecter</button>';
-  }else{
-    el.innerHTML='<button class="btn btn-primary btn-sm" onclick="connectOneDrive()">🔗 Connecter mon compte OneDrive</button>';
-  }
-}
-
-async function ensureOneDriveFolder(){
-  var token=await getOneDriveToken();
-  if(!token)return;
-  try{
-    await fetch('https://graph.microsoft.com/v1.0/me/drive/root/children',{
-      method:'POST',
-      headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
-      body:JSON.stringify({name:ONEDRIVE_FOLDER,folder:{},'@microsoft.graph.conflictBehavior':'rename'===undefined?'fail':'replace'})
-    });
-  }catch(e){
-    // Le dossier existe probablement deja -- on ignore l'erreur de creation
-  }
-}
-
-// Upload un fichier (dataUrl) vers OneDrive dans le dossier dedie. Retourne le chemin/lien ou null si echec.
-async function uploadToOneDrive(filename,dataUrl){
-  var token=await getOneDriveToken();
-  if(!token)return null;
-  try{
-    var resp=await fetch(dataUrl);
-    var blob=await resp.blob();
-    var safeName=filename.replace(/[\\\/:*?"<>|]/g,'_');
-    var uploadUrl='https://graph.microsoft.com/v1.0/me/drive/root:/'+ONEDRIVE_FOLDER+'/'+encodeURIComponent(safeName)+':/content';
-    var uploadResp=await fetch(uploadUrl,{
-      method:'PUT',
-      headers:{Authorization:'Bearer '+token,'Content-Type':blob.type||'application/octet-stream'},
-      body:blob
-    });
-    if(!uploadResp.ok)throw new Error('Echec upload OneDrive: '+uploadResp.status);
-    var data=await uploadResp.json();
-    return {path:ONEDRIVE_FOLDER+'/'+safeName,webUrl:data.webUrl||'',itemId:data.id||''};
-  }catch(e){
-    console.error('Erreur upload OneDrive pour '+filename+':',e);
-    return null;
-  }
-}
-
-// Supprime un fichier sur OneDrive par son itemId
-async function deleteFromOneDrive(itemId){
-  if(!itemId)return;
-  var token=await getOneDriveToken();
-  if(!token)return;
-  try{
-    await fetch('https://graph.microsoft.com/v1.0/me/drive/items/'+itemId,{method:'DELETE',headers:{Authorization:'Bearer '+token}});
-  }catch(e){
-    console.error('Erreur suppression fichier OneDrive:',e);
-  }
-}
-
 // ═══ DATA ═══════════════════════════════════════════════
 var db = {
   params:{nom:'',siret:'',adresse:'',ville:'',tel:'',email:'',iban:'',paiement:'Paiement a reception de facture.',logo:'',signature:''},
-  clients:[],produits:[],documents:[],events:[],counters:{devis:1,facture:1}
+  clients:[],produits:[],documents:[],events:[],counters:{devis:1,facture:1},interventions:[],scans:[]
 };
 
 function lDB(){try{var s=localStorage.getItem('gdf_v5');if(s)db=JSON.parse(s);}catch(e){}}
@@ -1470,8 +1341,10 @@ function startFirestoreListener(){
     if(doc.exists){
       var remote=doc.data().db;
       if(remote){
-        // Les scans restent geres uniquement en local (localStorage), jamais envoyes a Firestore
-        // (trop volumineux). On les preserve donc systematiquement, quoi que contienne le document distant.
+        // Les FICHIERS scannes (lourds) restent geres uniquement en local. Seules leurs
+        // METADONNEES (numero, client, montant, statut...) sont synchronisees via une sous-collection
+        // dediee (voir startScansMetaListener) pour rester a jour sur tous les appareils sans
+        // jamais risquer de depasser la limite de taille d'un document Firestore.
         var keptScans=db.scans||[];
         db=remote;
         db.scans=keptScans;
@@ -1488,6 +1361,61 @@ function startFirestoreListener(){
     console.error('Erreur listener Firestore:',e);
     setSyncStatus('offline');
   });
+  startScansMetaListener();
+}
+
+// ═══ SYNCHRONISATION DES METADONNEES DE SCANS (legere, sure) ══
+// Seules numero/client/montant/statut/notes/date sont envoyes (quelques centaines d'octets par scan).
+// Le fichier (photo/PDF) reste uniquement en local sur l'appareil qui l'a scanne.
+var fbScansMetaUnsubscribe=null;
+var scanMetaSyncTimer=null;
+
+function syncScanMetaToFirestore(){
+  if(!FIREBASE_ENABLED||!fbUser)return;
+  if(scanMetaSyncTimer)clearTimeout(scanMetaSyncTimer);
+  scanMetaSyncTimer=setTimeout(function(){
+    (db.scans||[]).forEach(function(s){
+      var meta={
+        id:s.id,name:s.name,kind:s.kind,type:s.type,clientId:s.clientId,
+        notes:s.notes||'',numeroPapier:s.numeroPapier||'',montant:s.montant||0,
+        statut:s.statut||'',dateAjout:s.dateAjout
+      };
+      fbDb.collection('users').doc(fbUser.uid).collection('scansMeta').doc(String(s.id)).set(meta)
+        .catch(function(e){console.error('Erreur sync metadonnee scan:',e);});
+    });
+  },1000);
+}
+
+function startScansMetaListener(){
+  if(!FIREBASE_ENABLED||!fbUser)return;
+  if(fbScansMetaUnsubscribe)fbScansMetaUnsubscribe();
+  fbScansMetaUnsubscribe=fbDb.collection('users').doc(fbUser.uid).collection('scansMeta').onSnapshot(function(snap){
+    var localScans=db.scans||[];
+    var localById={};
+    localScans.forEach(function(s){localById[s.id]=s;});
+
+    snap.forEach(function(doc){
+      var meta=doc.data();
+      var existing=localById[meta.id];
+      if(existing){
+        // Met a jour les champs structures (un autre appareil a pu les modifier), garde le fichier local intact
+        existing.numeroPapier=meta.numeroPapier;
+        existing.montant=meta.montant;
+        existing.statut=meta.statut;
+        existing.notes=meta.notes;
+      }else{
+        // Nouveau scan venant d'un autre appareil : on a les donnees mais pas le fichier (normal, reste sur l'autre appareil)
+        localScans.push({
+          id:meta.id,name:meta.name,kind:meta.kind,type:meta.type,clientId:meta.clientId,
+          notes:meta.notes,numeroPapier:meta.numeroPapier,montant:meta.montant,statut:meta.statut,
+          dateAjout:meta.dateAjout,dataUrl:''
+        });
+      }
+    });
+    db.scans=localScans;
+    try{localStorage.setItem('gdf_v5',JSON.stringify(db));}catch(e){}
+    if(document.getElementById('page-scans')&&document.getElementById('page-scans').classList.contains('active'))renderScans();
+  },function(e){console.error('Erreur listener metadonnees scans:',e);});
 }
 
 function refreshCurrentPage(){
@@ -1677,7 +1605,7 @@ function showPage(name){
   else if(name==='interventions'){if(!db.interventions)db.interventions=[];renderBI();}
   else if(name==='relances')renderRelances();
   else if(name==='urssaf')initUrssafPage();
-  else if(name==='scans'){if(!db.scans)db.scans=[];renderScans();updateOneDriveStatusUI();}
+  else if(name==='scans'){if(!db.scans)db.scans=[];renderScans();}
   else if(name==='parametres'){loadParams();setTimeout(function(){initSig('params');if(db.params.signature)setSig('params',db.params.signature);},80);}
 }
 
@@ -1845,12 +1773,32 @@ function renderLines(){
   }).join('');
   calcTots();
 }
+// Verifie qu'un numero de devis/facture n'est pas deja utilise par un document scanne du meme type
+function isNumeroUsedByScan(type,numero){
+  if(!numero)return false;
+  var n=extractScanNumero(numero);
+  if(n===null)return false;
+  return (db.scans||[]).some(function(s){
+    if(s.type!==type||!s.numeroPapier)return false;
+    return extractScanNumero(s.numeroPapier)===n;
+  });
+}
+
 function saveDoc(){
   var cId=parseInt(document.getElementById('doc-client').value);
   if(!cId){alert('Selectionnez un client.');return;}
   if(!docLines.length){alert('Ajoutez au moins une ligne.');return;}
+  var numero=document.getElementById('doc-num').value;
+
+  // La verification anti-doublon ne s'applique qu'a la CREATION d'un nouveau document.
+  // En edition, le numero existe deja legitimement (ou n'a pas change), donc on ne bloque pas.
+  if(!editDId&&isNumeroUsedByScan(curType,numero)){
+    alert('Le numero "'+numero+'" correspond a un document deja scanne (papier). Choisissez un autre numero ou consultez la section Documents scannes.');
+    return;
+  }
+
   var ht=docLines.reduce(function(s,l){return s+lTotal(l);},0);
-  var obj={type:curType,numero:document.getElementById('doc-num').value,date:document.getElementById('doc-date').value,d2:document.getElementById('doc-d2').value,clientId:cId,objet:document.getElementById('doc-objet').value,notes:document.getElementById('doc-notes').value,chAdr:document.getElementById('doc-ch-adr').value,chCp:document.getElementById('doc-ch-cp').value,chVille:document.getElementById('doc-ch-ville').value,lignes:JSON.parse(JSON.stringify(docLines)),statut:curType==='devis'?'en-cours':'emise',totalHT:ht,signature:getSig('doc')||''};
+  var obj={type:curType,numero:numero,date:document.getElementById('doc-date').value,d2:document.getElementById('doc-d2').value,clientId:cId,objet:document.getElementById('doc-objet').value,notes:document.getElementById('doc-notes').value,chAdr:document.getElementById('doc-ch-adr').value,chCp:document.getElementById('doc-ch-cp').value,chVille:document.getElementById('doc-ch-ville').value,lignes:JSON.parse(JSON.stringify(docLines)),statut:curType==='devis'?'en-cours':'emise',totalHT:ht,signature:getSig('doc')||''};
   if(editDId){var i=db.documents.findIndex(function(x){return x.id===editDId;});db.documents[i]=Object.assign({},db.documents[i],obj);}
   else{obj.id=Date.now();if(curType==='devis')db.counters.devis++;else db.counters.facture++;db.documents.push(obj);}
   sDB();closeModal('modal-doc');
@@ -1859,7 +1807,7 @@ function saveDoc(){
 }
 function deleteDoc(id){if(!confirm('Supprimer ce document ?'))return;db.documents=db.documents.filter(function(x){return x.id!==id;});sDB();renderDevis();renderFactures();renderDash();}
 function convertToF(id){
-  if(!confirm('Convertir ce devis en facture ? Le devis sera transforme en facture (il ne restera plus dans la liste des devis).'))return;
+  if(!confirm('Convertir ce devis en facture ? Une nouvelle facture sera creee ; le devis original sera conserve dans la liste des devis.'))return;
   var doc=db.documents.find(function(x){return x.id===id;});
   var year=new Date().getFullYear();
   var num=String(db.counters.facture).padStart(4,'0');
@@ -1872,8 +1820,8 @@ function convertToF(id){
   nd.convertiDepuisDevis=doc.numero;
   db.counters.facture++;
   db.documents.push(nd);
-  // Supprimer le devis d'origine car il est maintenant une facture
-  db.documents=db.documents.filter(function(x){return x.id!==id;});
+  // Le devis original est conserve (non supprime) pour garder une trace de l'historique
+  doc.convertiEnFacture=nd.numero;
   sDB();
   showPage('factures');
 }
@@ -1885,10 +1833,16 @@ function renderDevis(){
   if(!docs.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:28px">Aucun devis</td></tr>';return;}
   tb.innerHTML=docs.map(function(d){
     var c=db.clients.find(function(x){return x.id===d.clientId;});
-    return '<tr><td><strong>'+esc(d.numero)+'</strong></td><td>'+(c?esc(c.nom):'—')+'</td><td>'+fmtDate(d.date)+'</td><td><strong>'+fmt(d.totalHT)+' €</strong></td><td><span class="badge bd">'+d.statut+'</span></td><td style="display:flex;gap:3px;flex-wrap:wrap">'+
+    var statutBadge=d.convertiEnFacture
+      ?'<span class="badge bp" title="Converti en facture '+esc(d.convertiEnFacture)+'">✓ Converti</span>'
+      :'<span class="badge bd">'+d.statut+'</span>';
+    var convertBtn=d.convertiEnFacture
+      ?''
+      :'<button class="btn btn-accent btn-sm" onclick="convertToF('+d.id+')" title="Convertir en facture">→F</button>';
+    return '<tr><td><strong>'+esc(d.numero)+'</strong></td><td>'+(c?esc(c.nom):'—')+'</td><td>'+fmtDate(d.date)+'</td><td><strong>'+fmt(d.totalHT)+' €</strong></td><td>'+statutBadge+'</td><td style="display:flex;gap:3px;flex-wrap:wrap">'+
       '<button class="btn btn-ghost btn-sm" onclick="showPv('+d.id+')">👁</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="openDocModal(\'devis\','+d.id+')">✏️</button>'+
-      '<button class="btn btn-accent btn-sm" onclick="convertToF('+d.id+')" title="Convertir en facture">→F</button>'+
+      convertBtn+
       '<button class="btn btn-primary btn-sm" onclick="downloadPDF('+d.id+',true)">⬇</button>'+
       '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteDoc('+d.id+')">🗑</button>'+
     '</td></tr>';
@@ -3503,53 +3457,51 @@ function syncCounterFromScan(type,numero){
 
 function toggleScanNumField(){
   var type=document.getElementById('scan-type').value;
-  var wrap=document.getElementById('scan-numero-wrap');
+  var numWrap=document.getElementById('scan-numero-wrap');
+  var montantWrap=document.getElementById('scan-montant-wrap');
+  var statutWrap=document.getElementById('scan-statut-wrap');
   var info=document.getElementById('scan-numero-info');
-  if(wrap)wrap.style.display=(type==='devis'||type==='facture')?'':'none';
+  var isDocType=(type==='devis'||type==='facture');
+  if(numWrap)numWrap.style.display=isDocType?'':'none';
+  if(montantWrap)montantWrap.style.display=isDocType?'':'none';
+  if(statutWrap)statutWrap.style.display=(type==='facture')?'':'none';
   if(info)info.textContent='';
 }
 
-async function saveScans(){
+function saveScans(){
   if(!scanPendingFiles.length){alert('Ajoutez au moins un fichier.');return;}
   var type=document.getElementById('scan-type').value;
   var clientId=document.getElementById('scan-client').value;
   var notes=document.getElementById('scan-notes').value;
   var numeroPapier=document.getElementById('scan-numero')?document.getElementById('scan-numero').value.trim():'';
+  var montant=document.getElementById('scan-montant')?parseFloat(document.getElementById('scan-montant').value)||0:0;
+  var statut=document.getElementById('scan-statut')?document.getElementById('scan-statut').value:'non-paye';
   if(!db.scans)db.scans=[];
 
-  var canUseOneDrive=ONEDRIVE_ENABLED&&odAccount;
-  var saveBtn=document.querySelector('#modal-scan .modal-footer .btn-primary');
-  var originalBtnText=saveBtn?saveBtn.textContent:'';
+  // Empeche d'enregistrer un numero papier deja utilise par un AUTRE document scanne du meme type
+  if(numeroPapier&&(type==='devis'||type==='facture')){
+    var dup=db.scans.find(function(s){return s.type===type&&(s.numeroPapier||'').trim().toLowerCase()===numeroPapier.toLowerCase();});
+    if(dup){
+      alert('Le numero "'+numeroPapier+'" a deja ete scanne pour un '+(type==='devis'?'devis':'une facture')+' ('+dup.name+'). Verifiez le numero ou modifiez le document existant.');
+      return;
+    }
+  }
 
-  for(var i=0;i<scanPendingFiles.length;i++){
-    var f=scanPendingFiles[i];
-    var scanObj={
-      id:Date.now()+Math.floor(Math.random()*1000)+i,
+  scanPendingFiles.forEach(function(f){
+    db.scans.push({
+      id:Date.now()+Math.floor(Math.random()*1000),
       name:f.name,
-      dataUrl:f.dataUrl, // copie locale immediate (fonctionne meme hors-ligne ou sans OneDrive)
-      onedrivePath:'',
-      onedriveItemId:'',
+      dataUrl:f.dataUrl,
       kind:f.kind,
       type:type,
       clientId:clientId,
       notes:notes,
       numeroPapier:numeroPapier,
+      montant:montant,
+      statut:type==='facture'?statut:'',
       dateAjout:new Date().toISOString().split('T')[0]
-    };
-    db.scans.push(scanObj);
-
-    if(canUseOneDrive){
-      if(saveBtn)saveBtn.textContent='⬆ OneDrive '+(i+1)+'/'+scanPendingFiles.length+'...';
-      var uploaded=await uploadToOneDrive(f.name,f.dataUrl);
-      if(uploaded){
-        scanObj.onedrivePath=uploaded.path;
-        scanObj.onedriveItemId=uploaded.itemId;
-        scanObj.onedriveUrl=uploaded.webUrl;
-      }
-    }
-  }
-
-  if(saveBtn)saveBtn.textContent=originalBtnText;
+    });
+  });
 
   if(numeroPapier&&(type==='devis'||type==='facture')){
     var before=db.counters[type];
@@ -3560,7 +3512,9 @@ async function saveScans(){
     }
   }
 
-  sDB();closeModal('modal-scan');renderScans();
+  sDB();
+  if(FIREBASE_ENABLED&&fbUser)syncScanMetaToFirestore();
+  closeModal('modal-scan');renderScans();
 }
 
 function renderScans(){
@@ -3592,21 +3546,33 @@ function renderScans(){
 
   grid.innerHTML=list.map(function(s){
     var c=db.clients.find(function(x){return x.id==s.clientId;});
-    var thumb=s.kind==='pdf'
-      ?'<div style="height:120px;background:#FEF2F2;display:flex;align-items:center;justify-content:center;font-size:36px">📄</div>'
-      :'<img src="'+s.dataUrl+'" style="width:100%;height:120px;object-fit:cover">';
-    var onOneDrive=!!s.onedrivePath;
+    var fileMissingLocally=!s.dataUrl;
+    var thumb;
+    if(fileMissingLocally){
+      thumb='<div style="height:120px;background:#F8FAFC;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:22px;gap:4px"><span>📱</span><span style="font-size:9.5px;color:var(--muted);font-weight:600;text-align:center;padding:0 8px">Fichier sur un autre appareil</span></div>';
+    }else if(s.kind==='pdf'){
+      thumb='<div style="height:120px;background:#FEF2F2;display:flex;align-items:center;justify-content:center;font-size:36px">📄</div>';
+    }else{
+      thumb='<img src="'+s.dataUrl+'" style="width:100%;height:120px;object-fit:cover">';
+    }
+    var statutBadge='';
+    if(s.type==='facture'&&s.statut){
+      statutBadge=s.statut==='paye'
+        ?'<span class="badge" style="background:#DCFCE7;color:#15803D;margin-left:4px">✓ Payée</span>'
+        :'<span class="badge" style="background:#FEF2F2;color:#DC2626;margin-left:4px">Non payée</span>';
+    }
     return '<div class="card" style="overflow:hidden;cursor:pointer;position:relative" onclick="viewScan('+s.id+')">'+
-      (onOneDrive?'<div style="position:absolute;top:6px;right:6px;background:rgba(15,23,42,.75);color:#fff;font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:99px">☁️ OneDrive</div>':'')+
       thumb+
       '<div style="padding:10px 12px">'+
         '<div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(s.name)+'</div>'+
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;flex-wrap:wrap;gap:4px">'+
           '<span class="badge" style="background:'+typeColors[s.type]+';color:'+typeTextColors[s.type]+'">'+typeLabels[s.type]+'</span>'+
+          statutBadge+
           '<span style="font-size:10.5px;color:var(--muted)">'+fmtDate(s.dateAjout)+'</span>'+
         '</div>'+
         (c?'<div style="font-size:11px;color:var(--muted);margin-top:4px">👤 '+esc(c.nom)+'</div>':'')+
         (s.numeroPapier?'<div style="font-size:11px;color:var(--muted);margin-top:2px">📋 N° '+esc(s.numeroPapier)+'</div>':'')+
+        (s.montant?'<div style="font-size:11px;color:var(--text);font-weight:700;margin-top:2px">'+fmt(s.montant)+' €</div>':'')+
       '</div>'+
     '</div>';
   }).join('');
@@ -3619,16 +3585,22 @@ function viewScan(id){
   currentScanViewId=id;
   document.getElementById('scan-view-title').textContent=s.name;
   var content=document.getElementById('scan-view-content');
-  if(s.kind==='pdf'){
+  if(!s.dataUrl){
+    content.innerHTML='<div style="padding:50px 20px;color:var(--muted)">📱 Le fichier de ce document est disponible sur l\'appareil ou il a ete scanne. Seules les informations (numero, montant, statut) sont synchronisees ici.</div>';
+  }else if(s.kind==='pdf'){
     content.innerHTML='<iframe src="'+s.dataUrl+'" style="width:100%;height:60vh;border:1px solid var(--border);border-radius:8px"></iframe>';
   }else{
     content.innerHTML='<img src="'+s.dataUrl+'" style="max-width:100%;max-height:60vh;border-radius:8px">';
   }
   var c=db.clients.find(function(x){return x.id==s.clientId;});
   var typeLabels={devis:'Devis',facture:'Facture',autre:'Autre document'};
+  var statutLabel=s.statut==='paye'?'<span style="color:#15803D;font-weight:700">✓ Payée</span>':s.statut==='non-paye'?'<span style="color:#DC2626;font-weight:700">Non payée</span>':'';
   document.getElementById('scan-view-meta').innerHTML=
     '<strong>Type :</strong> '+typeLabels[s.type]+'<br>'+
     (c?'<strong>Client :</strong> '+esc(c.nom)+'<br>':'')+
+    (s.numeroPapier?'<strong>Numéro :</strong> '+esc(s.numeroPapier)+'<br>':'')+
+    (s.montant?'<strong>Montant :</strong> '+fmt(s.montant)+' €<br>':'')+
+    (statutLabel?'<strong>Statut :</strong> '+statutLabel+'<br>':'')+
     '<strong>Ajouté le :</strong> '+fmtDate(s.dateAjout)+
     (s.notes?'<br><strong>Notes :</strong> '+esc(s.notes):'');
   openModal('modal-scan-view');
@@ -3637,17 +3609,20 @@ function viewScan(id){
 function downloadScanFile(){
   var s=(db.scans||[]).find(function(x){return x.id===currentScanViewId;});
   if(!s)return;
+  if(!s.dataUrl){alert('Le fichier n est disponible que sur l appareil ou il a ete scanne.');return;}
   var a=document.createElement('a');
   a.href=s.dataUrl;a.download=s.name;
   document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
 
 function deleteScanFromView(){
-  if(!confirm('Supprimer ce document ? Il sera aussi retire de OneDrive si present.'))return;
+  if(!confirm('Supprimer ce document ?'))return;
   var idToDelete=currentScanViewId;
-  var scan=(db.scans||[]).find(function(x){return x.id===idToDelete;});
   db.scans=(db.scans||[]).filter(function(x){return x.id!==idToDelete;});
-  if(scan&&scan.onedriveItemId)deleteFromOneDrive(scan.onedriveItemId);
+  if(FIREBASE_ENABLED&&fbUser){
+    fbDb.collection('users').doc(fbUser.uid).collection('scansMeta').doc(String(idToDelete)).delete()
+      .catch(function(e){console.error('Erreur suppression metadonnee scan:',e);});
+  }
   sDB();closeModal('modal-scan-view');renderScans();
 }
 
