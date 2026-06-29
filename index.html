@@ -460,6 +460,18 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
       Cotisations URSSAF
     </div>
+    <div class="bn-more-item" data-page="avis" onclick="bnGoTo('avis')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Avis clients
+    </div>
+    <div class="bn-more-item" data-page="depenses" onclick="bnGoTo('depenses')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+      Dépenses
+    </div>
+    <div class="bn-more-item" data-page="bilan" onclick="bnGoTo('bilan')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.1-3-3-3.6 3.6"/></svg>
+      Bilan mensuel
+    </div>
     <div class="bn-more-item" data-page="planning" onclick="bnGoTo('planning')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       Planning Chantiers
@@ -521,6 +533,15 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
     </div>
     <div class="nav-item" data-page="urssaf">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Cotisations URSSAF
+    </div>
+    <div class="nav-item" data-page="depenses">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Dépenses
+    </div>
+    <div class="nav-item" data-page="bilan">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.1-3-3-3.6 3.6"/></svg>Bilan mensuel
+    </div>
+    <div class="nav-item" data-page="avis">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Avis clients
     </div>
     <div class="nav-item" data-page="planning">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Planning Chantiers
@@ -921,6 +942,104 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
   </div>
 </div>
 
+<!-- PAGE DEPENSES -->
+<div class="page" id="page-depenses">
+  <div class="topbar"><h1>💸 Dépenses</h1><button class="btn btn-primary" onclick="openDepenseModal(null)">+ Nouvelle dépense</button></div>
+  <div class="content">
+    <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat"><div class="stat-icon orange">💸</div><div class="stat-text"><div class="label">Total dépenses (ce mois)</div><div class="value" id="dep-total-mois">0 €</div></div></div>
+      <div class="stat"><div class="stat-icon purple">📅</div><div class="stat-text"><div class="label">Total dépenses (année)</div><div class="value" id="dep-total-annee">0 €</div></div></div>
+      <div class="stat"><div class="stat-icon blue">🧾</div><div class="stat-text"><div class="label">Nombre de dépenses</div><div class="value" id="dep-count">0</div></div></div>
+    </div>
+    <div class="card"><div class="card-header"><h3>Historique des dépenses</h3></div>
+      <div class="card-body tw">
+        <table><thead><tr><th>Date</th><th>Catégorie</th><th>Libellé</th><th>Fournisseur</th><th>Montant</th><th>Actions</th></tr></thead>
+        <tbody id="depenses-list"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE BILAN MENSUEL -->
+<div class="page" id="page-bilan">
+  <div class="topbar"><h1>📊 Bilan mensuel</h1></div>
+  <div class="content">
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>Période du bilan</h3></div>
+      <div class="card-body">
+        <div class="g3">
+          <div class="fg"><label>Mois</label>
+            <select id="bilan-mois" onchange="renderBilan()"></select>
+          </div>
+          <div class="fg"><label>Année</label>
+            <select id="bilan-annee" onchange="renderBilan()"></select>
+          </div>
+          <div class="fg" style="display:flex;align-items:flex-end">
+            <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="downloadBilanPDF()">⬇ Télécharger le PDF du bilan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat"><div class="stat-icon green">💰</div><div class="stat-text"><div class="label">Total encaissé</div><div class="value" id="bilan-encaisse">0 €</div></div></div>
+      <div class="stat"><div class="stat-icon orange">💸</div><div class="stat-text"><div class="label">Total dépensé</div><div class="value" id="bilan-depense">0 €</div></div></div>
+      <div class="stat"><div class="stat-icon purple">⚖️</div><div class="stat-text"><div class="label">Solde du mois</div><div class="value" id="bilan-solde">0 €</div></div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>💰 Encaissements du mois</h3></div>
+      <div class="card-body tw">
+        <table><thead><tr><th>N° Facture</th><th>Client</th><th>Date paiement</th><th>Mode</th><th>Montant</th></tr></thead>
+        <tbody id="bilan-encaissements-list"></tbody></table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>💸 Dépenses du mois</h3></div>
+      <div class="card-body tw">
+        <table><thead><tr><th>Date</th><th>Catégorie</th><th>Libellé</th><th>Fournisseur</th><th>Montant</th></tr></thead>
+        <tbody id="bilan-depenses-list"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE AVIS CLIENTS -->
+<div class="page" id="page-avis">
+  <div class="topbar"><h1>⭐ Avis clients</h1></div>
+  <div class="content">
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>🔗 Page publique d'avis</h3></div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Communiquez ce lien à vos clients (par SMS, sur le bon d'intervention...). Ils y saisiront le code reçu pour laisser leur avis.</p>
+        <div class="fg" style="margin-bottom:10px">
+          <label>URL de la page d'avis (à héberger séparément)</label>
+          <div style="display:flex;gap:8px">
+            <input id="avis-page-url" placeholder="https://votre-compte.github.io/avis/index.html" style="flex:1">
+            <button class="btn btn-ghost" onclick="saveAvisPageUrl()">💾 Enregistrer</button>
+          </div>
+        </div>
+        <div id="avis-url-display" style="font-size:12px;color:var(--muted)"></div>
+        <div style="margin-top:12px;padding:12px 14px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;font-size:12px;color:#92400E">
+          ℹ️ Cette page doit être hébergée séparément (ex: GitHub Pages, gratuit). Le fichier <code>avis.html</code> vous a été fourni — uploadez-le sur votre hébergement puis collez l'URL ici.
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat"><div class="stat-icon orange">⭐</div><div class="stat-text"><div class="label">Note moyenne</div><div class="value" id="avis-note-moyenne">—</div></div></div>
+      <div class="stat"><div class="stat-icon green">💬</div><div class="stat-text"><div class="label">Total avis reçus</div><div class="value" id="avis-total">0</div></div></div>
+      <div class="stat"><div class="stat-icon blue">⏳</div><div class="stat-text"><div class="label">Codes en attente</div><div class="value" id="avis-en-attente">0</div></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>Avis reçus</h3></div>
+      <div class="card-body" id="avis-list" style="display:grid;gap:12px"></div>
+    </div>
+  </div>
+</div>
+
 </div><!-- /main -->
 </div><!-- /app -->
 
@@ -1028,6 +1147,122 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
     </div>
     <div class="modal-footer" style="justify-content:center">
       <button class="btn btn-primary" onclick="closeModal('modal-attach-reminder')">J'ai compris</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL APERCU PDF -->
+<div class="modal-overlay" id="modal-pdf-preview" style="z-index:500">
+  <div class="modal" style="max-width:900px;width:95vw;height:92vh;max-height:92vh;display:flex;flex-direction:column">
+    <div class="modal-header"><h2 id="pdf-preview-title">Aperçu</h2><button class="close-btn" onclick="closePdfPreview()">✕</button></div>
+    <div class="modal-body" style="flex:1;padding:0;overflow:hidden;display:flex">
+      <iframe id="pdf-preview-frame" style="width:100%;height:100%;border:none;background:#525659"></iframe>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closePdfPreview()">Annuler</button>
+      <button class="btn btn-primary" onclick="confirmDownloadPreviewedPDF()">⬇ Télécharger ce PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CODE AVIS -->
+<div class="modal-overlay" id="modal-avis-code">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header"><h2>⭐ Code avis client</h2><button class="close-btn" onclick="closeModal('modal-avis-code')">✕</button></div>
+    <div class="modal-body" style="text-align:center">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Communiquez ce code à votre client pour qu'il laisse un avis sur la page dédiée.</p>
+      <div style="background:#F0FDF4;border:2px solid #BBF7D0;border-radius:10px;padding:20px;margin-bottom:14px">
+        <div id="avis-code-display" style="font-size:28px;font-weight:800;color:#15803D;letter-spacing:.05em;font-family:monospace"></div>
+      </div>
+      <button class="btn btn-ghost" onclick="copyAvisCode()">📋 Copier le code</button>
+      <p style="font-size:11.5px;color:var(--muted);margin-top:14px">Le client se rend sur la page d'avis (lien à configurer dans Paramètres) et saisit ce code pour s'identifier.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-avis-code')" style="width:100%;justify-content:center">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ACOMPTE -->
+<div class="modal-overlay" id="modal-acompte">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><h2>💶 Facture d'acompte</h2><button class="close-btn" onclick="closeModal('modal-acompte')">✕</button></div>
+    <div class="modal-body">
+      <div id="acompte-devis-info" style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13px"></div>
+      <div class="fg" style="margin-bottom:14px">
+        <label>Mode de calcul</label>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button class="btn btn-ghost btn-sm" id="acompte-mode-pct" onclick="setAcompteMode('pct')" style="flex:1">Pourcentage</button>
+          <button class="btn btn-ghost btn-sm" id="acompte-mode-libre" onclick="setAcompteMode('libre')" style="flex:1">Montant libre</button>
+        </div>
+      </div>
+      <div class="fg" id="acompte-pct-wrap" style="margin-bottom:14px">
+        <label>Pourcentage du devis</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="number" id="acompte-pct" value="30" min="1" max="100" step="1" oninput="updateAcompteMontant()" style="flex:1">
+          <span style="font-weight:700">%</span>
+        </div>
+      </div>
+      <div class="fg" id="acompte-libre-wrap" style="margin-bottom:14px;display:none">
+        <label>Montant de l'acompte (€)</label>
+        <input type="number" id="acompte-montant-libre" min="0" step="0.01" oninput="updateAcompteMontant()">
+      </div>
+      <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:12px 14px;text-align:center">
+        <div style="font-size:11px;color:#15803D;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Montant de l'acompte</div>
+        <div id="acompte-montant-affiche" style="font-size:24px;font-weight:800;color:#15803D;margin-top:4px">0,00 €</div>
+        <div id="acompte-reste-affiche" style="font-size:12px;color:#15803D;margin-top:4px"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-acompte')">Annuler</button>
+      <button class="btn btn-primary" onclick="createAcompteFacture()">💾 Créer la facture d'acompte</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL HISTORIQUE -->
+<div class="modal-overlay" id="modal-historique">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header"><h2 id="historique-title">Historique</h2><button class="close-btn" onclick="closeModal('modal-historique')">✕</button></div>
+    <div class="modal-body">
+      <div id="historique-content" style="max-height:60vh;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-historique')">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DEPENSE -->
+<div class="modal-overlay" id="modal-depense">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header"><h2 id="dep-modal-title">Nouvelle dépense</h2><button class="close-btn" onclick="closeModal('modal-depense')">✕</button></div>
+    <div class="modal-body">
+      <div class="g2">
+        <div class="fg"><label>Date *</label><input type="date" id="dep-date"></div>
+        <div class="fg"><label>Montant (€) *</label><input type="number" id="dep-montant" step="0.01" min="0" placeholder="0.00"></div>
+        <div class="fg"><label>Catégorie</label>
+          <select id="dep-categorie">
+            <option value="fournitures">Fournitures / Matériaux</option>
+            <option value="carburant">Carburant / Déplacement</option>
+            <option value="outillage">Outillage / Matériel</option>
+            <option value="assurance">Assurance</option>
+            <option value="telephone">Téléphone / Internet</option>
+            <option value="vehicule">Véhicule (entretien, péage...)</option>
+            <option value="formation">Formation</option>
+            <option value="loyer">Loyer / Local</option>
+            <option value="autre">Autre</option>
+          </select>
+        </div>
+        <div class="fg"><label>Fournisseur</label><input id="dep-fournisseur" placeholder="Ex: Leroy Merlin"></div>
+        <div class="fg s2"><label>Libellé *</label><input id="dep-libelle" placeholder="Ex: Achat peinture et rouleaux"></div>
+        <div class="fg s2"><label>Notes</label><textarea id="dep-notes" style="min-height:55px" placeholder="Details complementaires..."></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-depense')">Annuler</button>
+      <button id="dep-del-btn" class="btn btn-danger" style="display:none" onclick="deleteDepense()">🗑 Supprimer</button>
+      <button class="btn btn-primary" onclick="saveDepense()">💾 Enregistrer</button>
     </div>
   </div>
 </div>
@@ -1262,6 +1497,19 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
 // 5. Active : Storage
 // 6. Dans Parametres du projet > General > Tes applications > Ajouter une app Web
 // 7. Copie l'objet de config ci-dessous et remplace les valeurs "XXX"
+//
+// ⚠️ POUR LA PAGE PUBLIQUE D'AVIS CLIENTS (avis.html) :
+// Dans Firestore Database > Regles, ajoutez ce bloc pour autoriser l'ecriture publique
+// UNIQUEMENT sur la collection avisClients (le reste de vos donnees reste protege) :
+//
+//   match /avisClients/{code} {
+//     allow read: if request.auth != null;
+//     allow create: if true;
+//     allow update, delete: if false;
+//   }
+//
+// Cela permet a un client (sans compte) de creer un avis, mais jamais de le modifier,
+// le supprimer, ou lire les avis des autres. Seul vous (connecte) pouvez les consulter.
 var FIREBASE_CONFIG={
   apiKey:"AIzaSyCg6ZhR0-LYxynuuABQNc1RMqu2E8IaFc4",
   authDomain:"facturedevis-2684d.firebaseapp.com",
@@ -1293,7 +1541,7 @@ if(FIREBASE_ENABLED){
 // ═══ DATA ═══════════════════════════════════════════════
 var db = {
   params:{nom:'',siret:'',adresse:'',ville:'',tel:'',email:'',iban:'',paiement:'Paiement a reception de facture.',logo:'',signature:''},
-  clients:[],produits:[],documents:[],events:[],counters:{devis:1,facture:1},interventions:[],scans:[]
+  clients:[],produits:[],documents:[],events:[],counters:{devis:1,facture:1},interventions:[],scans:[],depenses:[]
 };
 
 function lDB(){try{var s=localStorage.getItem('gdf_v5');if(s)db=JSON.parse(s);}catch(e){}}
@@ -1362,6 +1610,7 @@ function startFirestoreListener(){
     setSyncStatus('offline');
   });
   startScansMetaListener();
+  startAvisListener();
 }
 
 // ═══ SYNCHRONISATION DES METADONNEES DE SCANS (legere, sure) ══
@@ -1606,6 +1855,9 @@ function showPage(name){
   else if(name==='relances')renderRelances();
   else if(name==='urssaf')initUrssafPage();
   else if(name==='scans'){if(!db.scans)db.scans=[];renderScans();}
+  else if(name==='depenses'){if(!db.depenses)db.depenses=[];renderDepenses();}
+  else if(name==='bilan')initBilanPage();
+  else if(name==='avis')initAvisPage();
   else if(name==='parametres'){loadParams();setTimeout(function(){initSig('params');if(db.params.signature)setSig('params',db.params.signature);},80);}
 }
 
@@ -1709,6 +1961,13 @@ var editDId=null,curType='devis',docLines=[];
 function lTotal(l){return(l.qty||0)*(l.prix||0)*(1-(l.remise||0)/100);}
 
 function openDocModal(type,id){
+  if(id){
+    var existingDoc=db.documents.find(function(x){return x.id===id;});
+    if(existingDoc&&existingDoc.convertiEnFacture){
+      alert('Ce devis a deja ete converti en facture ('+existingDoc.convertiEnFacture+') et ne peut plus etre modifie.\n\nPour le modifier, annulez d\'abord la conversion via le bouton "Repasser en brouillon" dans la liste des devis.');
+      return;
+    }
+  }
   curType=type;editDId=id||null;
   document.getElementById('md-title').textContent=editDId?(type==='devis'?'Modifier le devis':'Modifier la facture'):(type==='devis'?'Nouveau devis':'Nouvelle facture');
   document.getElementById('doc-d2-lbl').textContent=type==='devis'?'Validite (jours)':'Delai paiement (j)';
@@ -1797,10 +2056,38 @@ function saveDoc(){
     return;
   }
 
+  var docAvant=null;
+  if(editDId){
+    var existing=db.documents.find(function(x){return x.id===editDId;});
+    // Un devis deja converti en facture est verrouille : il faut d'abord annuler la conversion
+    if(existing.convertiEnFacture){
+      alert('Ce devis a deja ete converti en facture ('+existing.convertiEnFacture+') et ne peut plus etre modifie.\n\nPour le modifier, annulez d\'abord la conversion via le bouton "Repasser en brouillon" dans la liste des devis.');
+      return;
+    }
+    // Avertissement (non bloquant) si on modifie une facture deja payee
+    if(existing.type==='facture'&&existing.statut==='payee'){
+      if(!confirm('⚠️ Cette facture est marquee PAYEE.\n\nLa modifier va alterer un document deja finalise. Cette action sera enregistree dans l\'historique.\n\nContinuer ?')){
+        return;
+      }
+    }
+    docAvant=JSON.parse(JSON.stringify(existing));
+  }
+
   var ht=docLines.reduce(function(s,l){return s+lTotal(l);},0);
   var obj={type:curType,numero:numero,date:document.getElementById('doc-date').value,d2:document.getElementById('doc-d2').value,clientId:cId,objet:document.getElementById('doc-objet').value,notes:document.getElementById('doc-notes').value,chAdr:document.getElementById('doc-ch-adr').value,chCp:document.getElementById('doc-ch-cp').value,chVille:document.getElementById('doc-ch-ville').value,lignes:JSON.parse(JSON.stringify(docLines)),statut:curType==='devis'?'en-cours':'emise',totalHT:ht,signature:getSig('doc')||''};
-  if(editDId){var i=db.documents.findIndex(function(x){return x.id===editDId;});db.documents[i]=Object.assign({},db.documents[i],obj);}
-  else{obj.id=Date.now();if(curType==='devis')db.counters.devis++;else db.counters.facture++;db.documents.push(obj);}
+  if(editDId){
+    var i=db.documents.findIndex(function(x){return x.id===editDId;});
+    // Le statut ne doit pas etre reinitialise par l'edition (sinon une facture payee redeviendrait "emise")
+    obj.statut=db.documents[i].statut;
+    db.documents[i]=Object.assign({},db.documents[i],obj);
+    var changements=diffDocument(docAvant,db.documents[i]);
+    var note=(docAvant.type==='facture'&&docAvant.statut==='payee')?'Modification d\'une facture deja marquee payee.':'';
+    pushHistorique(db.documents[i],changements,note);
+  }else{
+    obj.id=Date.now();
+    if(curType==='devis')db.counters.devis++;else db.counters.facture++;
+    db.documents.push(obj);
+  }
   sDB();closeModal('modal-doc');
   if(curType==='devis')renderDevis();else renderFactures();
   renderDash();if(pvId!==null&&pvId===editDId)showPv(pvId);
@@ -1818,10 +2105,13 @@ function convertToF(id){
   nd.numero='F'+year+'-'+num;
   nd.date=new Date().toISOString().split('T')[0];
   nd.convertiDepuisDevis=doc.numero;
+  nd.historique=[]; // historique propre a la facture, independant de celui du devis d'origine
   db.counters.facture++;
   db.documents.push(nd);
+  pushHistorique(nd,[],'Facture creee par conversion du devis '+doc.numero+'.');
   // Le devis original est conserve (non supprime) pour garder une trace de l'historique
   doc.convertiEnFacture=nd.numero;
+  pushHistorique(doc,[{label:'Statut',avant:'en-cours',apres:'verrouille (converti)'}],'Converti en facture '+nd.numero+'.');
   sDB();
   showPage('factures');
 }
@@ -1834,19 +2124,118 @@ function renderDevis(){
   tb.innerHTML=docs.map(function(d){
     var c=db.clients.find(function(x){return x.id===d.clientId;});
     var statutBadge=d.convertiEnFacture
-      ?'<span class="badge bp" title="Converti en facture '+esc(d.convertiEnFacture)+'">✓ Converti</span>'
+      ?'<span class="badge bp" title="Converti en facture '+esc(d.convertiEnFacture)+'">🔒 Converti</span>'
       :'<span class="badge bd">'+d.statut+'</span>';
     var convertBtn=d.convertiEnFacture
-      ?''
+      ?'<button class="btn btn-ghost btn-sm" onclick="unlockDevis('+d.id+')" title="Annuler la conversion et repasser en brouillon">🔓</button>'
       :'<button class="btn btn-accent btn-sm" onclick="convertToF('+d.id+')" title="Convertir en facture">→F</button>';
+    var acompteBtn=d.convertiEnFacture?'':'<button class="btn btn-ghost btn-sm" onclick="openAcompteModal('+d.id+')" title="Créer une facture d\'acompte">💶 Acompte</button>';
+    var histBtn=(d.historique&&d.historique.length)?'<button class="btn btn-ghost btn-sm" onclick="showHistoriqueModal('+d.id+')" title="Historique des modifications">📝</button>':'';
     return '<tr><td><strong>'+esc(d.numero)+'</strong></td><td>'+(c?esc(c.nom):'—')+'</td><td>'+fmtDate(d.date)+'</td><td><strong>'+fmt(d.totalHT)+' €</strong></td><td>'+statutBadge+'</td><td style="display:flex;gap:3px;flex-wrap:wrap">'+
       '<button class="btn btn-ghost btn-sm" onclick="showPv('+d.id+')">👁</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="openDocModal(\'devis\','+d.id+')">✏️</button>'+
-      convertBtn+
+      convertBtn+acompteBtn+histBtn+
       '<button class="btn btn-primary btn-sm" onclick="downloadPDF('+d.id+',true)">⬇</button>'+
       '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteDoc('+d.id+')">🗑</button>'+
     '</td></tr>';
   }).join('');
+}
+
+function unlockDevis(id){
+  var doc=db.documents.find(function(x){return x.id===id;});
+  if(!doc||!doc.convertiEnFacture)return;
+  if(!confirm('Repasser ce devis en brouillon ?\n\nLa facture deja creee ('+doc.convertiEnFacture+') ne sera PAS supprimee ni affectee. Seul le devis redeviendra modifiable.'))return;
+  pushHistorique(doc,[{label:'Verrouillage',avant:'Converti ('+doc.convertiEnFacture+')',apres:'Repasse en brouillon'}],'Conversion annulee manuellement.');
+  delete doc.convertiEnFacture;
+  sDB();renderDevis();
+}
+
+// ═══ FACTURE D'ACOMPTE ═══════════════════════════════════
+var acompteDevisId=null,acompteMode='pct';
+
+function openAcompteModal(devisId){
+  acompteDevisId=devisId;
+  var doc=db.documents.find(function(x){return x.id===devisId;});
+  if(!doc)return;
+  var c=db.clients.find(function(x){return x.id===doc.clientId;});
+  var dejaFacture=(db.documents||[]).filter(function(d){return d.type==='facture'&&d.acompteDepuisDevis===doc.numero;}).reduce(function(s,d){return s+d.totalHT;},0);
+  document.getElementById('acompte-devis-info').innerHTML=
+    '<strong>Devis '+esc(doc.numero)+'</strong> · '+(c?esc(c.nom):'?')+'<br>'+
+    'Montant total du devis : <strong>'+fmt(doc.totalHT)+' €</strong>'+
+    (dejaFacture>0?'<br>Acomptes déjà facturés : <strong>'+fmt(dejaFacture)+' €</strong>':'');
+  document.getElementById('acompte-pct').value='30';
+  document.getElementById('acompte-montant-libre').value='';
+  setAcompteMode('pct');
+  openModal('modal-acompte');
+}
+
+function setAcompteMode(mode){
+  acompteMode=mode;
+  document.getElementById('acompte-pct-wrap').style.display=mode==='pct'?'':'none';
+  document.getElementById('acompte-libre-wrap').style.display=mode==='libre'?'':'none';
+  document.getElementById('acompte-mode-pct').className=mode==='pct'?'btn btn-primary btn-sm':'btn btn-ghost btn-sm';
+  document.getElementById('acompte-mode-pct').style.flex='1';
+  document.getElementById('acompte-mode-libre').className=mode==='libre'?'btn btn-primary btn-sm':'btn btn-ghost btn-sm';
+  document.getElementById('acompte-mode-libre').style.flex='1';
+  updateAcompteMontant();
+}
+
+function getAcompteMontant(){
+  var doc=db.documents.find(function(x){return x.id===acompteDevisId;});
+  if(!doc)return 0;
+  if(acompteMode==='pct'){
+    var pct=parseFloat(document.getElementById('acompte-pct').value)||0;
+    return doc.totalHT*pct/100;
+  }else{
+    return parseFloat(document.getElementById('acompte-montant-libre').value)||0;
+  }
+}
+
+function updateAcompteMontant(){
+  var doc=db.documents.find(function(x){return x.id===acompteDevisId;});
+  if(!doc)return;
+  var montant=getAcompteMontant();
+  document.getElementById('acompte-montant-affiche').textContent=fmt(montant)+' €';
+  var reste=doc.totalHT-montant;
+  document.getElementById('acompte-reste-affiche').textContent='Solde restant après acompte : '+fmt(Math.max(0,reste))+' €';
+}
+
+function createAcompteFacture(){
+  var doc=db.documents.find(function(x){return x.id===acompteDevisId;});
+  if(!doc)return;
+  var montant=getAcompteMontant();
+  if(!montant||montant<=0){alert('Indiquez un montant d\'acompte valide.');return;}
+  if(montant>doc.totalHT){if(!confirm('Le montant de l\'acompte ('+fmt(montant)+' €) depasse le total du devis ('+fmt(doc.totalHT)+' €). Continuer quand meme ?'))return;}
+
+  var year=new Date().getFullYear();
+  var num=String(db.counters.facture).padStart(4,'0');
+  var pct=acompteMode==='pct'?parseFloat(document.getElementById('acompte-pct').value)||null:null;
+
+  var nf={
+    id:Date.now(),
+    type:'facture',
+    numero:'F'+year+'-'+num,
+    date:new Date().toISOString().split('T')[0],
+    d2:doc.d2,
+    clientId:doc.clientId,
+    objet:'Acompte sur devis '+doc.numero+(doc.objet?' — '+doc.objet:''),
+    notes:doc.notes,
+    chAdr:doc.chAdr,chCp:doc.chCp,chVille:doc.chVille,
+    lignes:[{desc:'Acompte ('+(pct?pct+'% — ':'')+'sur devis '+doc.numero+')',qty:1,prix:montant,remise:0}],
+    statut:'emise',
+    totalHT:montant,
+    signature:doc.signature||'',
+    estAcompte:true,
+    acompteDepuisDevis:doc.numero,
+    acomptePourcent:pct,
+    historique:[]
+  };
+  db.counters.facture++;
+  db.documents.push(nf);
+  pushHistorique(nf,[],'Facture d\'acompte creee depuis le devis '+doc.numero+' ('+fmt(montant)+' €).');
+  sDB();
+  closeModal('modal-acompte');
+  showPage('factures');
 }
 function renderFactures(){
   var tb=document.getElementById('factures-list');
@@ -1857,10 +2246,14 @@ function renderFactures(){
     var paid=d.statut==='payee';
     var bc=paid?'bp':d.statut==='annulee'?'ban':'ba';
     var lb=paid?'✓ Payee':d.statut==='annulee'?'Annulee':'En attente';
-    return '<tr><td><strong>'+esc(d.numero)+'</strong></td><td>'+(c?esc(c.nom):'—')+'</td><td>'+fmtDate(d.date)+'</td><td><strong>'+fmt(d.totalHT)+' €</strong></td><td><span class="badge '+bc+'">'+lb+'</span></td><td style="display:flex;gap:3px;flex-wrap:wrap">'+
+    var acompteTag=d.estAcompte?' <span class="badge" style="background:#FEF3C7;color:#92400E">Acompte '+(d.acomptePourcent?d.acomptePourcent+'%':'')+'</span>':'';
+    var histBtn=(d.historique&&d.historique.length)?'<button class="btn btn-ghost btn-sm" onclick="showHistoriqueModal('+d.id+')" title="Historique des modifications">📝</button>':'';
+    var avisBtn=d.codeAvis?'<button class="btn btn-ghost btn-sm" onclick="showAvisCodeModal('+d.id+')" title="Code avis client">⭐</button>':'';
+    return '<tr><td><strong>'+esc(d.numero)+'</strong>'+acompteTag+'</td><td>'+(c?esc(c.nom):'—')+'</td><td>'+fmtDate(d.date)+'</td><td><strong>'+fmt(d.totalHT)+' €</strong></td><td><span class="badge '+bc+'">'+lb+'</span></td><td style="display:flex;gap:3px;flex-wrap:wrap">'+
       '<button class="btn btn-ghost btn-sm" onclick="showPv('+d.id+')">👁</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="openDocModal(\'facture\','+d.id+')">✏️</button>'+
       (!paid?'<button class="btn btn-accent btn-sm" onclick="openReceiptModal('+d.id+')">💰</button>':'<button class="btn btn-ghost btn-sm" onclick="downloadReceiptPDF('+d.id+')" title="Recu">🧾</button>')+
+      avisBtn+histBtn+
       '<button class="btn btn-primary btn-sm" onclick="downloadPDF('+d.id+',true)">⬇ Moi</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="downloadPDF('+d.id+',false)">⬇ Client</button>'+
       '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteDoc('+d.id+')">🗑</button>'+
@@ -1939,11 +2332,121 @@ function openReceiptModal(id){
 function saveReceipt(){
   var doc=db.documents.find(function(x){return x.id===recDocId;});
   var sig=getSig('receipt');
+  var statutAvant=doc.statut;
   doc.statut='payee';
   doc.receipt={date:document.getElementById('rec-date').value,amount:parseFloat(document.getElementById('rec-amount').value)||doc.totalHT,mode:document.getElementById('rec-mode').value,ref:document.getElementById('rec-ref').value,notes:document.getElementById('rec-notes').value,signature:sig||''};
+  pushHistorique(doc,[{label:'Statut',avant:statutAvant,apres:'payee'},{label:'Paiement',avant:'—',apres:fmt(doc.receipt.amount)+' € le '+fmtDate(doc.receipt.date)+' ('+doc.receipt.mode+')'}]);
+  if(!doc.codeAvis)doc.codeAvis=generateAvisCode();
   sDB();closeModal('modal-receipt');renderFactures();renderDash();
   if(pvId===recDocId)showPv(recDocId);
   downloadReceiptPDF(recDocId);
+}
+
+// ═══ CODE AVIS CLIENT ════════════════════════════════════
+// Genere un code court a communiquer oralement, prefixe par un identifiant de compte
+// (pour que la page publique d'avis route vers le bon compte Firebase) + partie aleatoire unique.
+function generateAvisCode(){
+  var prefix=(FIREBASE_ENABLED&&fbUser)?fbUser.uid.substring(0,6).toUpperCase():'LOCAL';
+  var rand=Math.random().toString(36).substring(2,7).toUpperCase();
+  return prefix+'-'+rand;
+}
+
+var currentAvisCodeDocId=null;
+function showAvisCodeModal(docId){
+  var doc=db.documents.find(function(x){return x.id===docId;});
+  if(!doc||!doc.codeAvis)return;
+  currentAvisCodeDocId=docId;
+  document.getElementById('avis-code-display').textContent=doc.codeAvis;
+  openModal('modal-avis-code');
+}
+function copyAvisCode(){
+  var doc=db.documents.find(function(x){return x.id===currentAvisCodeDocId;});
+  if(!doc)return;
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(doc.codeAvis).then(function(){
+      alert('Code copié : '+doc.codeAvis);
+    }).catch(function(){alert('Code : '+doc.codeAvis);});
+  }else{
+    alert('Code : '+doc.codeAvis);
+  }
+}
+
+// ═══ PAGE AVIS CLIENTS (reception des avis publics) ═════
+var fbAvisUnsubscribe=null;
+
+function initAvisPage(){
+  var urlInput=document.getElementById('avis-page-url');
+  if(db.params.avisPageUrl)urlInput.value=db.params.avisPageUrl;
+  updateAvisUrlDisplay();
+  startAvisListener();
+  renderAvisList();
+}
+
+function saveAvisPageUrl(){
+  db.params.avisPageUrl=document.getElementById('avis-page-url').value.trim();
+  sDB();
+  updateAvisUrlDisplay();
+}
+
+function updateAvisUrlDisplay(){
+  var el=document.getElementById('avis-url-display');
+  if(!el)return;
+  el.textContent=db.params.avisPageUrl?'✓ Lien enregistré : '+db.params.avisPageUrl:'Aucun lien enregistré pour le moment.';
+}
+
+// Ecoute en temps reel la collection publique "avisClients" filtree par prefixe de compte
+// (le client ecrit directement dans cette collection depuis la page publique, sans authentification)
+function startAvisListener(){
+  if(!FIREBASE_ENABLED||!fbUser)return;
+  if(fbAvisUnsubscribe)return; // deja en ecoute, pas besoin de relancer
+  var monPrefixe=fbUser.uid.substring(0,6).toUpperCase();
+  fbAvisUnsubscribe=fbDb.collection('avisClients').where('comptePrefixe','==',monPrefixe).onSnapshot(function(snap){
+    var avis=[];
+    snap.forEach(function(doc){avis.push(doc.data());});
+    if(!db.avisClients)db.avisClients={};
+    db.avisClients.liste=avis;
+    sDB();
+    renderAvisList();
+  },function(e){console.error('Erreur listener avis:',e);});
+}
+
+function renderAvisList(){
+  var list=(db.avisClients&&db.avisClients.liste)||[];
+  var container=document.getElementById('avis-list');
+  if(!container)return;
+
+  // Codes generes mais pas encore utilises (en attente)
+  var codesGeneres=(db.documents||[]).filter(function(d){return d.codeAvis;});
+  var codesUtilises=list.map(function(a){return a.code;});
+  var enAttente=codesGeneres.filter(function(d){return codesUtilises.indexOf(d.codeAvis)===-1;});
+
+  document.getElementById('avis-total').textContent=list.length;
+  document.getElementById('avis-en-attente').textContent=enAttente.length;
+  if(list.length){
+    var moyenne=list.reduce(function(s,a){return s+(a.note||0);},0)/list.length;
+    document.getElementById('avis-note-moyenne').textContent=moyenne.toFixed(1)+' / 5';
+  }else{
+    document.getElementById('avis-note-moyenne').textContent='—';
+  }
+
+  if(!list.length){
+    container.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px">Aucun avis reçu pour le moment.</div>';
+    return;
+  }
+
+  container.innerHTML=list.slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).map(function(a){
+    var doc=(db.documents||[]).find(function(d){return d.codeAvis===a.code;});
+    var c=doc?db.clients.find(function(x){return x.id===doc.clientId;}):null;
+    var etoiles='⭐'.repeat(a.note||0)+'☆'.repeat(5-(a.note||0));
+    return '<div style="border:1px solid var(--border);border-radius:10px;padding:14px 16px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
+        '<div style="font-size:16px">'+etoiles+'</div>'+
+        '<div style="font-size:11px;color:var(--muted)">'+(a.date?fmtDate(a.date):'')+'</div>'+
+      '</div>'+
+      (c?'<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">'+esc(c.nom)+(doc?' — Facture '+esc(doc.numero):'')+'</div>':'')+
+      (a.commentaire?'<div style="font-size:13px;color:var(--text)">'+esc(a.commentaire)+'</div>':'<div style="font-size:12px;color:var(--muted);font-style:italic">Aucun commentaire laissé.</div>')+
+    '</div>';
+  }).join('');
 }
 
 // ═══ PLANNING ═══════════════════════════════════════════
@@ -2053,6 +2556,7 @@ function exportJSON(){
     {name:'planning',data:{events:db.events||[]}},
     {name:'interventions',data:{interventions:db.interventions||[]}},
     {name:'documents_scannes',data:{scans:db.scans||[]}},
+    {name:'depenses',data:{depenses:db.depenses||[]}},
     {name:'parametres_entreprise',data:{params:db.params,counters:db.counters}}
   ];
 
@@ -2107,6 +2611,10 @@ function importJSON(e){
         db.scans=imp.scans;
         summary.push(imp.scans.length+' documents scannes');
       }
+      if(imp.depenses){
+        db.depenses=imp.depenses;
+        summary.push(imp.depenses.length+' depenses');
+      }
     });
 
     // Fusion devis + factures : si on importe seulement les devis, on garde les factures actuelles, et vice versa
@@ -2131,7 +2639,7 @@ function importJSON(e){
     r.onload=function(ev){
       try{
         var imp=JSON.parse(ev.target.result);
-        if(!imp.clients&&!imp.documents&&!imp.params&&!imp.produits&&!imp.events&&!imp.interventions&&!imp.scans)throw new Error('Format invalide');
+        if(!imp.clients&&!imp.documents&&!imp.params&&!imp.produits&&!imp.events&&!imp.interventions&&!imp.scans&&!imp.depenses)throw new Error('Format invalide');
         results.push(imp);
       }catch(err){
         document.getElementById('import-status').innerHTML='<span style="color:var(--danger)">Erreur sur un fichier : '+err.message+'</span>';
@@ -2185,13 +2693,13 @@ function showAttachReminder(filename){
   openModal('modal-attach-reminder');
 }
 function resetAll(){
-  if(!confirm("Reinitialiser l'application ? Toutes les donnees seront definitivement effacees : clients, devis, factures, produits, planning, interventions, documents scannes et parametres.\n\nCette action est irreversible."))return;
+  if(!confirm("Reinitialiser l'application ? Toutes les donnees seront definitivement effacees : clients, devis, factures, depenses, produits, planning, interventions, documents scannes et parametres.\n\nCette action est irreversible."))return;
   if(!confirm("Derniere confirmation : etes-vous certain de vouloir tout effacer ?"))return;
 
   // Remet l'objet en memoire a l'etat initial (comme au premier chargement)
   db={
     params:{nom:'',siret:'',adresse:'',ville:'',tel:'',email:'',iban:'',paiement:'Paiement a reception de facture.',logo:'',signature:''},
-    clients:[],produits:[],documents:[],events:[],counters:{devis:1,facture:1},interventions:[],scans:[]
+    clients:[],produits:[],documents:[],events:[],counters:{devis:1,facture:1},interventions:[],scans:[],depenses:[]
   };
 
   // Vide le stockage local
@@ -2227,7 +2735,7 @@ function downloadQR(){var c=document.getElementById('qr-canvas');var a=document.
 function downloadPDF(id,withStamp){
   var pdf=buildDocPDF(id,withStamp);
   var doc=db.documents.find(function(x){return x.id===id;});
-  savePDF(pdf,doc.numero+'.pdf');
+  previewPDF(pdf,doc.numero+'.pdf');
 }
 
 function buildDocPDF(id,withStamp){
@@ -2236,9 +2744,13 @@ function buildDocPDF(id,withStamp){
   var p=db.params;var isD=doc.type==='devis';var isPaid=doc.statut==='payee';
   var pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
   var W=210,ML=14,MR=196,CW=MR-ML;
-  var noir=[20,20,20],gris=[100,100,100],gc=[210,210,210],vert=[22,163,74],vc=[240,253,244],vb=[74,222,128],rouge=[185,28,28],rc=[254,242,242],bleu=[26,86,219],fb=[240,253,244];
+
+  var noir=[20,20,20],gris=[100,100,100],gc=[210,210,210];
+  var vert=[22,163,74],vb=[74,222,128],bleu=[26,86,219],fb=[240,253,244];
+
   var Y=12;
-  // Logo
+
+  // LOGO + ENTREPRISE
   var LSIZE=32,txtX=ML;
   if(p.logo){try{pdf.addImage(p.logo,'AUTO',ML,Y,LSIZE,LSIZE,'','FAST');txtX=ML+LSIZE+6;}catch(e){}}
   pdf.setFontSize(12.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);pdf.text(p.nom||'Mon Entreprise',txtX,Y+7);
@@ -2246,7 +2758,8 @@ function buildDocPDF(id,withStamp){
   var iy=Y+13;
   [p.adresse,p.ville,p.tel?'Tel. : '+p.tel:'',p.email||'',p.siret?'SIRET : '+p.siret:''].filter(Boolean).forEach(function(l){pdf.text(l,txtX,iy);iy+=4;});
   pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,bleu);pdf.text('TVA non applicable, art. 293 B du CGI',txtX,iy);
-  // Encadre doc
+
+  // ENCADRE TYPE DOC
   var bW=60,bH=36,bX=MR-bW;
   pdf.setFillColor.apply(pdf,fb);pdf.setDrawColor.apply(pdf,vb);pdf.setLineWidth(1.5);pdf.roundedRect(bX,Y,bW,bH,3,3,'FD');
   pdf.setFontSize(17);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,bleu);pdf.text(isD?'DEVIS':'FACTURE',bX+bW/2,Y+11,{align:'center'});
@@ -2256,29 +2769,35 @@ function buildDocPDF(id,withStamp){
   pdf.setFontSize(8);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);
   pdf.text('Date :',bX+4,Y+27);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);pdf.text(fmtDate(doc.date),bX+bW-4,Y+27,{align:'right'});
   pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text((isD?'Validite':'Echeance')+' :',bX+4,Y+33);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);pdf.text(ech,bX+bW-4,Y+33,{align:'right'});
+
   Y=Math.max(iy+4,Y+bH+6);
-  // Tampon
+
+  // TAMPON
   if(!isD&&withStamp){
-    if(isPaid){pdf.setFillColor.apply(pdf,vc);pdf.setDrawColor.apply(pdf,vert);pdf.setLineWidth(1.8);pdf.roundedRect(ML,Y-2,50,13,2,2,'FD');pdf.setFontSize(11.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,vert);pdf.text('PAYE',ML+25,Y+6,{align:'center'});if(doc.receipt){pdf.setFontSize(6.5);pdf.setFont('helvetica','normal');pdf.text(fmtDate(doc.receipt.date)+' · '+doc.receipt.mode,ML+25,Y+11,{align:'center'});}}
-    else{pdf.setFillColor.apply(pdf,rc);pdf.setDrawColor.apply(pdf,rouge);pdf.setLineWidth(1.8);pdf.roundedRect(ML,Y-2,56,13,2,2,'FD');pdf.setFontSize(11.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,rouge);pdf.text('NON PAYE',ML+28,Y+6,{align:'center'});}
+    if(isPaid){pdf.setFillColor.apply(pdf,fb);pdf.setDrawColor.apply(pdf,vert);pdf.setLineWidth(1.8);pdf.roundedRect(ML,Y-2,50,13,2,2,'FD');pdf.setFontSize(11.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,vert);pdf.text('PAYE',ML+25,Y+6,{align:'center'});if(doc.receipt){pdf.setFontSize(6.5);pdf.setFont('helvetica','normal');pdf.text(fmtDate(doc.receipt.date)+' · '+doc.receipt.mode,ML+25,Y+11,{align:'center'});}}
+    else{pdf.setFillColor(254,242,242);pdf.setDrawColor(185,28,28);pdf.setLineWidth(1.8);pdf.roundedRect(ML,Y-2,56,13,2,2,'FD');pdf.setFontSize(11.5);pdf.setFont('helvetica','bold');pdf.setTextColor(185,28,28);pdf.text('NON PAYE',ML+28,Y+6,{align:'center'});}
     Y+=16;
   }
-  // Client
+
+  // CLIENT
   pdf.setFontSize(8);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);pdf.text('Client',ML,Y);
   pdf.setDrawColor.apply(pdf,gc);pdf.setLineWidth(0.3);pdf.line(ML,Y+2,MR,Y+2);Y+=7;
   pdf.setFontSize(9);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);pdf.text(client?client.nom:'',ML,Y);Y+=5;
   pdf.setFont('helvetica','normal');pdf.setFontSize(8.5);pdf.setTextColor.apply(pdf,gris);
   [client&&client.contact,client&&client.adresse,client&&((client.cp||'')+' '+(client.ville||'')).trim(),client&&client.email].filter(Boolean).forEach(function(l){pdf.text(l,ML,Y);Y+=4.2;});
-  // Chantier
+
+  // CHANTIER
   var ch=[doc.chAdr,((doc.chCp||'')+' '+(doc.chVille||'')).trim()].filter(Boolean).join(', ');
   if(ch){Y+=2;pdf.setFontSize(7.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,bleu);pdf.text('Adresse du chantier :',ML,Y);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text(ch,ML+38,Y);Y+=5;}
   if(doc.objet){pdf.setFontSize(8.5);pdf.setFont('helvetica','italic');pdf.setTextColor.apply(pdf,gris);pdf.text('Objet : '+doc.objet,ML,Y);Y+=6;}
   Y+=2;
-  // Tableau
+
+  // TABLEAU
   var rows=doc.lignes.map(function(l){return[l.desc||'',l.qty%1===0?String(l.qty):l.qty.toFixed(2),fmt(l.prix)+' €',fmt(lTotal(l))+' €'];});
   pdf.autoTable({startY:Y,head:[['Designation','Qte','Prix unit. HT','Total HT']],body:rows,margin:{left:ML,right:W-MR},styles:{fontSize:8.5,cellPadding:{top:4,bottom:4,left:4,right:4},textColor:noir,lineColor:[230,230,230],lineWidth:0.2},headStyles:{fillColor:[245,245,245],textColor:noir,fontStyle:'bold',fontSize:8.5,lineColor:[200,200,200],lineWidth:0.3},alternateRowStyles:{fillColor:[252,252,253]},columnStyles:{0:{cellWidth:'auto'},1:{cellWidth:16,halign:'center'},2:{cellWidth:32,halign:'right'},3:{cellWidth:32,halign:'right',fontStyle:'bold'}}});
   Y=pdf.lastAutoTable.finalY;
-  // Totaux
+
+  // TOTAUX
   var tX=MR-90;
   pdf.setDrawColor.apply(pdf,gc);pdf.setLineWidth(0.2);pdf.line(tX,Y+2,MR,Y+2);
   pdf.setFontSize(9);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text('Total HT',tX+2,Y+8);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);pdf.text(fmt(doc.totalHT)+' €',MR-2,Y+8,{align:'right'});
@@ -2286,7 +2805,8 @@ function buildDocPDF(id,withStamp){
   pdf.setDrawColor.apply(pdf,noir);pdf.setLineWidth(0.6);pdf.line(tX,Y+16,MR,Y+16);
   pdf.setFontSize(11);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);pdf.text('Total TTC',tX+2,Y+23);pdf.setFontSize(12.5);pdf.text(fmt(doc.totalHT)+' €',MR-2,Y+23,{align:'right'});
   Y+=30;
-  // Conditions (facture)
+
+  // CONDITIONS (facture)
   if(!isD){
     var cH=28;pdf.setFillColor(248,250,252);pdf.setDrawColor.apply(pdf,gc);pdf.setLineWidth(0.3);pdf.rect(ML,Y,CW,cH,'FD');
     var col=CW/2-4;
@@ -2294,19 +2814,21 @@ function buildDocPDF(id,withStamp){
     pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text(pdf.splitTextToSize(p.paiement||'Paiement a reception de facture.',col),ML+3,Y+11);
     if(p.iban){pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);pdf.text('Moyens de paiement :',ML+3,Y+18);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text('Virement ('+p.iban+'), cheque, especes',ML+3,Y+23);}
     var rx=ML+CW/2+3;
-    pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,rouge);pdf.text('Penalites de retard :',rx,Y+6);
+    pdf.setFont('helvetica','bold');pdf.setTextColor(185,28,28);pdf.text('Penalites de retard :',rx,Y+6);
     pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text('En cas de retard, penalites au taux legal.',rx,Y+11);
-    pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,rouge);pdf.text('Indemnite forfaitaire :',rx,Y+18);
-    pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text('40 € (art. D.441-5 C.com.)',rx,Y+23);
+    pdf.setFont('helvetica','bold');pdf.setTextColor(185,28,28);pdf.text('Indemnite forfaitaire :',rx,Y+18);
+    pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text('40 euros (art. D.441-5 C.com.)',rx,Y+23);
     Y+=cH+8;
   }
-  // Signatures
+
+  // SIGNATURES
   var sY=Y;
   pdf.setFontSize(7.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);pdf.text('Signature '+(p.nom||'emetteur')+' :',ML,sY);
   if(doc.signature){try{pdf.addImage(doc.signature,'PNG',ML,sY+3,58,22,'','FAST');}catch(e){}}
   else{pdf.setDrawColor.apply(pdf,gc);pdf.setLineWidth(0.3);pdf.rect(ML,sY+3,58,22,'S');pdf.setFontSize(6.5);pdf.setFont('helvetica','normal');pdf.setTextColor(210,210,210);pdf.text('(non signe)',ML+29,sY+15,{align:'center'});}
   pdf.setDrawColor(160,160,160);pdf.setLineWidth(0.4);pdf.line(ML,sY+27,ML+58,sY+27);
   pdf.setFontSize(7);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text(p.nom||'',ML+29,sY+31,{align:'center'});
+
   if(isD){
     var rx2=W/2+15;
     pdf.setFontSize(7.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);pdf.text('Bon pour accord — Signature client :',rx2,sY);
@@ -2316,18 +2838,21 @@ function buildDocPDF(id,withStamp){
     pdf.setFontSize(7);pdf.setTextColor.apply(pdf,gris);pdf.text(client?client.nom:'',rx2+36,sY+31,{align:'center'});
   }
   Y=sY+38;
+
+  // MERCI
   pdf.setFontSize(11);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,vert);pdf.text('Merci pour votre confiance !',W/2,Math.min(Y,258),{align:'center'});
-  // Footer
-  var fY=268;pdf.setDrawColor(210,215,220);pdf.setLineWidth(0.3);pdf.line(ML,fY,MR,fY);
+
+  // FOOTER
+  var fY=268;
+  pdf.setDrawColor(210,215,220);pdf.setLineWidth(0.3);pdf.line(ML,fY,MR,fY);
   pdf.setFontSize(6.5);pdf.setFont('helvetica','normal');pdf.setTextColor(150,150,150);
-  [(p.nom||'')+(p.siret?' · SIRET : '+p.siret:'')+(p.adresse?' · '+p.adresse:'')+(p.ville?' · '+p.ville:''),
-   'Micro-entreprise · TVA non applicable, article 293B du CGI'+(p.email?' · '+p.email:'')+(p.tel?' · Tel : '+p.tel:''),
-   isD?'Devis valable '+doc.d2+' jours. Tout devis accepte vaut bon de commande.':'Retard de paiement : penalites au taux legal + indemnite forfaitaire 40 € (D.441-5 C.com.)'
-  ].forEach(function(t,i){pdf.text(t,W/2,fY+5+i*4.5,{align:'center'});});
+  var fLines=[(p.nom||'')+(p.siret?' · SIRET : '+p.siret:'')+(p.adresse?' · '+p.adresse:'')+(p.ville?' · '+p.ville:''),'Micro-entreprise · TVA non applicable, article 293B du CGI'+(p.email?' · '+p.email:'')+(p.tel?' · Tel : '+p.tel:''),!isD?'Retard de paiement : penalites au taux legal + indemnite forfaitaire 40 € (D.441-5 C.com.)':'Devis valable '+doc.d2+' jours. Tout devis accepte vaut bon de commande.'].filter(Boolean);
+  fLines.forEach(function(t,i){pdf.text(t,W/2,fY+5+i*4.5,{align:'center'});});
+
   return pdf;
 }
 
-// ═══ REÇU PDF ═══════════════════════════════════════════
+// ═══ REÇU PDF ════════════════════════════════════════════
 function downloadReceiptPDF(id){
   var pdf=buildReceiptPDF(id);
   if(!pdf)return;
@@ -2486,7 +3011,85 @@ function buildReceiptPDF(id){
    'Ce document tient lieu de reçu de paiement et fait foi entre les parties.'
   ].forEach(function(t,i){pdf.text(t,W/2,fY+5+i*4.3,{align:'center'});});
 
-  savePDF(pdf,'Recu_'+doc.numero+'.pdf');
+  previewPDF(pdf,'Recu_'+doc.numero+'.pdf');
+}
+
+// ═══ HISTORIQUE DES MODIFICATIONS ═══════════════════════
+// Compare l'ancien et le nouvel etat d'un document et enregistre les champs qui ont change.
+// Chaque document garde son propre tableau historique[] : {date, champs:[{label,avant,apres}], note}
+var HISTORIQUE_LABELS={
+  numero:'Numéro',date:'Date',d2:'Délai/Validité',clientId:'Client',objet:'Objet',
+  notes:'Notes',chAdr:'Adresse chantier',chCp:'CP chantier',chVille:'Ville chantier',
+  totalHT:'Montant total HT',statut:'Statut',lignes:'Lignes de prestations'
+};
+
+function pushHistorique(doc,changements,note){
+  if(!changements.length&&!note)return;
+  if(!doc.historique)doc.historique=[];
+  doc.historique.push({
+    date:new Date().toISOString(),
+    champs:changements,
+    note:note||''
+  });
+}
+
+// Compare deux objets document (avant/apres) et retourne la liste des champs modifies
+function diffDocument(avant,apres){
+  var changements=[];
+  Object.keys(HISTORIQUE_LABELS).forEach(function(key){
+    var v1=avant[key],v2=apres[key];
+    if(key==='lignes'){
+      // Pour les lignes, on compare juste un resume (nombre + total) plutot que le detail complet
+      var n1=(avant.lignes||[]).length,n2=(apres.lignes||[]).length;
+      if(n1!==n2||avant.totalHT!==apres.totalHT){
+        changements.push({label:'Lignes de prestations',avant:n1+' ligne(s)',apres:n2+' ligne(s)'});
+      }
+      return;
+    }
+    if(key==='totalHT'){
+      if(Math.round((v1||0)*100)!==Math.round((v2||0)*100)){
+        changements.push({label:HISTORIQUE_LABELS[key],avant:fmt(v1)+' €',apres:fmt(v2)+' €'});
+      }
+      return;
+    }
+    if(key==='clientId'){
+      if(String(v1)!==String(v2)){
+        var c1=db.clients.find(function(x){return x.id===v1;});
+        var c2=db.clients.find(function(x){return x.id===v2;});
+        changements.push({label:'Client',avant:c1?c1.nom:'—',apres:c2?c2.nom:'—'});
+      }
+      return;
+    }
+    if((v1||'')!==(v2||'')){
+      changements.push({label:HISTORIQUE_LABELS[key],avant:v1||'—',apres:v2||'—'});
+    }
+  });
+  return changements;
+}
+
+function showHistoriqueModal(docId){
+  var doc=db.documents.find(function(x){return x.id===docId;});
+  if(!doc)return;
+  var hist=doc.historique||[];
+  var content=document.getElementById('historique-content');
+  document.getElementById('historique-title').textContent='Historique — '+doc.numero;
+  if(!hist.length){
+    content.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px">Aucune modification enregistrée pour ce document depuis sa création.</div>';
+  }else{
+    content.innerHTML=hist.slice().reverse().map(function(h){
+      var d=new Date(h.date);
+      var dateStr=fmtDate(h.date.split('T')[0])+' à '+d.getHours()+'h'+String(d.getMinutes()).padStart(2,'0');
+      var champsHtml=h.champs.map(function(c){
+        return '<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #F1F5F9"><strong>'+esc(c.label)+'</strong> : <span style="color:#DC2626;text-decoration:line-through">'+esc(String(c.avant))+'</span> → <span style="color:#15803D;font-weight:600">'+esc(String(c.apres))+'</span></div>';
+      }).join('');
+      var noteHtml=h.note?'<div style="font-size:11.5px;color:var(--muted);font-style:italic;margin-top:6px">'+esc(h.note)+'</div>':'';
+      return '<div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#FAFBFC">'+
+        '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">📅 '+dateStr+'</div>'+
+        champsHtml+noteHtml+
+      '</div>';
+    }).join('');
+  }
+  openModal('modal-historique');
 }
 
 // ═══ HELPERS ════════════════════════════════════════════
@@ -2785,7 +3388,7 @@ function downloadBIPDF(){
   pdf.setFontSize(6.5);pdf.setFont('helvetica','normal');pdf.setTextColor(150,150,150);
   pdf.text((p.nom||'')+(p.siret?' · SIRET : '+p.siret:'')+(p.adresse?' · '+p.adresse:'')+(p.ville?' · '+p.ville:''),W/2,fY+5,{align:'center'});
   pdf.text('Micro-entreprise · TVA non applicable, article 293B du CGI',W/2,fY+9.5,{align:'center'});
-  savePDF(pdf,bi.numero+'.pdf');
+  previewPDF(pdf,bi.numero+'.pdf');
 }
 
 // ═══ RELANCES ════════════════════════════════════════════
@@ -2925,7 +3528,7 @@ function downloadRelancePDF(){
   pdf.setFontSize(6.5);pdf.setFont('helvetica','normal');pdf.setTextColor(160,160,160);
   pdf.text((p.nom||'')+(p.siret?' · SIRET : '+p.siret:'')+' · Micro-entreprise · TVA non applicable, article 293B du CGI',W/2,fY+5,{align:'center'});
   pdf.text('Penalites de retard au taux legal + indemnite forfaitaire 40 € (D.441-5 C.com.)',W/2,fY+9.5,{align:'center'});
-  savePDF(pdf,'Relance_'+relanceNum+'_'+d.numero+'.pdf');
+  previewPDF(pdf,'Relance_'+relanceNum+'_'+d.numero+'.pdf');
   // Enregistrer la relance
   if(!d.relances)d.relances=[];
   d.relances.push({num:relanceNum,date:new Date().toISOString().split('T')[0]});
@@ -3130,11 +3733,37 @@ function downloadBlankPDF(){
    'Micro-entreprise · TVA non applicable, article 293B du CGI'+(p.email?' · '+p.email:'')+(p.tel?' · Tel. : '+p.tel:'')
   ].forEach(function(t,i){pdf.text(t,W/2,fY+5+i*5,{align:'center'});});
 
-  savePDF(pdf,'Modele_vierge_'+docType+'.pdf');
+  previewPDF(pdf,'Modele_vierge_'+docType+'.pdf');
 }
 
 // ═══ SAUVEGARDE PDF — CHOIX DU DOSSIER ════════════════
 // Essaie File System Access API (Chrome/Edge), sinon téléchargement classique
+// ═══ APERCU PDF AVANT TELECHARGEMENT ════════════════════
+// Affiche le PDF genere dans une fenetre d'apercu plein ecran avant de pouvoir le telecharger.
+var currentPreviewPdf=null,currentPreviewFilename='';
+
+function previewPDF(pdf,filename){
+  currentPreviewPdf=pdf;
+  currentPreviewFilename=filename;
+  var blobUrl=pdf.output('bloburl');
+  document.getElementById('pdf-preview-title').textContent=filename;
+  document.getElementById('pdf-preview-frame').src=blobUrl;
+  openModal('modal-pdf-preview');
+}
+
+function confirmDownloadPreviewedPDF(){
+  if(!currentPreviewPdf)return;
+  currentPreviewPdf.save(currentPreviewFilename);
+  showSaveToast(currentPreviewFilename);
+  closeModal('modal-pdf-preview');
+}
+
+function closePdfPreview(){
+  document.getElementById('pdf-preview-frame').src='about:blank';
+  currentPreviewPdf=null;
+  closeModal('modal-pdf-preview');
+}
+
 function savePDF(pdf,filename){
   // Telechargement direct dans le dossier Telechargements du navigateur
   pdf.save(filename);
@@ -3223,6 +3852,288 @@ function getUrssafTaux(){
   var base=URSSAF_TAUX[p.activiteUrssaf||'bic_service']||URSSAF_TAUX.bic_service;
   if(p.acre==='oui')base=base/2;
   return base;
+}
+
+// ═══ DEPENSES ════════════════════════════════════════════
+var DEPENSE_CATEGORIES={
+  fournitures:'Fournitures / Matériaux',carburant:'Carburant / Déplacement',outillage:'Outillage / Matériel',
+  assurance:'Assurance',telephone:'Téléphone / Internet',vehicule:'Véhicule',formation:'Formation',
+  loyer:'Loyer / Local',autre:'Autre'
+};
+var editDepenseId=null;
+
+function openDepenseModal(id){
+  editDepenseId=id||null;
+  document.getElementById('dep-modal-title').textContent=editDepenseId?'Modifier la dépense':'Nouvelle dépense';
+  document.getElementById('dep-del-btn').style.display=editDepenseId?'inline-flex':'none';
+  if(editDepenseId){
+    var d=(db.depenses||[]).find(function(x){return x.id===editDepenseId;});
+    document.getElementById('dep-date').value=d.date||'';
+    document.getElementById('dep-montant').value=d.montant||'';
+    document.getElementById('dep-categorie').value=d.categorie||'autre';
+    document.getElementById('dep-fournisseur').value=d.fournisseur||'';
+    document.getElementById('dep-libelle').value=d.libelle||'';
+    document.getElementById('dep-notes').value=d.notes||'';
+  }else{
+    document.getElementById('dep-date').value=new Date().toISOString().split('T')[0];
+    document.getElementById('dep-montant').value='';
+    document.getElementById('dep-categorie').value='fournitures';
+    document.getElementById('dep-fournisseur').value='';
+    document.getElementById('dep-libelle').value='';
+    document.getElementById('dep-notes').value='';
+  }
+  openModal('modal-depense');
+}
+
+function saveDepense(){
+  var libelle=document.getElementById('dep-libelle').value.trim();
+  var montant=parseFloat(document.getElementById('dep-montant').value);
+  var date=document.getElementById('dep-date').value;
+  if(!libelle){alert('Le libelle est obligatoire.');return;}
+  if(!montant||montant<=0){alert('Indiquez un montant valide.');return;}
+  if(!date){alert('Indiquez une date.');return;}
+  if(!db.depenses)db.depenses=[];
+  var obj={
+    date:date,montant:montant,categorie:document.getElementById('dep-categorie').value,
+    fournisseur:document.getElementById('dep-fournisseur').value,libelle:libelle,
+    notes:document.getElementById('dep-notes').value
+  };
+  if(editDepenseId){
+    var i=db.depenses.findIndex(function(x){return x.id===editDepenseId;});
+    db.depenses[i]=Object.assign({},db.depenses[i],obj);
+  }else{
+    obj.id=Date.now();
+    db.depenses.push(obj);
+  }
+  sDB();closeModal('modal-depense');renderDepenses();
+}
+
+function deleteDepense(){
+  if(!confirm('Supprimer cette depense ?'))return;
+  db.depenses=(db.depenses||[]).filter(function(x){return x.id!==editDepenseId;});
+  sDB();closeModal('modal-depense');renderDepenses();
+}
+
+function renderDepenses(){
+  var tb=document.getElementById('depenses-list');
+  var deps=(db.depenses||[]).slice().sort(function(a,b){return b.date.localeCompare(a.date);});
+  if(!deps.length){
+    tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:28px">Aucune dépense enregistrée</td></tr>';
+  }else{
+    tb.innerHTML=deps.map(function(d){
+      return '<tr><td>'+fmtDate(d.date)+'</td><td>'+esc(DEPENSE_CATEGORIES[d.categorie]||d.categorie)+'</td>'+
+        '<td>'+esc(d.libelle)+'</td><td>'+esc(d.fournisseur||'—')+'</td>'+
+        '<td><strong>'+fmt(d.montant)+' €</strong></td>'+
+        '<td style="display:flex;gap:4px"><button class="btn btn-ghost btn-sm" onclick="openDepenseModal('+d.id+')">✏️</button>'+
+        '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="editDepenseId='+d.id+';deleteDepense()">🗑</button></td></tr>';
+    }).join('');
+  }
+
+  var now=new Date();
+  var thisMonth=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  var thisYear=String(now.getFullYear());
+  var totalMois=deps.filter(function(d){return d.date.startsWith(thisMonth);}).reduce(function(s,d){return s+d.montant;},0);
+  var totalAnnee=deps.filter(function(d){return d.date.startsWith(thisYear);}).reduce(function(s,d){return s+d.montant;},0);
+  document.getElementById('dep-total-mois').textContent=fmt(totalMois)+' €';
+  document.getElementById('dep-total-annee').textContent=fmt(totalAnnee)+' €';
+  document.getElementById('dep-count').textContent=deps.length;
+}
+
+// ═══ BILAN MENSUEL ═══════════════════════════════════════
+var MOIS_NOMS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+function initBilanPage(){
+  var moisSel=document.getElementById('bilan-mois');
+  var now=new Date();
+  moisSel.innerHTML=MOIS_NOMS.map(function(m,i){return '<option value="'+i+'"'+(i===now.getMonth()?' selected':'')+'>'+m+'</option>';}).join('');
+
+  var years={};
+  years[now.getFullYear()]=true;
+  (db.documents||[]).forEach(function(d){
+    if(d.type==='facture'&&d.statut==='payee'&&d.receipt&&d.receipt.date)years[new Date(d.receipt.date).getFullYear()]=true;
+  });
+  (db.depenses||[]).forEach(function(d){years[new Date(d.date).getFullYear()]=true;});
+  var yearList=Object.keys(years).map(Number).sort(function(a,b){return b-a;});
+  var anneeSel=document.getElementById('bilan-annee');
+  anneeSel.innerHTML=yearList.map(function(y){return '<option value="'+y+'">'+y+'</option>';}).join('');
+  anneeSel.value=now.getFullYear();
+
+  renderBilan();
+}
+
+function getBilanData(){
+  var mois=parseInt(document.getElementById('bilan-mois').value);
+  var annee=parseInt(document.getElementById('bilan-annee').value);
+  var prefix=annee+'-'+String(mois+1).padStart(2,'0');
+
+  var encaissements=(db.documents||[]).filter(function(d){
+    return d.type==='facture'&&d.statut==='payee'&&d.receipt&&d.receipt.date&&d.receipt.date.startsWith(prefix);
+  });
+  var depenses=(db.depenses||[]).filter(function(d){return d.date.startsWith(prefix);});
+
+  var totalEncaisse=encaissements.reduce(function(s,d){return s+(d.receipt.amount||d.totalHT);},0);
+  var totalDepense=depenses.reduce(function(s,d){return s+d.montant;},0);
+
+  return {mois:mois,annee:annee,encaissements:encaissements,depenses:depenses,totalEncaisse:totalEncaisse,totalDepense:totalDepense,solde:totalEncaisse-totalDepense};
+}
+
+function renderBilan(){
+  var data=getBilanData();
+  document.getElementById('bilan-encaisse').textContent=fmt(data.totalEncaisse)+' €';
+  document.getElementById('bilan-depense').textContent=fmt(data.totalDepense)+' €';
+  var soldeEl=document.getElementById('bilan-solde');
+  soldeEl.textContent=fmt(data.solde)+' €';
+  soldeEl.style.color=data.solde>=0?'#15803D':'#DC2626';
+
+  var encTb=document.getElementById('bilan-encaissements-list');
+  if(!data.encaissements.length){
+    encTb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Aucun encaissement ce mois-ci</td></tr>';
+  }else{
+    encTb.innerHTML=data.encaissements.map(function(d){
+      var c=db.clients.find(function(x){return x.id===d.clientId;});
+      return '<tr><td><strong>'+esc(d.numero)+'</strong></td><td>'+(c?esc(c.nom):'—')+'</td><td>'+fmtDate(d.receipt.date)+'</td><td>'+esc(d.receipt.mode||'—')+'</td><td><strong>'+fmt(d.receipt.amount||d.totalHT)+' €</strong></td></tr>';
+    }).join('');
+  }
+
+  var depTb=document.getElementById('bilan-depenses-list');
+  if(!data.depenses.length){
+    depTb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Aucune dépense ce mois-ci</td></tr>';
+  }else{
+    depTb.innerHTML=data.depenses.slice().sort(function(a,b){return a.date.localeCompare(b.date);}).map(function(d){
+      return '<tr><td>'+fmtDate(d.date)+'</td><td>'+esc(DEPENSE_CATEGORIES[d.categorie]||d.categorie)+'</td><td>'+esc(d.libelle)+'</td><td>'+esc(d.fournisseur||'—')+'</td><td><strong>'+fmt(d.montant)+' €</strong></td></tr>';
+    }).join('');
+  }
+}
+
+// ═══ PDF BILAN MENSUEL ═══════════════════════════════════
+function downloadBilanPDF(){
+  var data=getBilanData();
+  var p=db.params;
+  var pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+  var W=210,H=297,ML=14,MR=196,CW=MR-ML;
+  var noir=[20,20,20],gris=[100,100,100],vert=[22,163,74],vc=[240,253,244],vb=[74,222,128];
+  var rouge=[185,28,28],rc=[254,242,242],bleu=[26,86,219],fb=[240,253,244];
+  var moisLabel=MOIS_NOMS[data.mois]+' '+data.annee;
+
+  // ───────────────────────── PAGE 1 : RESUME ─────────────────────────
+  var Y=12;
+  var LSIZE=28,txtX=ML;
+  if(p.logo){try{pdf.addImage(p.logo,'AUTO',ML,Y,LSIZE,LSIZE,'','FAST');txtX=ML+LSIZE+6;}catch(e){}}
+  pdf.setFontSize(12.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);pdf.text(p.nom||'Mon Entreprise',txtX,Y+7);
+  pdf.setFontSize(7.8);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);
+  var iy=Y+13;[p.adresse,p.ville,p.tel?'Tel. : '+p.tel:'',p.siret?'SIRET : '+p.siret:''].filter(Boolean).forEach(function(l){pdf.text(l,txtX,iy);iy+=4;});
+
+  var bW=60,bH=30,bX=MR-bW;
+  pdf.setFillColor.apply(pdf,fb);pdf.setDrawColor.apply(pdf,vb);pdf.setLineWidth(1.5);pdf.roundedRect(bX,Y,bW,bH,3,3,'FD');
+  pdf.setFontSize(13);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,bleu);pdf.text('BILAN MENSUEL',bX+bW/2,Y+10,{align:'center'});
+  pdf.setFontSize(11);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);pdf.text(moisLabel,bX+bW/2,Y+18,{align:'center'});
+  pdf.setFontSize(7.5);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text('Genere le '+fmtDate(new Date().toISOString().split('T')[0]),bX+bW/2,Y+25,{align:'center'});
+
+  Y=Math.max(iy+8,Y+bH+10);
+
+  // Titre central
+  pdf.setFontSize(16);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);
+  pdf.text('Resume financier — '+moisLabel,W/2,Y,{align:'center'});
+  Y+=14;
+
+  // 3 blocs : Encaisse / Depense / Solde
+  var blocW=(CW-12)/3;
+  function statBlock(x,label,montant,color,bgColor){
+    pdf.setFillColor.apply(pdf,bgColor);pdf.setDrawColor.apply(pdf,color);pdf.setLineWidth(1);
+    pdf.roundedRect(x,Y,blocW,32,4,4,'FD');
+    pdf.setFontSize(8);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,color);
+    pdf.text(label,x+blocW/2,Y+9,{align:'center'});
+    pdf.setFontSize(16);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);
+    pdf.text(fmt(montant)+' €',x+blocW/2,Y+21,{align:'center'});
+  }
+  statBlock(ML,'TOTAL ENCAISSE',data.totalEncaisse,vert,vc);
+  statBlock(ML+blocW+6,'TOTAL DEPENSE',data.totalDepense,rouge,rc);
+  var soldeColor=data.solde>=0?vert:rouge;
+  var soldeBg=data.solde>=0?vc:rc;
+  statBlock(ML+2*(blocW+6),'SOLDE DU MOIS',data.solde,soldeColor,soldeBg);
+  Y+=42;
+
+  // Barre comparative visuelle simple
+  pdf.setFontSize(9);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);
+  pdf.text('Repartition encaissements / depenses',ML,Y);
+  Y+=6;
+  var maxVal=Math.max(data.totalEncaisse,data.totalDepense,1);
+  var barMaxW=CW-30;
+  var encW=(data.totalEncaisse/maxVal)*barMaxW;
+  var depW=(data.totalDepense/maxVal)*barMaxW;
+  pdf.setFontSize(7.5);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);
+  pdf.text('Encaisse',ML,Y+4);
+  pdf.setFillColor.apply(pdf,vert);pdf.rect(ML+26,Y,encW,5,'F');
+  pdf.text('Depense',ML,Y+12);
+  pdf.setFillColor.apply(pdf,rouge);pdf.rect(ML+26,Y+8,depW,5,'F');
+  Y+=22;
+
+  // Repartition des depenses par categorie
+  if(data.depenses.length){
+    pdf.setFontSize(9);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);
+    pdf.text('Répartition des dépenses par catégorie',ML,Y);Y+=4;
+    var byCateg={};
+    data.depenses.forEach(function(d){byCateg[d.categorie]=(byCateg[d.categorie]||0)+d.montant;});
+    var categRows=Object.keys(byCateg).map(function(k){return [DEPENSE_CATEGORIES[k]||k,fmt(byCateg[k])+' €'];}).sort(function(a,b){return parseFloat(b[1])-parseFloat(a[1]);});
+    pdf.autoTable({startY:Y,head:[['Catégorie','Montant']],body:categRows,margin:{left:ML,right:W-MR},styles:{fontSize:8.5,cellPadding:3.5,textColor:noir},headStyles:{fillColor:[245,245,245],textColor:noir,fontStyle:'bold',fontSize:8},columnStyles:{1:{halign:'right',fontStyle:'bold'}}});
+    Y=pdf.lastAutoTable.finalY+8;
+  }
+
+  // Footer page 1
+  var fY1=270;
+  pdf.setDrawColor(210,215,220);pdf.setLineWidth(0.3);pdf.line(ML,fY1,MR,fY1);
+  pdf.setFontSize(6.5);pdf.setFont('helvetica','normal');pdf.setTextColor(150,150,150);
+  pdf.text((p.nom||'')+(p.siret?' · SIRET : '+p.siret:''),W/2,fY1+5,{align:'center'});
+  pdf.text('Page 1/2 — Resume',W/2,fY1+9.5,{align:'center'});
+
+  // ───────────────────────── PAGE 2 : DETAIL COMPLET ─────────────────────────
+  pdf.addPage();
+  Y=16;
+  pdf.setFontSize(14);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);
+  pdf.text('Détail complet — '+moisLabel,ML,Y);
+  Y+=10;
+
+  pdf.setFontSize(10);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,vert);
+  pdf.text('Encaissements ('+data.encaissements.length+')',ML,Y);Y+=4;
+  if(data.encaissements.length){
+    var encRows=data.encaissements.map(function(d){
+      var c=db.clients.find(function(x){return x.id===d.clientId;});
+      return [d.numero,c?c.nom:'—',fmtDate(d.receipt.date),d.receipt.mode||'—',fmt(d.receipt.amount||d.totalHT)+' €'];
+    });
+    pdf.autoTable({startY:Y,head:[['N° Facture','Client','Date paiement','Mode','Montant']],body:encRows,margin:{left:ML,right:W-MR},styles:{fontSize:8,cellPadding:3,textColor:noir},headStyles:{fillColor:vert,textColor:255,fontStyle:'bold',fontSize:8},columnStyles:{4:{halign:'right',fontStyle:'bold'}},foot:[['','','','Total',fmt(data.totalEncaisse)+' €']],footStyles:{fillColor:[245,250,247],textColor:noir,fontStyle:'bold',fontSize:8.5}});
+    Y=pdf.lastAutoTable.finalY+10;
+  }else{
+    pdf.setFontSize(9);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);
+    pdf.text('Aucun encaissement ce mois-ci.',ML,Y+4);Y+=14;
+  }
+
+  if(Y>240){pdf.addPage();Y=16;}
+
+  pdf.setFontSize(10);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,rouge);
+  pdf.text('Dépenses ('+data.depenses.length+')',ML,Y);Y+=4;
+  if(data.depenses.length){
+    var depRows=data.depenses.slice().sort(function(a,b){return a.date.localeCompare(b.date);}).map(function(d){
+      return [fmtDate(d.date),DEPENSE_CATEGORIES[d.categorie]||d.categorie,d.libelle,d.fournisseur||'—',fmt(d.montant)+' €'];
+    });
+    pdf.autoTable({startY:Y,head:[['Date','Catégorie','Libellé','Fournisseur','Montant']],body:depRows,margin:{left:ML,right:W-MR},styles:{fontSize:8,cellPadding:3,textColor:noir},headStyles:{fillColor:rouge,textColor:255,fontStyle:'bold',fontSize:8},columnStyles:{4:{halign:'right',fontStyle:'bold'}},foot:[['','','','Total',fmt(data.totalDepense)+' €']],footStyles:{fillColor:[253,245,245],textColor:noir,fontStyle:'bold',fontSize:8.5}});
+    Y=pdf.lastAutoTable.finalY+10;
+  }else{
+    pdf.setFontSize(9);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);
+    pdf.text('Aucune dépense ce mois-ci.',ML,Y+4);Y+=14;
+  }
+
+  // Footer derniere page
+  var totalPages=pdf.internal.getNumberOfPages();
+  for(var pg=1;pg<=totalPages;pg++){
+    pdf.setPage(pg);
+    var fY=270;
+    pdf.setDrawColor(210,215,220);pdf.setLineWidth(0.3);pdf.line(ML,fY,MR,fY);
+    pdf.setFontSize(6.5);pdf.setFont('helvetica','normal');pdf.setTextColor(150,150,150);
+    pdf.text((p.nom||'')+(p.siret?' · SIRET : '+p.siret:'')+(p.adresse?' · '+p.adresse:'')+(p.ville?' · '+p.ville:''),W/2,fY+5,{align:'center'});
+    pdf.text('Page '+pg+'/'+totalPages,W/2,fY+9.5,{align:'center'});
+  }
+
+  previewPDF(pdf,'Bilan_'+MOIS_NOMS[data.mois]+'_'+data.annee+'.pdf');
 }
 
 function initUrssafPage(){
