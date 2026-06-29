@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Laissez votre avis</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.card{background:#fff;border-radius:18px;max-width:440px;width:100%;padding:32px 28px;box-shadow:0 25px 70px rgba(0,0,0,.35);}
+.logo{width:52px;height:52px;background:linear-gradient(135deg,#1A56DB,#0D9F6E);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 16px;}
+h1{text-align:center;font-size:19px;font-weight:800;color:#1A202C;margin-bottom:6px;}
+.subtitle{text-align:center;font-size:13px;color:#718096;margin-bottom:26px;}
+.fg{margin-bottom:18px;}
+.fg label{display:block;font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
+.fg input,.fg textarea{width:100%;padding:11px 13px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:14px;font-family:inherit;transition:.15s;}
+.fg input:focus,.fg textarea:focus{outline:none;border-color:#1A56DB;box-shadow:0 0 0 3px rgba(26,86,219,.1);}
+.fg textarea{resize:vertical;min-height:90px;}
+.fg input[type="text"]#code{text-transform:uppercase;font-family:monospace;font-weight:700;letter-spacing:.05em;text-align:center;font-size:16px;}
+.stars{display:flex;justify-content:center;gap:8px;margin-bottom:4px;}
+.star{font-size:36px;cursor:pointer;color:#E2E8F0;transition:.15s;-webkit-tap-highlight-color:transparent;}
+.star.active{color:#F59E0B;}
+.btn{width:100%;padding:13px;border-radius:10px;border:none;font-size:15px;font-weight:700;cursor:pointer;transition:.15s;}
+.btn-primary{background:#1A56DB;color:#fff;}
+.btn-primary:hover{background:#1440B0;}
+.btn-primary:disabled{background:#CBD5E1;cursor:not-allowed;}
+.error{background:#FEF2F2;border:1px solid #FCA5A5;color:#DC2626;font-size:12.5px;padding:10px 14px;border-radius:8px;margin-bottom:14px;display:none;}
+.success{display:none;text-align:center;padding:20px 0;}
+.success .check{width:60px;height:60px;background:#DCFCE7;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 16px;}
+.success h2{font-size:18px;color:#15803D;margin-bottom:8px;}
+.success p{font-size:13.5px;color:#718096;}
+.loading{display:none;text-align:center;color:#718096;font-size:13px;padding:20px 0;}
+#form-section.hidden,.error.show{display:block!important;}
+.hidden{display:none!important;}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">⭐</div>
+  <h1>Votre avis compte pour nous</h1>
+  <p class="subtitle">Merci de prendre quelques instants pour évaluer notre prestation</p>
+
+  <div class="error" id="error-msg"></div>
+  <div class="loading" id="loading-msg">Envoi en cours...</div>
+
+  <div id="form-section">
+    <div class="fg">
+      <label>Code reçu de votre prestataire</label>
+      <input type="text" id="code" placeholder="EX: AB12CD-X9P7K" maxlength="20">
+    </div>
+    <div class="fg">
+      <label>Votre note</label>
+      <div class="stars" id="stars">
+        <span class="star" data-val="1">★</span>
+        <span class="star" data-val="2">★</span>
+        <span class="star" data-val="3">★</span>
+        <span class="star" data-val="4">★</span>
+        <span class="star" data-val="5">★</span>
+      </div>
+    </div>
+    <div class="fg">
+      <label>Commentaire (optionnel)</label>
+      <textarea id="commentaire" placeholder="Dites-nous ce que vous avez pensé du service..."></textarea>
+    </div>
+    <button class="btn btn-primary" id="submit-btn" onclick="submitAvis()">Envoyer mon avis</button>
+  </div>
+
+  <div class="success" id="success-section">
+    <div class="check">✓</div>
+    <h2>Merci pour votre avis !</h2>
+    <p>Votre retour a bien été transmis à l'entreprise.</p>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// CONFIGURATION FIREBASE — DOIT ÊTRE IDENTIQUE À L'APP PRINCIPALE
+// ═══════════════════════════════════════════════════════
+// Copiez ici exactement le même objet FIREBASE_CONFIG que dans votre
+// application principale (gestion-devis-factures.html), section configuration en haut du script.
+var FIREBASE_CONFIG = {
+  apiKey:"AIzaSyCg6ZhR0-LYxynuuABQNc1RMqu2E8IaFc4",
+  authDomain:"facturedevis-2684d.firebaseapp.com",
+  projectId:"facturedevis-2684d",
+  storageBucket:"facturedevis-2684d.firebasestorage.app",
+  messagingSenderId:"702834434238",
+  appId:"1:702834434238:web:03650c40921bbe61577eef"
+};
+
+var fbApp = firebase.initializeApp(FIREBASE_CONFIG);
+var fbDb = firebase.firestore();
+
+var selectedNote = 0;
+
+document.querySelectorAll('.star').forEach(function(starEl){
+  starEl.addEventListener('click', function(){
+    selectedNote = parseInt(starEl.getAttribute('data-val'));
+    updateStars();
+  });
+});
+
+function updateStars(){
+  document.querySelectorAll('.star').forEach(function(starEl){
+    var val = parseInt(starEl.getAttribute('data-val'));
+    starEl.classList.toggle('active', val <= selectedNote);
+  });
+}
+
+function showError(msg){
+  var el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+function hideError(){
+  document.getElementById('error-msg').classList.remove('show');
+}
+
+async function submitAvis(){
+  hideError();
+  var code = document.getElementById('code').value.trim().toUpperCase();
+  var commentaire = document.getElementById('commentaire').value.trim();
+
+  if(!code){
+    showError('Veuillez saisir le code reçu de votre prestataire.');
+    return;
+  }
+  if(!selectedNote){
+    showError('Veuillez sélectionner une note (de 1 à 5 étoiles).');
+    return;
+  }
+
+  // Le code a le format PREFIXE-XXXXX (ex: AB12CD-X9P7K)
+  // Le prefixe (avant le tiret) identifie le compte Firebase a qui appartient cet avis
+  var parts = code.split('-');
+  if(parts.length < 2){
+    showError('Le format du code semble incorrect. Vérifiez auprès de votre prestataire.');
+    return;
+  }
+  var comptePrefixe = parts[0];
+
+  document.getElementById('submit-btn').disabled = true;
+  document.getElementById('loading-msg').style.display = 'block';
+
+  try{
+    // Verifie que ce code n'a pas deja ete utilise pour eviter les doublons
+    var existing = await fbDb.collection('avisClients').doc(code).get();
+    if(existing.exists){
+      showError('Un avis a déjà été enregistré avec ce code.');
+      document.getElementById('submit-btn').disabled = false;
+      document.getElementById('loading-msg').style.display = 'none';
+      return;
+    }
+
+    await fbDb.collection('avisClients').doc(code).set({
+      code: code,
+      comptePrefixe: comptePrefixe,
+      note: selectedNote,
+      commentaire: commentaire,
+      date: new Date().toISOString().split('T')[0],
+      horodatage: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    document.getElementById('form-section').classList.add('hidden');
+    document.getElementById('success-section').style.display = 'block';
+  }catch(e){
+    console.error('Erreur envoi avis:', e);
+    showError("Une erreur est survenue lors de l'envoi. Vérifiez votre connexion internet et réessayez.");
+    document.getElementById('submit-btn').disabled = false;
+  }
+  document.getElementById('loading-msg').style.display = 'none';
+}
+</script>
+</body>
+</html>
