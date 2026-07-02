@@ -460,9 +460,19 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
       Cotisations URSSAF
     </div>
-    <div class="bn-more-item" data-page="avis" onclick="bnGoTo('avis')">
+    <div class="bn-more-item" data-page="demandes" onclick="bnGoTo('demandes')" style="position:relative">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Demandes site web
+      <span id="demandes-badge-bn" style="display:none;position:absolute;right:14px;top:8px;background:#DC2626;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:10px">0</span>
+    </div>
+    <div class="bn-more-item" data-page="sitevitrine" onclick="bnGoTo('sitevitrine')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+      Site vitrine
+    </div>
+    <div class="bn-more-item" data-page="avis" onclick="bnGoTo('avis')" style="position:relative">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
       Avis clients
+      <span id="avis-badge-bn" style="display:none;position:absolute;right:14px;top:8px;background:#DC2626;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:10px">0</span>
+    </div>
     </div>
     <div class="bn-more-item" data-page="depenses" onclick="bnGoTo('depenses')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
@@ -540,8 +550,16 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
     <div class="nav-item" data-page="bilan">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.1-3-3-3.6 3.6"/></svg>Bilan mensuel
     </div>
-    <div class="nav-item" data-page="avis">
+    <div class="nav-item" data-page="avis" style="position:relative">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Avis clients
+      <span id="avis-badge" style="display:none;position:absolute;right:14px;top:10px;background:#DC2626;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:10px">0</span>
+    </div>
+    <div class="nav-item" data-page="demandes" style="position:relative">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Demandes site web
+      <span id="demandes-badge" style="display:none;position:absolute;right:14px;top:10px;background:#DC2626;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:10px">0</span>
+    </div>
+    <div class="nav-item" data-page="sitevitrine">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>Site vitrine
     </div>
     <div class="nav-item" data-page="planning">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Planning Chantiers
@@ -1033,9 +1051,164 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
       <div class="stat"><div class="stat-icon blue">⏳</div><div class="stat-text"><div class="label">Codes en attente</div><div class="value" id="avis-en-attente">0</div></div></div>
     </div>
 
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>🔑 Codes avis</h3></div>
+      <div class="card-body">
+        <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Un code est automatiquement créé sur chaque facture, mais vous pouvez aussi en générer un librement — utile pour un client sans facture, à donner de vive voix ou par SMS.</p>
+        <div style="display:flex;gap:10px;align-items:end;margin-bottom:18px;flex-wrap:wrap">
+          <div class="fg" style="margin:0;flex:1;min-width:180px"><label>Nom du client (optionnel)</label><input id="ca-nom" placeholder="Ex: Jean Dupont"></div>
+          <button class="btn btn-primary" onclick="creerCodeAvisLibre()">➕ Générer un code</button>
+        </div>
+        <div id="codes-avis-list" style="display:grid;gap:8px"></div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-header"><h3>Avis reçus</h3></div>
       <div class="card-body" id="avis-list" style="display:grid;gap:12px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE DEMANDES SITE WEB (devis + contacts) -->
+<div class="page" id="page-demandes">
+  <div class="topbar"><h1>📩 Demandes site web</h1></div>
+  <div class="content">
+    <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat"><div class="stat-icon blue">📝</div><div class="stat-text"><div class="label">Demandes de devis</div><div class="value" id="dmd-devis-total">0</div></div></div>
+      <div class="stat"><div class="stat-icon orange">✉️</div><div class="stat-text"><div class="label">Messages contact</div><div class="value" id="dmd-contacts-total">0</div></div></div>
+      <div class="stat"><div class="stat-icon green">🆕</div><div class="stat-text"><div class="label">Non traitées</div><div class="value" id="dmd-nouveau-total">0</div></div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>📝 Demandes de devis</h3></div>
+      <div class="card-body" id="dmd-devis-list" style="display:grid;gap:12px"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>✉️ Messages du formulaire de contact</h3></div>
+      <div class="card-body" id="dmd-contacts-list" style="display:grid;gap:12px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE SITE VITRINE (édition du contenu public) -->
+<div class="page" id="page-sitevitrine">
+  <div class="topbar"><h1>🌐 Site vitrine</h1></div>
+  <div class="content">
+    <div style="margin-bottom:16px;padding:12px 14px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;font-size:12.5px;color:#1E40AF">
+      ℹ️ Ces informations sont affichées en direct sur votre site vitrine (<code>vitrine.html</code>). Enregistrez pour publier les changements immédiatement — aucune réinstallation du site n'est nécessaire.
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>Identité</h3></div>
+      <div class="card-body">
+        <div class="fg"><label>Nom affiché (logo / titre du site)</label><input id="sv-nom" placeholder="NicoMultiServices"></div>
+        <div class="fg">
+          <label>Logo (URL de l'image)</label>
+          <div style="display:flex;gap:10px;align-items:center">
+            <img id="sv-logo-preview" src="" alt="" style="display:none;width:46px;height:46px;object-fit:contain;border-radius:8px;border:1px solid var(--border);background:#fff;padding:3px">
+            <input id="sv-logoUrl" placeholder="https://exemple.com/logo.png" oninput="document.getElementById('sv-logo-preview').src=this.value;document.getElementById('sv-logo-preview').style.display=this.value?'block':'none';" style="flex:1">
+          </div>
+          <p style="font-size:11.5px;color:var(--muted);margin-top:6px">Collez le lien direct d'une image déjà hébergée (ex: lien Imgur, Google Drive en partage public, ou tout hébergeur d'images).</p>
+        </div>
+        <div class="fg"><label>Titre principal (grand titre en haut de page)</label><input id="sv-heroTitre" placeholder="Votre artisan multi-services de confiance"></div>
+        <div class="fg"><label>Phrase d'accroche</label><textarea id="sv-heroDesc" placeholder="Peinture, plâtrerie, rénovation, petits travaux. Devis gratuit sous 24h..."></textarea></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fg"><label>Nb clients satisfaits (chiffre)</label><input id="sv-statClients" type="number" placeholder="350"></div>
+          <div class="fg"><label>Années d'expérience (chiffre)</label><input id="sv-statAnnees" type="number" placeholder="12"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>Coordonnées</h3></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fg"><label>Téléphone affiché</label><input id="sv-telephone" placeholder="06 00 00 00 00"></div>
+          <div class="fg"><label>Email</label><input id="sv-email" type="email" placeholder="contact@nicomultiservices.fr"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fg"><label>Horaires ligne 1</label><input id="sv-horaires1" placeholder="Lun–Ven : 8h–19h"></div>
+          <div class="fg"><label>Horaires ligne 2</label><input id="sv-horaires2" placeholder="Sam : 9h–17h"></div>
+        </div>
+        <div class="fg"><label>Horaires (résumé sous le téléphone)</label><input id="sv-horairesCourt" placeholder="Lu–Sa / 8h–19h"></div>
+        <div class="fg"><label>Lien Google Maps à intégrer (URL d'embed, optionnel)</label><input id="sv-mapEmbedUrl" placeholder="https://maps.google.com/maps?q=Lille&output=embed"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>Zone d'intervention</h3></div>
+      <div class="card-body">
+        <div class="fg"><label>Texte de présentation de la zone</label><textarea id="sv-zoneTexte" placeholder="J'interviens dans un rayon de 50 km..."></textarea></div>
+        <div class="fg"><label>Villes couvertes (séparées par des virgules)</label><textarea id="sv-zoneVilles" placeholder="Lille, Roubaix, Tourcoing, Valenciennes..."></textarea></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>Pied de page & réseaux sociaux</h3></div>
+      <div class="card-body">
+        <div class="fg"><label>Description (pied de page)</label><textarea id="sv-footerDesc" placeholder="Artisan multi-services dans le Nord..."></textarea></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fg"><label>Lien Facebook (optionnel)</label><input id="sv-facebookUrl" placeholder="https://facebook.com/..."></div>
+          <div class="fg"><label>Lien Instagram (optionnel)</label><input id="sv-instagramUrl" placeholder="https://instagram.com/..."></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fg"><label>Texte copyright</label><input id="sv-copyright" placeholder="© 2026 NicoMultiServices – Tous droits réservés"></div>
+          <div class="fg"><label>Ligne zone (bas de page)</label><input id="sv-footerZoneLabel" placeholder="Artisan multi-services – Nord (59)"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>Mentions légales</h3></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fg"><label>SIRET</label><input id="sv-siret" placeholder="123 456 789 00012"></div>
+          <div class="fg"><label>Hébergement</label><input id="sv-hebergement" placeholder="GitHub Pages"></div>
+        </div>
+        <div class="fg"><label>Adresse (mentions légales)</label><input id="sv-adresseLegale" placeholder="Adresse complète de l'entreprise"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>📊 Statistiques du site</h3></div>
+      <div class="card-body">
+        <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
+          <div class="stat"><div class="stat-icon blue">👁️</div><div class="stat-text"><div class="label">Visites totales</div><div class="value" id="stat-visites-total">—</div></div></div>
+          <div class="stat"><div class="stat-icon green">📅</div><div class="stat-text"><div class="label">Visites (7 derniers jours)</div><div class="value" id="stat-visites-7j">—</div></div></div>
+          <div class="stat"><div class="stat-icon orange">🖼️</div><div class="stat-text"><div class="label">Photos en galerie</div><div class="value" id="stat-photos">—</div></div></div>
+          <div class="stat"><div class="stat-icon purple">⭐</div><div class="stat-text"><div class="label">Note moyenne des avis</div><div class="value" id="stat-note">—</div></div></div>
+        </div>
+        <div id="stat-visites-graph" style="margin-top:18px;display:flex;align-items:flex-end;gap:4px;height:80px"></div>
+        <p style="font-size:11px;color:var(--muted);margin-top:8px">Visites des 14 derniers jours. Une visite est comptée à chaque chargement de la page d'accueil du site vitrine (hors mode admin).</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>🖼️ Photos de vos prestations</h3></div>
+      <div class="card-body">
+        <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Ajoutez une photo en collant son URL directement — pas besoin de passer par le mode admin du site.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 140px;gap:10px;align-items:end;margin-bottom:18px">
+          <div class="fg" style="margin:0"><label>URL de la photo</label><input id="ph-url" placeholder="https://exemple.com/photo.jpg"></div>
+          <div class="fg" style="margin:0"><label>Catégorie</label>
+            <select id="ph-categorie">
+              <option value="Avant/Après">Avant / Après</option>
+              <option value="Peinture">Peinture</option>
+              <option value="Plâtrerie">Plâtrerie</option>
+              <option value="Rénovation">Rénovation</option>
+              <option value="Autre">Autre</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="ajouterPhotoGalerie()" style="justify-content:center">➕ Ajouter</button>
+        </div>
+        <div id="galerie-admin-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px"></div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:14px">
+      <button class="btn btn-primary" onclick="saveSiteVitrine()">💾 Enregistrer et publier</button>
+      <span id="sv-save-ok" style="display:none;color:#15803D;font-size:13px;font-weight:600">✓ Publié avec succès</span>
     </div>
   </div>
 </div>
@@ -1611,6 +1784,7 @@ function startFirestoreListener(){
   });
   startScansMetaListener();
   startAvisListener();
+  startDemandesListeners();
 }
 
 // ═══ SYNCHRONISATION DES METADONNEES DE SCANS (legere, sure) ══
@@ -1858,6 +2032,8 @@ function showPage(name){
   else if(name==='depenses'){if(!db.depenses)db.depenses=[];renderDepenses();}
   else if(name==='bilan')initBilanPage();
   else if(name==='avis')initAvisPage();
+  else if(name==='demandes')initDemandesPage();
+  else if(name==='sitevitrine')initSiteVitrinePage();
   else if(name==='parametres'){loadParams();setTimeout(function(){initSig('params');if(db.params.signature)setSig('params',db.params.signature);},80);}
 }
 
@@ -2352,22 +2528,86 @@ function generateAvisCode(){
 }
 
 var currentAvisCodeDocId=null;
+var currentAvisCode=null;
 function showAvisCodeModal(docId){
   var doc=db.documents.find(function(x){return x.id===docId;});
   if(!doc||!doc.codeAvis)return;
   currentAvisCodeDocId=docId;
+  currentAvisCode=doc.codeAvis;
   document.getElementById('avis-code-display').textContent=doc.codeAvis;
   openModal('modal-avis-code');
 }
+function showCodeModal(code){
+  currentAvisCodeDocId=null;
+  currentAvisCode=code;
+  document.getElementById('avis-code-display').textContent=code;
+  openModal('modal-avis-code');
+}
+function creerCodeAvisLibre(){
+  if(!db.codesAvisLibres)db.codesAvisLibres=[];
+  var nom=document.getElementById('ca-nom').value.trim();
+  var code=generateAvisCode();
+  db.codesAvisLibres.push({code:code,nom:nom,date:new Date().toISOString().split('T')[0]});
+  sDB();
+  document.getElementById('ca-nom').value='';
+  renderCodesAvisList();
+  showCodeModal(code);
+}
+
+function supprimerCodeAvisLibre(code){
+  if(!confirm('Supprimer ce code ? Il ne pourra plus être utilisé pour laisser un avis.'))return;
+  db.codesAvisLibres=(db.codesAvisLibres||[]).filter(function(c){return c.code!==code;});
+  sDB();
+  renderCodesAvisList();
+}
+
+function renderCodesAvisList(){
+  var container=document.getElementById('codes-avis-list');
+  if(!container)return;
+  if(!db.codesAvisLibres)db.codesAvisLibres=[];
+  var codesUtilises=((db.avisClients&&db.avisClients.liste)||[]).map(function(a){return a.code;});
+
+  var entriesFacture=(db.documents||[]).filter(function(d){return d.codeAvis;}).map(function(d){
+    var c=db.clients.find(function(x){return x.id===d.clientId;});
+    return {code:d.codeAvis,nom:c?c.nom:'',source:(d.type==='facture'?'Facture ':'Devis ')+d.numero,date:d.date,libre:false};
+  });
+  var entriesLibres=db.codesAvisLibres.map(function(c){
+    return {code:c.code,nom:c.nom||'',source:'Code libre',date:c.date,libre:true};
+  });
+
+  var all=entriesFacture.concat(entriesLibres).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+
+  if(!all.length){
+    container.innerHTML='<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px">Aucun code généré pour le moment.</div>';
+    return;
+  }
+
+  container.innerHTML=all.map(function(e){
+    var utilise=codesUtilises.indexOf(e.code)!==-1;
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--border);border-radius:8px;padding:9px 12px;flex-wrap:wrap">'+
+      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+
+        '<span style="font-family:monospace;font-weight:800;font-size:13.5px;color:'+(utilise?'#15803D':'#1A56DB')+'">'+esc(e.code)+'</span>'+
+        (e.nom?'<span style="font-size:12.5px;color:var(--text)">'+esc(e.nom)+'</span>':'')+
+        '<span style="font-size:11px;color:var(--muted)">'+esc(e.source)+'</span>'+
+        '<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:8px;background:'+(utilise?'#DCFCE7;color:#15803D':'#EFF6FF;color:#1A56DB')+'">'+(utilise?'✓ Utilisé':'⏳ En attente')+'</span>'+
+      '</div>'+
+      '<div style="display:flex;gap:6px">'+
+        '<button class="btn btn-ghost btn-sm" onclick="showCodeModal(\''+e.code+'\')">👁️ Voir</button>'+
+        (e.libre?'<button class="btn btn-ghost btn-sm" onclick="supprimerCodeAvisLibre(\''+e.code+'\')">🗑️</button>':'')+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
 function copyAvisCode(){
-  var doc=db.documents.find(function(x){return x.id===currentAvisCodeDocId;});
-  if(!doc)return;
+  var code=currentAvisCode||(currentAvisCodeDocId&&db.documents.find(function(x){return x.id===currentAvisCodeDocId;})||{}).codeAvis;
+  if(!code)return;
   if(navigator.clipboard){
-    navigator.clipboard.writeText(doc.codeAvis).then(function(){
-      alert('Code copié : '+doc.codeAvis);
-    }).catch(function(){alert('Code : '+doc.codeAvis);});
+    navigator.clipboard.writeText(code).then(function(){
+      alert('Code copié : '+code);
+    }).catch(function(){alert('Code : '+code);});
   }else{
-    alert('Code : '+doc.codeAvis);
+    alert('Code : '+code);
   }
 }
 
@@ -2380,6 +2620,23 @@ function initAvisPage(){
   updateAvisUrlDisplay();
   startAvisListener();
   renderAvisList();
+  renderCodesAvisList();
+  // Marque tous les avis actuels comme vus (masque le badge de notification)
+  var list=(db.avisClients&&db.avisClients.liste)||[];
+  db.params.avisVus=list.length;
+  sDB();
+  updateAvisBadge();
+}
+
+function updateAvisBadge(){
+  var list=(db.avisClients&&db.avisClients.liste)||[];
+  var nonVus=Math.max(0,list.length-(db.params.avisVus||0));
+  ['avis-badge','avis-badge-bn'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(!el)return;
+    if(nonVus>0){el.style.display='inline-block';el.textContent=nonVus;}
+    else el.style.display='none';
+  });
 }
 
 function saveAvisPageUrl(){
@@ -2407,6 +2664,8 @@ function startAvisListener(){
     db.avisClients.liste=avis;
     sDB();
     renderAvisList();
+    renderCodesAvisList();
+    updateAvisBadge();
   },function(e){console.error('Erreur listener avis:',e);});
 }
 
@@ -2415,10 +2674,11 @@ function renderAvisList(){
   var container=document.getElementById('avis-list');
   if(!container)return;
 
-  // Codes generes mais pas encore utilises (en attente)
-  var codesGeneres=(db.documents||[]).filter(function(d){return d.codeAvis;});
+  // Codes generes mais pas encore utilises (en attente) — factures + codes libres
+  var codesGeneres=(db.documents||[]).filter(function(d){return d.codeAvis;}).map(function(d){return d.codeAvis;})
+    .concat((db.codesAvisLibres||[]).map(function(c){return c.code;}));
   var codesUtilises=list.map(function(a){return a.code;});
-  var enAttente=codesGeneres.filter(function(d){return codesUtilises.indexOf(d.codeAvis)===-1;});
+  var enAttente=codesGeneres.filter(function(code){return codesUtilises.indexOf(code)===-1;});
 
   document.getElementById('avis-total').textContent=list.length;
   document.getElementById('avis-en-attente').textContent=enAttente.length;
@@ -2447,6 +2707,300 @@ function renderAvisList(){
       (a.commentaire?'<div style="font-size:13px;color:var(--text)">'+esc(a.commentaire)+'</div>':'<div style="font-size:12px;color:var(--muted);font-style:italic">Aucun commentaire laissé.</div>')+
     '</div>';
   }).join('');
+}
+
+// ═══ PAGE DEMANDES SITE WEB (devis + contacts publics) ══
+var fbDemandesDevisUnsubscribe=null,fbContactsUnsubscribe=null;
+
+function initDemandesPage(){
+  startDemandesListeners();
+  renderDemandes();
+}
+
+// Ecoute en temps reel les collections publiques "demandesDevis" et "contacts"
+// alimentees par le site vitrine (vitrine.html), sans authentification cote client.
+function startDemandesListeners(){
+  if(!FIREBASE_ENABLED||!fbUser)return;
+  if(!fbDemandesDevisUnsubscribe){
+    fbDemandesDevisUnsubscribe=fbDb.collection('demandesDevis').orderBy('date','desc').onSnapshot(function(snap){
+      var liste=[];
+      snap.forEach(function(doc){liste.push(Object.assign({_id:doc.id},doc.data()));});
+      if(!db.demandesDevis)db.demandesDevis={};
+      db.demandesDevis.liste=liste;
+      sDB();
+      renderDemandes();
+      updateDemandesBadge();
+    },function(e){console.error('Erreur listener demandesDevis:',e);});
+  }
+  if(!fbContactsUnsubscribe){
+    fbContactsUnsubscribe=fbDb.collection('contacts').orderBy('date','desc').onSnapshot(function(snap){
+      var liste=[];
+      snap.forEach(function(doc){liste.push(Object.assign({_id:doc.id},doc.data()));});
+      if(!db.contactsSite)db.contactsSite={};
+      db.contactsSite.liste=liste;
+      sDB();
+      renderDemandes();
+      updateDemandesBadge();
+    },function(e){console.error('Erreur listener contacts:',e);});
+  }
+}
+
+function fmtDateHeure(ts){
+  if(!ts)return'';
+  var d=ts.toDate?ts.toDate():new Date(ts);
+  if(isNaN(d.getTime()))return'';
+  return d.toLocaleDateString('fr-FR')+' à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+}
+
+function updateDemandesBadge(){
+  var devis=(db.demandesDevis&&db.demandesDevis.liste)||[];
+  var contacts=(db.contactsSite&&db.contactsSite.liste)||[];
+  var nouveau=devis.filter(function(d){return d.statut!=='traite';}).length+contacts.filter(function(c){return c.statut!=='traite';}).length;
+  ['demandes-badge','demandes-badge-bn'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(!el)return;
+    if(nouveau>0){el.style.display='inline-block';el.textContent=nouveau;}
+    else el.style.display='none';
+  });
+}
+
+function marquerDemandeTraitee(type,id,traite){
+  var col=type==='devis'?'demandesDevis':'contacts';
+  fbDb.collection(col).doc(id).update({statut:traite?'traite':'nouveau'}).catch(function(e){console.error(e);});
+}
+
+function supprimerDemande(type,id){
+  if(!confirm('Supprimer cette demande ?'))return;
+  var col=type==='devis'?'demandesDevis':'contacts';
+  fbDb.collection(col).doc(id).delete().catch(function(e){console.error(e);});
+}
+
+function creerClientDepuisDemande(id){
+  var d=((db.demandesDevis&&db.demandesDevis.liste)||[]).find(function(x){return x._id===id;});
+  if(!d)return;
+  openClientModal(null);
+  document.getElementById('c-nom').value=(d.prenom||'')+' '+(d.nom||'');
+  document.getElementById('c-email').value=d.email||'';
+  document.getElementById('c-tel').value=d.tel||'';
+  document.getElementById('c-adresse').value=d.adresse||'';
+  marquerDemandeTraitee('devis',id,true);
+}
+
+function renderDemandes(){
+  var devis=(db.demandesDevis&&db.demandesDevis.liste)||[];
+  var contacts=(db.contactsSite&&db.contactsSite.liste)||[];
+
+  document.getElementById('dmd-devis-total').textContent=devis.length;
+  document.getElementById('dmd-contacts-total').textContent=contacts.length;
+  document.getElementById('dmd-nouveau-total').textContent=devis.filter(function(d){return d.statut!=='traite';}).length+contacts.filter(function(c){return c.statut!=='traite';}).length;
+
+  var devisContainer=document.getElementById('dmd-devis-list');
+  if(!devis.length){
+    devisContainer.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px">Aucune demande de devis reçue pour le moment.</div>';
+  }else{
+    devisContainer.innerHTML=devis.map(function(d){
+      var nouveau=d.statut!=='traite';
+      return '<div style="border:1px solid var(--border);border-left:4px solid '+(nouveau?'#DC2626':'#CBD5E1')+';border-radius:10px;padding:14px 16px">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px">'+
+          '<div><div style="font-size:14px;font-weight:700;color:var(--text)">'+esc(d.prenom||'')+' '+esc(d.nom||'')+(nouveau?' <span style="background:#FEE2E2;color:#DC2626;font-size:10px;font-weight:800;padding:2px 7px;border-radius:8px;margin-left:6px">NOUVEAU</span>':'')+'</div>'+
+          '<div style="font-size:11px;color:var(--muted);margin-top:2px">'+fmtDateHeure(d.date)+'</div></div>'+
+        '</div>'+
+        '<div style="font-size:12.5px;color:var(--text);margin-bottom:6px;display:flex;flex-wrap:wrap;gap:12px">'+
+          (d.tel?'<span>📞 '+esc(d.tel)+'</span>':'')+
+          (d.email?'<span>✉️ '+esc(d.email)+'</span>':'')+
+          (d.adresse?'<span>📍 '+esc(d.adresse)+'</span>':'')+
+        '</div>'+
+        (d.description?'<div style="font-size:13px;color:var(--text);background:#F8FAFC;border-radius:8px;padding:10px 12px;margin-bottom:10px">'+esc(d.description)+'</div>':'')+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+          '<button class="btn btn-primary btn-sm" onclick="creerClientDepuisDemande(\''+d._id+'\')">➕ Créer fiche client</button>'+
+          '<button class="btn btn-ghost btn-sm" onclick="marquerDemandeTraitee(\'devis\',\''+d._id+'\','+(nouveau?'true':'false')+')">'+(nouveau?'✓ Marquer traitée':'↺ Marquer nouvelle')+'</button>'+
+          '<button class="btn btn-ghost btn-sm" onclick="supprimerDemande(\'devis\',\''+d._id+'\')">🗑️ Supprimer</button>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+  }
+
+  var contactsContainer=document.getElementById('dmd-contacts-list');
+  if(!contacts.length){
+    contactsContainer.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px">Aucun message reçu pour le moment.</div>';
+  }else{
+    contactsContainer.innerHTML=contacts.map(function(c){
+      var nouveau=c.statut!=='traite';
+      return '<div style="border:1px solid var(--border);border-left:4px solid '+(nouveau?'#DC2626':'#CBD5E1')+';border-radius:10px;padding:14px 16px">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px">'+
+          '<div><div style="font-size:14px;font-weight:700;color:var(--text)">'+esc(c.nom||'')+(nouveau?' <span style="background:#FEE2E2;color:#DC2626;font-size:10px;font-weight:800;padding:2px 7px;border-radius:8px;margin-left:6px">NOUVEAU</span>':'')+'</div>'+
+          '<div style="font-size:11px;color:var(--muted);margin-top:2px">'+fmtDateHeure(c.date)+'</div></div>'+
+        '</div>'+
+        (c.email?'<div style="font-size:12.5px;color:var(--text);margin-bottom:6px">✉️ '+esc(c.email)+'</div>':'')+
+        (c.message?'<div style="font-size:13px;color:var(--text);background:#F8FAFC;border-radius:8px;padding:10px 12px;margin-bottom:10px">'+esc(c.message)+'</div>':'')+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+          '<button class="btn btn-ghost btn-sm" onclick="marquerDemandeTraitee(\'contact\',\''+c._id+'\','+(nouveau?'true':'false')+')">'+(nouveau?'✓ Marquer traitée':'↺ Marquer nouvelle')+'</button>'+
+          '<button class="btn btn-ghost btn-sm" onclick="supprimerDemande(\'contact\',\''+c._id+'\')">🗑️ Supprimer</button>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+  }
+}
+
+// ═══ PAGE SITE VITRINE (édition du contenu public depuis l'app) ══
+// Lit/écrit le document Firestore "siteConfig/main", lu en direct par vitrine.html.
+var SV_FIELDS=['nom','logoUrl','heroTitre','heroDesc','statClients','statAnnees','telephone','email','horaires1','horaires2','horairesCourt','mapEmbedUrl','zoneTexte','zoneVilles','footerDesc','facebookUrl','instagramUrl','copyright','footerZoneLabel','siret','hebergement','adresseLegale'];
+
+function initSiteVitrinePage(){
+  if(!FIREBASE_ENABLED||!fbUser){
+    document.getElementById('page-sitevitrine').querySelector('.content').insertAdjacentHTML('afterbegin','<div style="padding:12px 14px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;font-size:12.5px;color:#DC2626;margin-bottom:16px">⚠️ Connexion au compte requise pour modifier le site vitrine.</div>');
+    return;
+  }
+  fbDb.collection('siteConfig').doc('main').get().then(function(doc){
+    var cfg=doc.exists?doc.data():{};
+    SV_FIELDS.forEach(function(k){
+      var el=document.getElementById('sv-'+k);
+      if(el&&cfg[k]!==undefined&&cfg[k]!==null)el.value=cfg[k];
+    });
+    if(cfg.logoUrl){
+      var prev=document.getElementById('sv-logo-preview');
+      prev.src=cfg.logoUrl;prev.style.display='block';
+    }
+  }).catch(function(e){console.error('Erreur chargement siteConfig:',e);});
+  startGalerieAdminListener();
+  startSiteStatsListener();
+}
+
+function saveSiteVitrine(){
+  if(!FIREBASE_ENABLED||!fbUser){alert('Connexion requise pour publier les changements.');return;}
+  var data={};
+  SV_FIELDS.forEach(function(k){
+    var el=document.getElementById('sv-'+k);
+    if(!el)return;
+    var v=el.value.trim();
+    if(el.type==='number')data[k]=v?parseInt(v):null;
+    else data[k]=v;
+  });
+  fbDb.collection('siteConfig').doc('main').set(data,{merge:true}).then(function(){
+    var el=document.getElementById('sv-save-ok');
+    el.style.display='inline';
+    setTimeout(function(){el.style.display='none';},3000);
+  }).catch(function(e){
+    console.error('Erreur publication siteConfig:',e);
+    alert("Erreur lors de la publication. Vérifiez votre connexion internet et réessayez.");
+  });
+}
+
+// ═══ GALERIE — ajout de photos par URL depuis l'app ══════
+var fbGalerieAdminUnsubscribe=null;
+var galerieAdminListe=[];
+
+function startGalerieAdminListener(){
+  if(!FIREBASE_ENABLED||!fbUser)return;
+  if(fbGalerieAdminUnsubscribe)return;
+  fbGalerieAdminUnsubscribe=fbDb.collection('galerie').orderBy('date','desc').onSnapshot(function(snap){
+    galerieAdminListe=[];
+    snap.forEach(function(doc){galerieAdminListe.push(Object.assign({_id:doc.id},doc.data()));});
+    renderGalerieAdmin();
+    renderSiteStats();
+  },function(e){console.error('Erreur listener galerie:',e);});
+}
+
+function ajouterPhotoGalerie(){
+  var url=document.getElementById('ph-url').value.trim();
+  var cat=document.getElementById('ph-categorie').value;
+  if(!url){alert('Veuillez coller une URL de photo.');return;}
+  fbDb.collection('galerie').add({
+    url:url,
+    storagePath:null, // pas de fichier dans Firebase Storage : ajout par URL externe
+    categorie:cat,
+    date:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){
+    document.getElementById('ph-url').value='';
+  }).catch(function(e){
+    console.error('Erreur ajout photo:',e);
+    alert("Erreur lors de l'ajout de la photo. Vérifiez votre connexion internet et réessayez.");
+  });
+}
+
+function supprimerPhotoGalerie(id,storagePath){
+  if(!confirm('Supprimer cette photo de la galerie ?'))return;
+  var p=Promise.resolve();
+  if(storagePath)p=fbStorage?fbStorage.ref(storagePath).delete().catch(function(){}):Promise.resolve();
+  p.then(function(){return fbDb.collection('galerie').doc(id).delete();}).catch(function(e){console.error('Erreur suppression photo:',e);});
+}
+
+function renderGalerieAdmin(){
+  var grid=document.getElementById('galerie-admin-grid');
+  if(!grid)return;
+  if(!galerieAdminListe.length){
+    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:20px;font-size:13px">Aucune photo dans la galerie pour le moment.</div>';
+    return;
+  }
+  grid.innerHTML=galerieAdminListe.map(function(p){
+    return '<div style="position:relative;border-radius:10px;overflow:hidden;aspect-ratio:1;border:1px solid var(--border)">'+
+      '<img src="'+esc(p.url)+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">'+
+      '<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(15,23,42,.7);color:#fff;font-size:10px;padding:3px 6px">'+esc(p.categorie||'')+'</div>'+
+      '<button onclick="supprimerPhotoGalerie(\''+p._id+'\',\''+(p.storagePath||'')+'\')" style="position:absolute;top:6px;right:6px;background:rgba(220,38,38,.9);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:12px">✕</button>'+
+    '</div>';
+  }).join('');
+}
+
+// ═══ STATISTIQUES DU SITE ═════════════════════════════════
+var fbSiteStatsUnsubscribe=null,fbSiteStatsJourUnsubscribe=null;
+var siteStatsTotal=null,siteStatsJourListe=[];
+
+function startSiteStatsListener(){
+  if(!FIREBASE_ENABLED||!fbUser)return;
+  if(!fbSiteStatsUnsubscribe){
+    fbSiteStatsUnsubscribe=fbDb.collection('siteStats').doc('main').onSnapshot(function(doc){
+      siteStatsTotal=doc.exists?doc.data():null;
+      renderSiteStats();
+    },function(e){console.error('Erreur listener siteStats:',e);});
+  }
+  if(!fbSiteStatsJourUnsubscribe){
+    fbSiteStatsJourUnsubscribe=fbDb.collection('siteStatsJour').orderBy('date','desc').limit(14).onSnapshot(function(snap){
+      siteStatsJourListe=[];
+      snap.forEach(function(doc){siteStatsJourListe.push(doc.data());});
+      renderSiteStats();
+    },function(e){console.error('Erreur listener siteStatsJour:',e);});
+  }
+}
+
+function renderSiteStats(){
+  var elTotal=document.getElementById('stat-visites-total');
+  if(elTotal)elTotal.textContent=siteStatsTotal&&siteStatsTotal.visites!==undefined?siteStatsTotal.visites:'0';
+
+  var el7j=document.getElementById('stat-visites-7j');
+  if(el7j){
+    var v7=siteStatsJourListe.slice(0,7).reduce(function(s,j){return s+(j.visites||0);},0);
+    el7j.textContent=v7;
+  }
+
+  var elPhotos=document.getElementById('stat-photos');
+  if(elPhotos)elPhotos.textContent=galerieAdminListe.length;
+
+  var elNote=document.getElementById('stat-note');
+  if(elNote){
+    var avis=(db.avisClients&&db.avisClients.liste)||[];
+    if(avis.length){
+      var moyenne=avis.reduce(function(s,a){return s+(a.note||0);},0)/avis.length;
+      elNote.textContent=moyenne.toFixed(1)+' / 5';
+    }else elNote.textContent='—';
+  }
+
+  var graph=document.getElementById('stat-visites-graph');
+  if(graph){
+    var jours=siteStatsJourListe.slice().reverse(); // du plus ancien au plus récent
+    if(!jours.length){
+      graph.innerHTML='<div style="font-size:12px;color:var(--muted)">Pas encore de données de visite.</div>';
+    }else{
+      var max=Math.max.apply(null,jours.map(function(j){return j.visites||0;}).concat([1]));
+      graph.innerHTML=jours.map(function(j){
+        var h=Math.max(4,Math.round((j.visites||0)/max*76));
+        var jour=j.date?j.date.split('-').slice(1).reverse().join('/'):'';
+        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">'+
+          '<div title="'+jour+' : '+(j.visites||0)+' visite(s)" style="width:100%;background:#1A56DB;border-radius:3px 3px 0 0;height:'+h+'px"></div>'+
+          '<div style="font-size:9px;color:var(--muted);margin-top:4px;white-space:nowrap">'+jour+'</div>'+
+        '</div>';
+      }).join('');
+    }
+  }
 }
 
 // ═══ PLANNING ═══════════════════════════════════════════
@@ -2742,6 +3296,8 @@ function buildDocPDF(id,withStamp){
   var doc=db.documents.find(function(x){return x.id===id;});
   var client=db.clients.find(function(x){return x.id===doc.clientId;});
   var p=db.params;var isD=doc.type==='devis';var isPaid=doc.statut==='payee';
+  // Genere le code avis des la creation de la facture (pas besoin d'attendre le paiement)
+  if(!isD&&!doc.codeAvis){doc.codeAvis=generateAvisCode();sDB();}
   var pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
   var W=210,ML=14,MR=196,CW=MR-ML;
 
@@ -2838,6 +3394,21 @@ function buildDocPDF(id,withStamp){
     pdf.setFontSize(7);pdf.setTextColor.apply(pdf,gris);pdf.text(client?client.nom:'',rx2+36,sY+31,{align:'center'});
   }
   Y=sY+38;
+
+  // CODE AVIS CLIENT (facture uniquement) — relie a la page publique d'avis et a l'appli
+  if(!isD&&doc.codeAvis){
+    var aH=18;
+    if(Y+aH>250)Y=250-aH; // evite de deborder en bas de page si le document est tres rempli
+    pdf.setFillColor(255,251,235);pdf.setDrawColor(245,158,11);pdf.setLineWidth(0.5);pdf.roundedRect(ML,Y,CW,aH,2,2,'FD');
+    pdf.setFontSize(9.5);pdf.setFont('helvetica','bold');pdf.setTextColor(146,64,14);
+    pdf.text('⭐ Votre avis compte pour nous !',ML+5,Y+7.5);
+    pdf.setFontSize(7.5);pdf.setFont('helvetica','normal');pdf.setTextColor(133,100,20);
+    var avisMsg=p.avisPageUrl?('Rendez-vous sur '+p.avisPageUrl+' et saisissez le code ci-contre :'):'Communiquez ce code sur la page d\'avis de votre artisan :';
+    pdf.text(pdf.splitTextToSize(avisMsg,CW-72),ML+5,Y+13);
+    pdf.setFontSize(14);pdf.setFont('helvetica','bold');pdf.setTextColor(180,83,9);
+    pdf.text(doc.codeAvis,MR-5,Y+13,{align:'right'});
+    Y+=aH+6;
+  }
 
   // MERCI
   pdf.setFontSize(11);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,vert);pdf.text('Merci pour votre confiance !',W/2,Math.min(Y,258),{align:'center'});
