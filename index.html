@@ -2,10 +2,23 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Gestion Devis & Factures</title>
+
+<!-- PWA : installation sur l'ecran d'accueil (iOS/Android) -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1A56DB">
+<!-- iOS : ouverture en plein ecran depuis l'ecran d'accueil, sans barre Safari -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Devis & Factures">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<!-- EMAILJS (envoi automatique d'emails : devis/factures + rappels de rendez-vous) -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <!-- FIREBASE SDK (synchronisation + authentification) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -21,7 +34,8 @@
   --shadow:0 2px 8px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.05);--r:10px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+html{overflow-x:hidden;}
 .app{display:flex;min-height:100vh;}
 .sidebar{width:230px;background:linear-gradient(180deg,#0F172A 0%,#1E293B 100%);color:#94A3B8;flex-shrink:0;display:flex;flex-direction:column;box-shadow:3px 0 15px rgba(0,0,0,.15);}
 .sidebar-brand{padding:22px 20px 18px;border-bottom:1px solid #1E3A5F;}
@@ -131,6 +145,14 @@ tbody tr:hover td{background:#F8FAFC;}
 .pv-sig-b img{max-height:42px;max-width:100%;}
 .pv-sig-n{font-size:9px;color:#A0AEC0;text-align:center;margin-top:3px;border-top:1px solid #E2E8F0;padding-top:3px;}
 .pv-merci{text-align:center;padding:8px;font-size:12px;font-weight:800;color:#0D9F6E;}
+.pv-avis{margin:0 14px 8px;background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:6px;padding:8px 12px;text-align:center;}
+.pv-avis-title{color:#92400E;font-size:11px;font-weight:800;margin-bottom:3px;}
+.pv-avis-msg{color:#856414;font-size:9.5px;margin-bottom:6px;}
+.pv-avis-code-wrap{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.2px dashed #F59E0B;border-radius:5px;padding:4px 10px;margin-bottom:4px;}
+.pv-avis-code-label{font-size:8px;color:#92400E;text-transform:uppercase;letter-spacing:.03em;}
+.pv-avis-code{font-weight:800;font-size:12px;color:#B45309;letter-spacing:.03em;}
+.pv-avis-link{display:block;margin-top:2px;color:#B45309;font-weight:700;font-size:9.5px;text-decoration:underline;}
+.pv-avis-link:hover{color:#92400E;}
 .pv-foot{padding:7px 14px;background:#F7FAFC;border-top:1.5px solid #E2E8F0;font-size:9px;color:#A0AEC0;text-align:center;line-height:1.6;}
 /* TOGGLE */
 .tog-row{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--muted);}
@@ -301,8 +323,8 @@ body.mobile-view thead th{padding:8px 10px;font-size:10px;}
 body.mobile-view tbody td{padding:8px 10px;}
 body.mobile-view .lines-hd{padding:4px 2px;}
 body.mobile-view .line-row input,.mobile-view .line-row select{font-size:12px;padding:5px 6px;}
-body.mobile-view .sync-status{top:auto;bottom:14px;left:14px;right:auto;font-size:10px;padding:5px 10px;}
-body.mobile-view .mobile-toggle-btn{bottom:78px;right:14px;width:44px;height:44px;font-size:20px;z-index:61;}
+body.mobile-view .sync-status{top:auto;bottom:calc(14px + env(safe-area-inset-bottom,0px));left:14px;right:auto;font-size:10px;padding:5px 10px;}
+body.mobile-view .mobile-toggle-btn{bottom:calc(78px + env(safe-area-inset-bottom,0px));right:14px;width:44px;height:44px;font-size:20px;z-index:61;}
 body.mobile-view .pv{border-radius:8px;font-size:12px;}
 body.mobile-view .pv-box{min-width:100px;font-size:13px;}
 body.mobile-view .topbar{flex-wrap:nowrap;background:var(--surface);border-bottom:1px solid var(--border);}
@@ -312,10 +334,10 @@ body.mobile-view .sidebar-nav::-webkit-scrollbar-thumb{background:#475569;border
 
 /* ── MODE MOBILE V2 : sidebar masquee, vraie bottom-nav + menu "Plus" ── */
 body.mobile-view .sidebar{display:none !important;}
-body.mobile-view .app{padding-bottom:62px;}
+body.mobile-view .app{padding-bottom:calc(62px + env(safe-area-inset-bottom,0px));}
 body.mobile-view .main{width:100%;}
 
-.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:62px;background:#0F172A;border-top:1px solid #1E293B;z-index:60;box-shadow:0 -4px 16px rgba(0,0,0,.25);}
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:calc(62px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:#0F172A;border-top:1px solid #1E293B;z-index:60;box-shadow:0 -4px 16px rgba(0,0,0,.25);box-sizing:border-box;}
 body.mobile-view .bottom-nav{display:flex;align-items:stretch;}
 .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#64748B;font-size:10px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:.15s;}
 .bn-item.active{color:#3B82F6;}
@@ -420,9 +442,10 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
     <span>Accueil</span>
   </div>
-  <div class="bn-item" data-page="devis" onclick="bnGoTo('devis')">
+  <div class="bn-item" data-page="devis" onclick="bnGoTo('devis')" style="position:relative">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="9" y1="13" x2="15" y2="13"/></svg>
     <span>Devis</span>
+    <span id="badge-devis-signes-mobile" style="display:none;position:absolute;top:2px;right:8px;background:#16A34A;color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:9px">0</span>
   </div>
   <div class="bn-item" data-page="factures" onclick="bnGoTo('factures')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="12" y2="17"/></svg>
@@ -456,9 +479,10 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
       Relances clients
     </div>
-    <div class="bn-more-item" data-page="urssaf" onclick="bnGoTo('urssaf')">
+    <div class="bn-more-item" data-page="urssaf" onclick="bnGoTo('urssaf')" style="position:relative">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
       Cotisations URSSAF
+      <span id="urssaf-badge-bn" style="display:none;position:absolute;right:14px;top:8px;background:#DC2626;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:10px">!</span>
     </div>
     <div class="bn-more-item" data-page="demandes" onclick="bnGoTo('demandes')" style="position:relative">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Demandes site web
@@ -523,6 +547,7 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
     <div class="nav-section">Documents</div>
     <div class="nav-item" data-page="devis">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="9" y1="13" x2="15" y2="13"/></svg>Devis
+      <span id="badge-devis-signes" style="display:none;margin-left:auto;background:#16A34A;color:#fff;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:10px">0</span>
     </div>
     <div class="nav-item" data-page="factures">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="12" y2="17"/></svg>Factures
@@ -541,8 +566,9 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
     <div class="nav-item" data-page="relances">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>Relances clients
     </div>
-    <div class="nav-item" data-page="urssaf">
+    <div class="nav-item" data-page="urssaf" style="position:relative">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Cotisations URSSAF
+      <span id="urssaf-badge" style="display:none;position:absolute;right:14px;top:10px;background:#DC2626;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:10px">!</span>
     </div>
     <div class="nav-item" data-page="depenses">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Dépenses
@@ -571,6 +597,14 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Documents scannés
     </div>
     <div class="nav-section">Paramètres</div>
+    <div class="nav-item" onclick="window.open('vitrine.html','_blank')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>Voir mon site vitrine
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;margin-left:auto;opacity:.6"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+    </div>
+    <div class="nav-item" onclick="window.open('consultation.html','_blank')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Espace client (consultation)
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;margin-left:auto;opacity:.6"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+    </div>
     <div class="nav-item" data-page="parametres">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Mon entreprise
     </div>
@@ -583,6 +617,7 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
 <div class="page active" id="page-dashboard">
   <div class="topbar"><h1>📊 Tableau de bord</h1></div>
   <div class="content">
+    <div id="urssaf-alert-dashboard"></div>
     <div class="stats-grid">
       <div class="stat"><div class="stat-icon blue">📋</div><div class="stat-text"><div class="label">Devis en cours</div><div class="value" id="stat-devis">0</div></div></div>
       <div class="stat"><div class="stat-icon green">🧾</div><div class="stat-text"><div class="label">Factures émises</div><div class="value" id="stat-factures">0</div></div></div>
@@ -635,8 +670,13 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
 <!-- CLIENTS -->
 <div class="page" id="page-clients">
   <div class="topbar"><h1>👥 Clients</h1><button class="btn btn-primary" onclick="openClientModal()">+ Nouveau client</button></div>
-  <div class="content"><div class="card"><div class="card-body tw">
-    <table><thead><tr><th>Nom</th><th>Contact</th><th>Email</th><th>Téléphone</th><th>Ville</th><th>Actions</th></tr></thead><tbody id="clients-list"></tbody></table>
+  <div class="content"><div class="card"><div class="card-body">
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="btn btn-primary btn-sm" id="filtre-client-tous" onclick="setFiltreTypeClient('tous')">Tous</button>
+      <button class="btn btn-ghost btn-sm" id="filtre-client-particulier" onclick="setFiltreTypeClient('particulier')">Particuliers</button>
+      <button class="btn btn-ghost btn-sm" id="filtre-client-professionnel" onclick="setFiltreTypeClient('professionnel')">Professionnels</button>
+    </div>
+    <div class="tw"><table><thead><tr><th>Nom</th><th>Type</th><th>Contact</th><th>Email</th><th>Téléphone</th><th>Ville</th><th>Actions</th></tr></thead><tbody id="clients-list"></tbody></table></div>
   </div></div></div>
 </div>
 
@@ -760,6 +800,10 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
           <div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">Remet l'application a zero comme a la premiere ouverture (clients, devis, factures, parametres, photos...). Votre connexion reste active.</div>
           <button class="btn btn-danger btn-sm" onclick="resetAll()">🗑 Réinitialiser l'application</button>
         </div>
+        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+          <div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">Efface uniquement <strong>clients, devis, factures, bons d'intervention et avis clients</strong> (produits, dépenses, planning et documents scannés sont aussi effacés) — <strong>y compris sur Firebase</strong> (fiches et documents publics consultables par vos clients). Les <strong>paramètres de l'entreprise</strong> (nom, logo, coordonnées, IBAN, EmailJS...) sont conservés. Votre connexion reste active.</div>
+          <button class="btn btn-danger btn-sm" onclick="resetDonneesMetier()">🗑 Réinitialiser les données (garder les paramètres)</button>
+        </div>
       </div>
     </div>
   </div>
@@ -799,6 +843,42 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
 <div class="page" id="page-parametres">
   <div class="topbar"><h1>⚙️ Mon entreprise</h1></div>
   <div class="content">
+    <div class="card" style="max-width:940px;margin-bottom:20px">
+      <div class="card-header"><h3>🔔 Notifications sur cet appareil</h3></div>
+      <div class="card-body" id="notif-settings-box"></div>
+    </div>
+    <div class="card" style="max-width:940px;margin-bottom:20px">
+      <div class="card-header"><h3>📧 Envoi automatique d'emails (EmailJS)</h3></div>
+      <div class="card-body">
+        <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+          Connectez votre compte <strong>EmailJS</strong> (gratuit) pour envoyer automatiquement un email au client à chaque création de devis/facture, et un <strong>rappel de rendez-vous</strong> la veille à 18h. Vous recevrez systématiquement une copie.<br>
+          Créez un compte sur <strong>emailjs.com</strong>, un "Service" (ex: Gmail), puis <strong>deux templates</strong> : un pour les devis/factures et un pour les rappels de RDV (vous pouvez utiliser le même). Récupérez ensuite les identifiants ci-dessous.
+        </p>
+        <div class="g2" style="gap:12px">
+          <div class="fg"><label>Activer l'envoi automatique</label>
+            <select id="ej-actif">
+              <option value="non">Désactivé</option>
+              <option value="oui">Activé</option>
+            </select>
+          </div>
+          <div class="fg"><label>Public Key</label><input id="ej-public-key" placeholder="ex: AbCdEfGh12345"></div>
+          <div class="fg"><label>Service ID</label><input id="ej-service-id" placeholder="ex: service_xxxxxxx"></div>
+          <div class="fg"><label>Template ID — Devis / Factures</label><input id="ej-template-doc" placeholder="ex: template_devis"></div>
+          <div class="fg s2"><label>Template ID — Rappel de rendez-vous</label><input id="ej-template-rappel" placeholder="ex: template_rappel (peut être le même)"></div>
+          <div class="fg s2"><label>Adresse (URL) de la page de consultation client</label><input id="ej-consultation-url" placeholder="ex: https://monsite.com/consultation.html"></div>
+        </div>
+        <div style="background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-top:14px;font-size:11.5px;color:var(--muted);line-height:1.7">
+          <strong style="color:var(--text)">⚠️ Configuration du template EmailJS (important) :</strong><br>
+          Sur emailjs.com, dans votre template, le champ <strong>"To Email"</strong> doit contenir exactement <code>{{to_email}}</code> (et non <code>{{cc_email}}</code> ni votre propre adresse en dur) — c'est ce qui determine le VRAI destinataire. Le champ <strong>"Cc"</strong> doit contenir <code>{{cc_email}}</code> pour recevoir une copie. Si "To Email" est mal rempli (ex: votre adresse au lieu de <code>{{to_email}}</code>), tous les mails partiront chez vous au lieu du client.<br><br>
+          Variables a utiliser dans le corps du template : <code>{{to_name}}</code>, <code>{{subject}}</code>, <code>{{message}}</code>, <code>{{from_name}}</code>.<br>
+          Pour la piece jointe PDF (devis/factures) : ajoutez un champ de type <strong>fichier joint</strong> nomme <code>attachment</code> dans les parametres du template EmailJS — le PDF reel sera automatiquement joint a l'envoi.
+        </div>
+        <button class="btn btn-primary" style="margin-top:16px" onclick="saveEmailJSParams()">Enregistrer</button>
+        <button class="btn btn-ghost" style="margin-top:16px" onclick="testEmailJS()">✉️ Envoyer un email de test</button>
+        <span id="ej-params-ok" style="display:none;margin-left:10px;color:var(--accent);font-size:13px;font-weight:600">✓ Enregistré</span>
+        <div id="ej-status" style="margin-top:10px;font-size:12px"></div>
+      </div>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:940px">
       <div class="card"><div class="card-header"><h3>Informations entreprise</h3></div><div class="card-body">
         <div class="g2" style="gap:12px">
@@ -898,6 +978,8 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
 <div class="page" id="page-urssaf">
   <div class="topbar"><h1>💰 Cotisations URSSAF</h1></div>
   <div class="content">
+    <div id="urssaf-alert-page" style="margin-bottom:18px"></div>
+
     <div class="card" style="margin-bottom:18px">
       <div class="card-header"><h3>Période de déclaration</h3></div>
       <div class="card-body">
@@ -1074,10 +1156,16 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
 <div class="page" id="page-demandes">
   <div class="topbar"><h1>📩 Demandes site web</h1></div>
   <div class="content">
-    <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
       <div class="stat"><div class="stat-icon blue">📝</div><div class="stat-text"><div class="label">Demandes de devis</div><div class="value" id="dmd-devis-total">0</div></div></div>
       <div class="stat"><div class="stat-icon orange">✉️</div><div class="stat-text"><div class="label">Messages contact</div><div class="value" id="dmd-contacts-total">0</div></div></div>
+      <div class="stat"><div class="stat-icon purple">💬</div><div class="stat-text"><div class="label">Messages sur devis/factures</div><div class="value" id="dmd-msgclients-total">0</div></div></div>
       <div class="stat"><div class="stat-icon green">🆕</div><div class="stat-text"><div class="label">Non traitées</div><div class="value" id="dmd-nouveau-total">0</div></div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>💬 Messages sur devis / factures</h3></div>
+      <div class="card-body" id="dmd-msgclients-list" style="display:grid;gap:12px"></div>
     </div>
 
     <div class="card" style="margin-bottom:18px">
@@ -1112,7 +1200,15 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
           </div>
           <p style="font-size:11.5px;color:var(--muted);margin-top:6px">Collez le lien direct d'une image déjà hébergée (ex: lien Imgur, Google Drive en partage public, ou tout hébergeur d'images).</p>
         </div>
+        <div class="fg">
+          <label>Photo de couverture (à droite du titre principal)</label>
+          <div style="display:flex;gap:10px;align-items:center">
+            <img id="sv-heroimg-preview" src="" alt="" style="display:none;width:70px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+            <input id="sv-heroImageUrl" placeholder="https://exemple.com/photo-chantier.jpg" oninput="document.getElementById('sv-heroimg-preview').src=this.value;document.getElementById('sv-heroimg-preview').style.display=this.value?'block':'none';" style="flex:1">
+          </div>
+        </div>
         <div class="fg"><label>Titre principal (grand titre en haut de page)</label><input id="sv-heroTitre" placeholder="Votre artisan multi-services de confiance"></div>
+        <div class="fg"><label>Petit badge au-dessus du titre (laissez vide pour le masquer)</label><input id="sv-heroLabel" placeholder="✅ Devis gratuit sous 24h"></div>
         <div class="fg"><label>Phrase d'accroche</label><textarea id="sv-heroDesc" placeholder="Peinture, plâtrerie, rénovation, petits travaux. Devis gratuit sous 24h..."></textarea></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="fg"><label>Nb clients satisfaits (chiffre)</label><input id="sv-statClients" type="number" placeholder="350"></div>
@@ -1172,6 +1268,77 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
     </div>
 
     <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>Titres des sections du site</h3></div>
+      <div class="card-body">
+        <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Le petit texte au-dessus de chaque titre (ex: "Ce que je fais"), le grand titre, et le sous-titre quand il y en a un.</p>
+
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin:16px 0 8px">🔧 Section Services</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fg" style="margin:0"><label>Petit texte</label><input id="sv-servicesLabel" placeholder="Ce que je fais"></div>
+          <div class="fg" style="margin:0"><label>Titre</label><input id="sv-servicesTitre" placeholder="Mes services"></div>
+        </div>
+        <div class="fg"><label>Sous-titre</label><input id="sv-servicesSousTitre" placeholder="Du petit dépannage à la rénovation complète..."></div>
+
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin:16px 0 8px">🖼️ Section Galerie</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fg" style="margin:0"><label>Petit texte</label><input id="sv-galerieLabel" placeholder="Nos réalisations"></div>
+          <div class="fg" style="margin:0"><label>Titre</label><input id="sv-galerieTitre" placeholder="Galerie photo"></div>
+        </div>
+
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin:16px 0 8px">⭐ Section Avis</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fg" style="margin:0"><label>Petit texte</label><input id="sv-avisLabel" placeholder="Ce qu'ils disent"></div>
+          <div class="fg" style="margin:0"><label>Titre</label><input id="sv-avisTitre" placeholder="Avis de mes clients"></div>
+        </div>
+        <div class="fg"><label>Sous-titre</label><input id="sv-avisSousTitre" placeholder="Avis vérifiés — publiés directement par les clients..."></div>
+
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin:16px 0 8px">📋 Section Devis</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fg" style="margin:0"><label>Petit texte</label><input id="sv-devisLabel" placeholder="Gratuit & sans engagement"></div>
+          <div class="fg" style="margin:0"><label>Titre</label><input id="sv-devisTitre" placeholder="Demandez votre devis"></div>
+        </div>
+        <div class="fg"><label>Sous-titre</label><input id="sv-devisSousTitre" placeholder="Je vous rappelle sous 24h..."></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fg" style="margin:0"><label>Point fort 1</label><input id="sv-devisPoint1" placeholder="Réponse sous 24h"></div>
+          <div class="fg" style="margin:0"><label>Point fort 2</label><input id="sv-devisPoint2" placeholder="Devis détaillé et transparent"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fg" style="margin:0"><label>Point fort 3</label><input id="sv-devisPoint3" placeholder="Travail garanti et assuré"></div>
+          <div class="fg" style="margin:0"><label>Point fort 4</label><input id="sv-devisPoint4" placeholder="Sans engagement de votre part"></div>
+        </div>
+
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin:16px 0 8px">📍 Section Zone d'intervention</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fg" style="margin:0"><label>Petit texte</label><input id="sv-zoneLabel" placeholder="Où j'interviens"></div>
+          <div class="fg" style="margin:0"><label>Titre</label><input id="sv-zoneTitre" placeholder="Zone d'intervention"></div>
+        </div>
+
+        <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin:16px 0 8px">✉️ Section Contact</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fg" style="margin:0"><label>Petit texte</label><input id="sv-contactLabel" placeholder="Restons en contact"></div>
+          <div class="fg" style="margin:0"><label>Titre</label><input id="sv-contactTitre" placeholder="Contact & horaires"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>🔧 Services proposés</h3></div>
+      <div class="card-body">
+        <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Ajoutez, modifiez ou supprimez les services affichés sur votre site. Laissez vide pour garder les 6 services par défaut.</p>
+        <div id="services-editor-list" style="display:grid;gap:10px;margin-bottom:12px"></div>
+        <button class="btn btn-ghost" onclick="ajouterServiceEditeur()">➕ Ajouter un service</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>🔎 Référencement (SEO)</h3></div>
+      <div class="card-body">
+        <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Ce texte apparaît dans les résultats Google et lors du partage de votre site sur les réseaux sociaux (Facebook, WhatsApp...). Laissez vide pour utiliser votre phrase d'accroche.</p>
+        <div class="fg"><label>Description pour Google et réseaux sociaux</label><textarea id="sv-metaDescription" placeholder="Artisan multi-services dans le Nord : peinture, plâtrerie, rénovation. Devis gratuit sous 24h, intervention rapide."></textarea></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
       <div class="card-header"><h3>📊 Statistiques du site</h3></div>
       <div class="card-body">
         <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
@@ -1189,8 +1356,16 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
       <div class="card-header"><h3>🖼️ Photos de vos prestations</h3></div>
       <div class="card-body">
         <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Ajoutez une photo en collant son URL directement — pas besoin de passer par le mode admin du site.</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr 140px;gap:10px;align-items:end;margin-bottom:18px">
-          <div class="fg" style="margin:0"><label>URL de la photo</label><input id="ph-url" placeholder="https://exemple.com/photo.jpg"></div>
+        <div style="margin-bottom:14px;padding:10px 12px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;font-size:11.5px;color:#1E40AF">
+          ⚠️ L'URL doit pointer <strong>directement</strong> vers le fichier image (elle se termine généralement par .jpg, .png ou .webp). Un lien vers une page web (Google Images, une page Instagram, un lien de partage Google Drive classique...) ne fonctionnera pas. Astuce : clic droit sur l'image → "Copier l'adresse de l'image".
+        </div>
+        <div style="display:grid;grid-template-columns:60px 1fr 1fr 140px;gap:10px;align-items:end;margin-bottom:18px">
+          <div><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px">Aperçu</label>
+            <img id="ph-preview" src="" style="display:none;width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+            <div id="ph-preview-empty" style="width:52px;height:52px;border-radius:8px;border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--muted)">🖼️</div>
+            <div id="ph-preview-error" style="display:none;font-size:9px;color:#DC2626;margin-top:2px;width:52px">Introuvable</div>
+          </div>
+          <div class="fg" style="margin:0"><label>URL de la photo</label><input id="ph-url" placeholder="https://exemple.com/photo.jpg" oninput="previewPhotoUrl()"></div>
           <div class="fg" style="margin:0"><label>Catégorie</label>
             <select id="ph-categorie">
               <option value="Avant/Après">Avant / Après</option>
@@ -1356,6 +1531,20 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-consultation-info">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header"><h2>🔗 Consultation client</h2><button class="close-btn" onclick="closeModal('modal-consultation-info')">✕</button></div>
+    <div class="modal-body">
+      <div id="consult-info-body">
+        <p style="font-size:13px;color:var(--muted)">Chargement…</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-consultation-info')" style="width:100%;justify-content:center">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL ACOMPTE -->
 <div class="modal-overlay" id="modal-acompte">
   <div class="modal" style="max-width:480px">
@@ -1446,6 +1635,12 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
     <div class="modal-header"><h2 id="mc-title">Nouveau client</h2><button class="close-btn" onclick="closeModal('modal-client')">✕</button></div>
     <div class="modal-body"><div class="g2">
       <div class="fg"><label>Nom / Société *</label><input id="c-nom"></div>
+      <div class="fg"><label>Type de client</label>
+        <select id="c-type">
+          <option value="particulier">Particulier</option>
+          <option value="professionnel">Professionnel / Entreprise</option>
+        </select>
+      </div>
       <div class="fg"><label>Contact</label><input id="c-contact"></div>
       <div class="fg"><label>Email</label><input type="email" id="c-email"></div>
       <div class="fg"><label>Téléphone</label><input id="c-tel"></div>
@@ -1460,6 +1655,14 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
         <div id="c-siret-check-result" style="font-size:11.5px;margin-top:4px"></div>
       </div>
     </div></div>
+    <div id="mc-portal-wrap" style="display:none;margin:0 20px 16px;padding:12px 14px;background:#F8FAFC;border:1px solid var(--border);border-radius:8px">
+      <div style="font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:6px">🔑 Accès portail client</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Numéro client : <strong id="mc-portal-num"></strong> · Code d'accès : <strong id="mc-portal-code"></strong></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" id="mc-portal-regen" onclick="">🔄 Régénérer le code</button>
+        <button class="btn btn-ghost btn-sm" id="mc-portal-resend" onclick="">📧 Renvoyer l'email d'accès</button>
+      </div>
+    </div>
     <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-client')">Annuler</button><button class="btn btn-primary" onclick="saveClient()">Enregistrer</button></div>
   </div>
 </div>
@@ -1476,6 +1679,45 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
       <div class="fg"><label>Prix unitaire HT (€) *</label><input type="number" id="pr-prix" min="0" step="0.01"></div>
     </div></div>
     <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-produit')">Annuler</button><button class="btn btn-primary" onclick="saveProduit()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- MODAL EMAIL CLIENT -->
+<div class="modal-overlay" id="modal-email-client">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header"><h2>✉️ Envoyer un email</h2><button class="close-btn" onclick="closeModal('modal-email-client')">✕</button></div>
+    <div class="modal-body">
+      <div class="fg" style="margin-bottom:12px">
+        <label>Destinataire</label>
+        <input id="ec-destinataire" disabled style="background:var(--bg2,#F3F4F6)">
+      </div>
+      <div class="fg" style="margin-bottom:12px">
+        <label>Objet *</label>
+        <input id="ec-objet" placeholder="Objet de votre message">
+      </div>
+      <div class="fg">
+        <label>Message *</label>
+        <textarea id="ec-message" style="min-height:180px" placeholder="Ecrivez votre message ici..."></textarea>
+      </div>
+      <div id="ec-status" style="font-size:12.5px;margin-top:10px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-email-client')">Annuler</button>
+      <button class="btn btn-primary" id="ec-btn-envoyer" onclick="envoyerEmailClient()">Envoyer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL HISTORIQUE DES EMAILS -->
+<div class="modal-overlay" id="modal-historique-emails">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header"><h2>📜 Historique des emails — <span id="he-client-nom"></span></h2><button class="close-btn" onclick="closeModal('modal-historique-emails')">✕</button></div>
+    <div class="modal-body">
+      <div id="he-liste" style="max-height:520px;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-historique-emails')">Fermer</button>
+    </div>
   </div>
 </div>
 
@@ -1517,6 +1759,23 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
         <button class="btn btn-ghost btn-sm" onclick="clearSig('doc')">🗑 Effacer</button>
       </div>
       <div class="sig-wrap"><canvas id="sig-canvas-doc" width="700" height="110"></canvas><div class="sig-hint" id="sig-hint-doc">✍️ Signez ici</div></div>
+      <div id="doc-client-sig-wrap" style="display:none">
+        <div class="sec-title" style="margin-top:16px">✍️ Signature client (bon pour accord)</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">A utiliser si le client signe directement sur cet appareil, en votre presence.</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button class="btn btn-ghost btn-sm" onclick="clearSig('doc-client')">🗑 Effacer</button>
+        </div>
+        <div class="sig-wrap"><canvas id="sig-canvas-doc-client" width="700" height="110"></canvas><div class="sig-hint" id="sig-hint-doc-client">✍️ Faites signer le client ici</div></div>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px">
+          <button class="btn btn-accent btn-sm" onclick="validerSignatureClientDevis()">✓ Valider la signature du client</button>
+        </div>
+      </div>
+      <div id="doc-email-opt-wrap" style="display:none;margin-top:16px;padding:12px 14px;background:#F8FAFC;border:1px solid var(--border);border-radius:8px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text)">
+          <input type="checkbox" id="doc-send-email" checked style="width:16px;height:16px;cursor:pointer">
+          📧 Envoyer automatiquement ce document par email au client
+        </label>
+      </div>
     </div>
     <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-doc')">Annuler</button><button class="btn btn-primary" onclick="saveDoc()">💾 Enregistrer</button></div>
   </div>
@@ -1683,6 +1942,26 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
 //
 // Cela permet a un client (sans compte) de creer un avis, mais jamais de le modifier,
 // le supprimer, ou lire les avis des autres. Seul vous (connecte) pouvez les consulter.
+//
+// ⚠️ POUR LA MESSAGERIE CLIENT SUR LES DEVIS/FACTURES (consultation.html) :
+// Dans Firestore Database > Regles, ajoutez aussi ce bloc pour autoriser la lecture et
+// l'ecriture publiques UNIQUEMENT sur la collection messagesClients (le reste de vos
+// donnees reste protege) :
+//
+//   match /messagesClients/{id} {
+//     allow read: if true;
+//     allow create: if true;
+//     allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lu']);
+//     allow delete: if request.auth != null;
+//   }
+//
+// Cela permet a un client (sans compte) de lire et d'envoyer des messages lies a son propre
+// devis/facture (identifie par un long identifiant genere aleatoirement, jamais devine), de
+// marquer un message comme lu, mais jamais de le modifier ni de supprimer une conversation.
+// Seul vous (connecte) pouvez supprimer des messages.
+//
+// Note : les requetes sur messagesClients trient les resultats cote JavaScript (et non via
+// orderBy() Firestore), afin de ne necessiter aucun index composite a creer manuellement.
 var FIREBASE_CONFIG={
   apiKey:"AIzaSyCg6ZhR0-LYxynuuABQNc1RMqu2E8IaFc4",
   authDomain:"facturedevis-2684d.firebaseapp.com",
@@ -1713,8 +1992,9 @@ if(FIREBASE_ENABLED){
 
 // ═══ DATA ═══════════════════════════════════════════════
 var db = {
-  params:{nom:'',siret:'',adresse:'',ville:'',tel:'',email:'',iban:'',paiement:'Paiement a reception de facture.',logo:'',signature:''},
-  clients:[],produits:[],documents:[],events:[],counters:{devis:1,facture:1},interventions:[],scans:[],depenses:[]
+  params:{nom:'',siret:'',adresse:'',ville:'',tel:'',email:'',iban:'',paiement:'Paiement a reception de facture.',logo:'',signature:'',
+    emailjsActif:false,emailjsServiceId:'',emailjsTemplateId:'',emailjsTemplateIdRappel:'',emailjsPublicKey:'',consultationUrl:''},
+  clients:[],produits:[],documents:[],events:[],counters:{devis:1,facture:1,client:1},interventions:[],scans:[],depenses:[]
 };
 
 function lDB(){try{var s=localStorage.getItem('gdf_v5');if(s)db=JSON.parse(s);}catch(e){}}
@@ -1845,6 +2125,10 @@ function refreshCurrentPage(){
   var active=document.querySelector('.page.active');
   if(active){
     var id=active.id.replace('page-','');
+    // La page Parametres n'est jamais rafraichie automatiquement depuis le cloud :
+    // cela evite d'ecraser une saisie en cours (ex: configuration EmailJS) quand une
+    // synchronisation arrive pendant que l'utilisateur tape.
+    if(id==='parametres')return;
     showPage(id);
   }
 }
@@ -1862,6 +2146,11 @@ window.addEventListener('online',function(){if(fbUser)setSyncStatus('online');})
 window.addEventListener('offline',function(){if(fbUser)setSyncStatus('offline');});
 
 lDB();
+if(db.params&&!db.params.hasOwnProperty('emailjsActif')){
+  // Migration douce pour les bases existantes creees avant l'ajout d'EmailJS
+  db.params.emailjsActif=false;db.params.emailjsServiceId='';db.params.emailjsTemplateId='';db.params.emailjsTemplateIdRappel='';db.params.emailjsPublicKey='';
+}
+if(typeof emailjs!=='undefined')initEmailJS();
 
 // ═══ AUTHENTIFICATION FIREBASE ═════════════════════════════
 
@@ -1991,6 +2280,7 @@ function checkAuthStatus(){
       console.log('Utilisateur connecté:',user.email);
       hideAuthScreen();
       startFirestoreListener();
+      initListenerDevisSigmes();
     }else{
       console.log('Pas de session active');
       showAuthScreen();
@@ -2004,6 +2294,17 @@ if(FIREBASE_ENABLED){
 }else{
   hideAuthScreen();
   setSyncStatus('local');
+}
+
+// ═══ PWA : enregistrement du service worker ════════════════════
+// Permet l'installation sur l'ecran d'accueil (iOS/Android) et l'ouverture de l'interface
+// meme sans connexion. Les fonctions necessitant Firebase (sync, emails, consultation
+// client) restent indisponibles hors-ligne, mais l'appli s'ouvre et reste utilisable.
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('service-worker.js')
+      .catch(function(e){console.error('Erreur enregistrement service worker:',e);});
+  });
 }
 
 // ═══ NAV ════════════════════════════════════════════════
@@ -2034,7 +2335,7 @@ function showPage(name){
   else if(name==='avis')initAvisPage();
   else if(name==='demandes')initDemandesPage();
   else if(name==='sitevitrine')initSiteVitrinePage();
-  else if(name==='parametres'){loadParams();setTimeout(function(){initSig('params');if(db.params.signature)setSig('params',db.params.signature);},80);}
+  else if(name==='parametres'){loadParams();updateNotifSettingsUI();setTimeout(function(){initSig('params');if(db.params.signature)setSig('params',db.params.signature);},80);}
 }
 
 function openModal(id){document.getElementById(id).classList.add('open');}
@@ -2060,6 +2361,38 @@ function setSig(id,data){var p=pads[id];if(!p||!data)return;var img=new Image();
 function saveSig(){var d=getSig('params');if(!d){alert('Dessinez votre signature.');return;}db.params.signature=d;sDB();document.getElementById('sig-status').innerHTML='<span style="color:var(--accent);font-weight:700">✓ Signature enregistree</span>';}
 function useStoredSig(id){if(db.params.signature)setSig(id,db.params.signature);else alert('Aucune signature. Allez dans "Mon entreprise" pour en creer une.');}
 
+// Fait signer le client directement sur l'appli (tablette/telephone en main), sans passer
+// par consultation.html. Enregistre uniquement la signature (pas de facture automatique) :
+// le devis apparaitra ensuite avec le badge "Signe - pret a facturer" comme via le lien client.
+function validerSignatureClientDevis(){
+  if(!editDId){alert('Enregistrez d\'abord le devis avant de faire signer le client.');return;}
+  var sig=getSig('doc-client');
+  if(!sig){alert('Faites signer le client dans la zone prevue avant de valider.');return;}
+  var doc=db.documents.find(function(x){return x.id===editDId;});
+  if(!doc){alert('Devis introuvable.');return;}
+  if(!confirm('Confirmer la signature du client pour le devis '+doc.numero+' ?'))return;
+
+  doc.devisSigne=true;
+  doc.signatureClientData=sig;
+  doc.signatureClientDate=new Date().toISOString();
+  doc.devisSigneNotifie=true; // evite une notification en double si le client signe aussi via consultation.html
+  sDB();
+  renderDevis();
+  updateBadgeDevisSignes();
+  alert('Signature client enregistree. Le devis est maintenant marque "Signe - pret a facturer".');
+
+  var clientSigne=db.clients.find(function(x){return x.id===doc.clientId;});
+  if(FIREBASE_ENABLED&&fbUser&&fbDb&&clientSigne&&clientSigne.numeroClient&&clientSigne.codeClient){
+    var prefix=fbUser.uid.substring(0,6).toUpperCase();
+    var docId=prefix+'_'+doc.id;
+    fbDb.collection('documentsPublics').doc(docId).set({
+      devisSigne:true,
+      signatureClientData:sig,
+      signatureClientDate:firebase.firestore.FieldValue.serverTimestamp()
+    },{merge:true}).catch(function(e){console.error('Erreur maj signature client Firestore:',e);});
+  }
+}
+
 // ═══ PARAMS ═════════════════════════════════════════════
 function loadParams(){
   var p=db.params;
@@ -2070,6 +2403,12 @@ function loadParams(){
   var actEl=document.getElementById('p-activite-urssaf');if(actEl)actEl.value=p.activiteUrssaf||'bic_service';
   var freqEl=document.getElementById('p-frequence-urssaf');if(freqEl)freqEl.value=p.frequenceUrssaf||'trimestriel';
   var acreEl=document.getElementById('p-acre');if(acreEl)acreEl.value=p.acre||'non';
+  var ejActifEl=document.getElementById('ej-actif');if(ejActifEl)ejActifEl.value=p.emailjsActif?'oui':'non';
+  var ejPkEl=document.getElementById('ej-public-key');if(ejPkEl)ejPkEl.value=p.emailjsPublicKey||'';
+  var ejSidEl=document.getElementById('ej-service-id');if(ejSidEl)ejSidEl.value=p.emailjsServiceId||'';
+  var ejTdocEl=document.getElementById('ej-template-doc');if(ejTdocEl)ejTdocEl.value=p.emailjsTemplateId||'';
+  var ejTrapEl=document.getElementById('ej-template-rappel');if(ejTrapEl)ejTrapEl.value=p.emailjsTemplateIdRappel||'';
+  var ejConsUrlEl=document.getElementById('ej-consultation-url');if(ejConsUrlEl)ejConsUrlEl.value=p.consultationUrl||'';
 }
 function saveParams(){
   ['nom','siret','adresse','ville','tel','email','iban','paiement'].forEach(function(k){var el=document.getElementById('p-'+k);if(el)db.params[k]=el.value;});
@@ -2081,30 +2420,515 @@ function saveParams(){
 }
 function loadLogo(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){db.params.logo=ev.target.result;sDB();document.getElementById('logo-preview').src=ev.target.result;document.getElementById('logo-preview').style.display='block';document.getElementById('logo-ph').style.display='none';};r.readAsDataURL(f);}
 
+// ═══ EMAILJS — ENVOI AUTOMATIQUE D'EMAILS ═══════════════
+// Config utilisateur stockee dans db.params.emailjs* (voir page Parametres)
+var emailjsReady=false;
+function initEmailJS(){
+  var p=db.params;
+  if(!p.emailjsActif||!p.emailjsPublicKey){emailjsReady=false;return;}
+  if(typeof emailjs==='undefined'){emailjsReady=false;return;}
+  try{emailjs.init({publicKey:p.emailjsPublicKey});emailjsReady=true;}
+  catch(e){console.error('Erreur init EmailJS:',e);emailjsReady=false;}
+}
+
+// ═══ HISTORIQUE DES EMAILS ENVOYES AUX CLIENTS ══════════════════════════
+// Centralise la trace de tout email envoye a un client (devis/facture, relance, rappel RDV,
+// email libre, envoi d'acces), quel que soit le point d'envoi. Stocke sur le client lui-meme
+// (client.emailsHistorique) pour rester coherent avec le reste de la base locale db.
+// type attendu : 'document' | 'relance' | 'rappel-rdv' | 'libre' | 'acces'
+function enregistrerEmailEnvoye(clientId,info){
+  var client=db.clients.find(function(x){return x.id===clientId;});
+  if(!client)return;
+  if(!client.emailsHistorique)client.emailsHistorique=[];
+  client.emailsHistorique.push({
+    date:new Date().toISOString(),
+    type:info.type||'libre',
+    sujet:info.sujet||'',
+    apercu:(info.apercu||'').slice(0,300),
+    docNumero:info.docNumero||null
+  });
+  // Limite a 200 entrees par client pour ne pas alourdir indefiniment le stockage local
+  if(client.emailsHistorique.length>200)client.emailsHistorique=client.emailsHistorique.slice(-200);
+  sDB();
+}
+
+var EMAIL_TYPE_LABELS={
+  'document':{icone:'📄',label:'Devis/Facture'},
+  'relance':{icone:'📞',label:'Relance paiement'},
+  'rappel-rdv':{icone:'📅',label:'Rappel RDV'},
+  'libre':{icone:'✉️',label:'Message libre'},
+  'acces':{icone:'🔑',label:'Envoi d\'acces'}
+};
+
+function fmtDateHeureFr(iso){
+  var d=new Date(iso);
+  if(isNaN(d.getTime()))return'';
+  return d.toLocaleDateString('fr-FR')+' à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+}
+
+// Affiche l'historique des emails d'un client dans une modale dediee
+function openHistoriqueEmailsModal(clientId){
+  var client=db.clients.find(function(x){return x.id===clientId;});
+  if(!client)return;
+  document.getElementById('he-client-nom').textContent=client.nom||client.contact||'';
+  var histo=(client.emailsHistorique||[]).slice().reverse();
+  var listeEl=document.getElementById('he-liste');
+  if(!histo.length){
+    listeEl.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px">Aucun email envoyé à ce client pour le moment.</div>';
+  }else{
+    listeEl.innerHTML=histo.map(function(h){
+      var meta=EMAIL_TYPE_LABELS[h.type]||EMAIL_TYPE_LABELS.libre;
+      return '<div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:10px">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'+
+          '<div style="font-size:12.5px;font-weight:700;color:var(--text)">'+meta.icone+' '+meta.label+(h.docNumero?' — '+esc(h.docNumero):'')+'</div>'+
+          '<div style="font-size:11px;color:var(--muted)">'+fmtDateHeureFr(h.date)+'</div>'+
+        '</div>'+
+        (h.sujet?'<div style="font-size:12.5px;color:var(--text);margin-bottom:2px"><strong>Objet :</strong> '+esc(h.sujet)+'</div>':'')+
+        (h.apercu?'<div style="font-size:12px;color:var(--muted);white-space:pre-wrap">'+esc(h.apercu)+(h.apercu.length>=300?'…':'')+'</div>':'')+
+      '</div>';
+    }).join('');
+  }
+  openModal('modal-historique-emails');
+}
+
+// ═══ LISTENER DEVIS SIGNES — détecte quand un client signe un devis sur consultation.html ═════
+// Affiche une notification et propose de créer la facture auto.
+var devisSignesListener=null;
+function initListenerDevisSigmes(){
+  if(!FIREBASE_ENABLED||!fbUser||!fbDb||devisSignesListener)return;
+  var prefix=fbUser.uid.substring(0,6).toUpperCase();
+  // Rattrapage : verifie une fois au demarrage les devis deja signes cote client
+  // avant meme l'ouverture de l'appli (le onSnapshot ne verra que les changements a venir).
+  fbDb.collection('documentsPublics')
+    .where('comptePrefixe','==',prefix)
+    .where('devisSigne','==',true)
+    .where('type','==','devis')
+    .get()
+    .then(function(snap){
+      console.log('[DIAG signatures] Requete rattrapage: prefix utilise =',prefix,'| nb resultats =',snap.size);
+      var changed=false;
+      snap.forEach(function(docSnap){
+        console.log('[DIAG signatures] Doc trouve:',docSnap.id,docSnap.data());
+        var pubData=docSnap.data();
+        var localDoc=db.documents.find(function(x){return x.id===parseInt(docSnap.id.split('_')[1]);});
+        console.log('[DIAG signatures] localDoc correspondant:',localDoc?localDoc.numero:'INTROUVABLE (id cherche='+docSnap.id.split('_')[1]+')');
+        if(localDoc&&!localDoc.devisSigneNotifie){
+          localDoc.devisSigne=true;
+          localDoc.signatureClientData=pubData.signatureClientData||'';
+          localDoc.signatureClientDate=pubData.signatureClientDate?(pubData.signatureClientDate.toDate?pubData.signatureClientDate.toDate().toISOString():pubData.signatureClientDate):new Date().toISOString();
+          localDoc.devisSigneNotifie=true;
+          changed=true;
+        }
+      });
+      if(changed){sDB();renderDevis();updateBadgeDevisSignes();}
+    })
+    .catch(function(e){console.error('Erreur rattrapage devis signes:',e);});
+  // Diagnostic supplementaire : lister TOUS les documentsPublics de ce compte, sans filtre devisSigne,
+  // pour voir si D2026-0008 y figure et avec quelle valeur exacte de devisSigne/comptePrefixe.
+  fbDb.collection('documentsPublics').where('comptePrefixe','==',prefix).get()
+    .then(function(snap){
+      console.log('[DIAG signatures] TOUS les documentsPublics du compte (sans filtre devisSigne), nb =',snap.size);
+      snap.forEach(function(d){console.log('[DIAG signatures] ->',d.id,'devisSigne=',d.data().devisSigne,'type=',d.data().type,'numero=',d.data().numero);});
+    })
+    .catch(function(e){console.error('[DIAG signatures] Erreur listing complet:',e);});
+  devisSignesListener=fbDb.collection('documentsPublics')
+    .where('comptePrefixe','==',prefix)
+    .where('devisSigne','==',true)
+    .where('type','==','devis')
+    .onSnapshot(function(snap){
+      snap.docChanges().forEach(function(change){
+        if(change.type==='added'||change.type==='modified'){
+          var pubData=change.doc.data();
+          var localDoc=db.documents.find(function(x){return x.id===parseInt(change.doc.id.split('_')[1]);});
+          if(localDoc&&!localDoc.devisSigneNotifie){
+            // Nouvelle signature detectee !
+            localDoc.devisSigne=true;
+            localDoc.signatureClientData=pubData.signatureClientData||'';
+            localDoc.signatureClientDate=pubData.signatureClientDate?(pubData.signatureClientDate.toDate?pubData.signatureClientDate.toDate().toISOString():pubData.signatureClientDate):new Date().toISOString();
+            localDoc.devisSigneNotifie=true;
+            sDB();
+            afficherNotificationDevisSigne(localDoc,pubData);
+            renderDevis();
+            updateBadgeDevisSignes();
+          }
+        }
+      });
+    },function(e){console.error('Erreur listener devis signes (temps reel):',e);});
+}
+
+function afficherNotificationDevisSigne(doc,pubData){
+  var client=db.clients.find(function(x){return x.id===doc.clientId;});
+  var nom=client?client.nom:'Client';
+  var notifEl=document.getElementById('notification-devis-signe');
+  document.getElementById('notif-devis-titre').textContent='✓ '+nom+' a signé le devis '+doc.numero;
+  document.getElementById('notif-devis-msg').textContent='Le devis est prêt à être converti en facture.';
+  document.getElementById('notif-devis-btn').onclick=function(){
+    creerFactureDepuisDevisSigne(doc,pubData);
+    notifEl.style.display='none';
+    updateBadgeDevisSignes();
+  };
+  notifEl.style.display='block';
+}
+
+function creerFactureDepuisDevisSigne(doc,pubData){
+  var client=db.clients.find(function(x){return x.id===doc.clientId;});
+  if(!client){console.warn('Client non trouve');return;}
+  
+  // Creer une facture avec les memes donnees que le devis
+  var newF={
+    id:Date.now(),
+    type:'facture',
+    numero:'F'+String(db.counters.facture).padStart(6,'0'),
+    clientId:doc.clientId,
+    date:new Date().toISOString().split('T')[0],
+    d2:'',
+    objet:doc.objet,
+    lignes:(doc.lignes||[]).map(function(l){return Object.assign({},l);}),
+    totalHT:doc.totalHT,
+    statut:'emise',
+    signature:doc.signature||'',
+    codeAvis:doc.codeAvis||'',
+    chAdr:doc.chAdr||'',chCp:doc.chCp||'',chVille:doc.chVille||'',
+    devisOriginalId:doc.id, // Reference au devis source
+    signatureClientData:pubData.signatureClientData||'', // Copier la signature du client
+    historique:[{date:new Date().toISOString().split('T')[0],action:'Facture creee automatiquement a partir du devis '+doc.numero+' signe par le client'}],
+    receipt:null
+  };
+  db.counters.facture++;
+  db.documents.push(newF);
+  sDB();
+  
+  // Publier aussi la facture cote public
+  publierDocumentPublic(newF).then(function(){
+    // Envoyer l'email de facture au client si EmailJS est actif
+    if(db.params.emailjsActif){
+      envoyerEmailDocAuto(newF);
+    }
+    console.log('Facture '+newF.numero+' creee automatiquement et publiee.');
+    renderFactures();renderDash();
+  });
+}
+function saveEmailJSParams(){
+  db.params.emailjsActif=document.getElementById('ej-actif').value==='oui';
+  db.params.emailjsPublicKey=document.getElementById('ej-public-key').value.trim();
+  db.params.emailjsServiceId=document.getElementById('ej-service-id').value.trim();
+  db.params.emailjsTemplateId=document.getElementById('ej-template-doc').value.trim();
+  db.params.emailjsTemplateIdRappel=document.getElementById('ej-template-rappel').value.trim();
+  db.params.consultationUrl=document.getElementById('ej-consultation-url').value.trim();
+  sDB();
+  initEmailJS();
+  var el=document.getElementById('ej-params-ok');el.style.display='inline';setTimeout(function(){el.style.display='none';},2500);
+  document.getElementById('ej-status').innerHTML=db.params.emailjsActif
+    ?(emailjsReady?'<span style="color:var(--accent)">✓ Configuration active. Les emails seront envoyes automatiquement.</span>':'<span style="color:var(--danger)">⚠ Configuration incomplete ou invalide.</span>')
+    :'<span style="color:var(--muted)">Envoi automatique desactive.</span>';
+}
+function testEmailJS(){
+  var p=db.params;
+  if(!p.emailjsActif){alert("Activez d'abord l'envoi automatique et enregistrez la configuration.");return;}
+  initEmailJS();
+  if(!emailjsReady){alert('Configuration EmailJS incomplete (Public Key, Service ID ou Template manquant).');return;}
+  if(!p.emailjsServiceId||!p.emailjsTemplateId){alert('Renseignez le Service ID et le Template ID (Devis/Factures) avant de tester.');return;}
+  var dest=p.email||prompt('Aucun email d\'entreprise renseigne. A quelle adresse envoyer le test ?');
+  if(!dest)return;
+  document.getElementById('ej-status').innerHTML='<span style="color:var(--muted)">Envoi du test en cours…</span>';
+  var form=document.getElementById('ej-hidden-form');
+  form.to_email.value=dest;
+  form.to_name.value=p.nom||'Test';
+  form.cc_email.value='';
+  form.subject.value='Test — Envoi automatique EmailJS';
+  form.message.value='Ceci est un email de test envoye depuis votre application Gestion Devis & Factures. Si vous recevez ce message a la bonne adresse ('+dest+'), votre configuration EmailJS fonctionne correctement.';
+  form.from_name.value=p.nom||'Mon Entreprise';
+  form.attachment.value='';
+  emailjs.sendForm(p.emailjsServiceId,p.emailjsTemplateId,form).then(function(){
+    document.getElementById('ej-status').innerHTML='<span style="color:var(--accent)">✓ Email de test envoye a '+esc(dest)+' ! Verifiez que c\'est bien arrive a CETTE adresse (et pas la votre) pour confirmer que "To Email" est correctement configure dans votre template EmailJS.</span>';
+  }).catch(function(err){
+    console.error('Erreur EmailJS:',err);
+    document.getElementById('ej-status').innerHTML='<span style="color:var(--danger)">✗ Echec de l\'envoi : '+esc((err&&err.text)||'erreur inconnue')+'</span>';
+  });
+}
+
+// Envoie un email pour un devis/facture nouvellement cree, avec un LIEN DE CONSULTATION
+// (le client renseigne son numero client + un code secret sur consultation.html pour voir le document).
+// Plus de piece jointe PDF donc plus de limite de taille EmailJS. Echoue silencieusement (log + alerte
+// discrete en cas d'echec reseau) pour ne jamais bloquer l'utilisateur.
+function envoyerEmailDocAuto(doc){
+  var p=db.params;
+  if(!p.emailjsActif)return;
+  initEmailJS();
+  if(!emailjsReady||!p.emailjsServiceId||!p.emailjsTemplateId)return;
+  var client=db.clients.find(function(x){return x.id===doc.clientId;});
+  if(!client||!client.email){console.warn('Email non envoye : client sans adresse email.');return;}
+  var isD=doc.type==='devis';
+
+  publierDocumentPublic(doc).then(function(pub){
+    var lienUrl=p.consultationUrl||'consultation.html';
+    var lienTxt=pub?('\n\nPour consulter '+(isD?'ce devis':'cette facture')+' en ligne :\n'+lienUrl+'\n\nVotre numero client : '+pub.numeroClient+'\nVotre code d\'acces : '+pub.code+'\n'):'';
+    var subject=(isD?'Devis':'Facture')+' n° '+doc.numero+' — '+(p.nom||'Mon Entreprise');
+    var relanceTxt=isD?"Ce devis est valable "+(doc.d2||30)+" jours. N'hesitez pas a nous contacter pour toute question.":'Reglement : '+(p.paiement||'a reception de facture.');
+    var message='Bonjour'+(client.contact?' '+client.contact:'')+',\n\n'+
+      (isD?'Votre devis':'Votre facture')+' n° '+doc.numero+" d'un montant de "+fmt(doc.totalHT)+' € TTC vient d\'etre etabli(e).'+
+      (doc.objet?'\nObjet : '+doc.objet:'')+
+      lienTxt+
+      '\n'+relanceTxt+'\n\nCordialement,\n'+(p.nom||'')+(p.tel?'\nTel. : '+p.tel:'')+(p.email?'\n'+p.email:'');
+
+    var form=document.getElementById('ej-hidden-form');
+    form.to_email.value=client.email;
+    form.to_name.value=client.nom||client.contact||'';
+    form.cc_email.value=p.email||'';
+    form.subject.value=subject;
+    form.message.value=message;
+    form.from_name.value=p.nom||'Mon Entreprise';
+    form.attachment.value='';
+
+    emailjs.sendForm(p.emailjsServiceId,p.emailjsTemplateId,form).then(function(){
+      console.log('Email envoye automatiquement pour '+doc.numero+(pub?' (avec lien de consultation)':' (lien de consultation indisponible)'));
+      enregistrerEmailEnvoye(client.id,{type:'document',sujet:subject,apercu:message,docNumero:doc.numero});
+    }).catch(function(err){
+      console.error('Echec envoi email automatique pour '+doc.numero+':',err);
+      alert('⚠️ L\'email pour '+doc.numero+' n\'a pas pu etre envoye : '+((err&&err.text)||'erreur inconnue')+'\n\nVerifiez votre configuration EmailJS dans Parametres.');
+    }).finally(function(){
+      form.attachment.value='';
+    });
+  });
+}
+
+// ── Rappel de rendez-vous automatique (planning) ──
+// Verifie toutes les 30 min si un evenement a lieu demain et envoie un rappel a 18h (heure locale), une seule fois par evenement (flag rappelEnvoye).
+var RAPPEL_HEURE=18; // heure locale a laquelle envoyer le rappel de la veille
+function verifierRappelsRDV(){
+  var p=db.params;
+  if(!p.emailjsActif)return;
+  var now=new Date();
+  if(now.getHours()<RAPPEL_HEURE)return; // on n'envoie qu'a partir de 18h
+  initEmailJS();
+  if(!emailjsReady)return;
+  var templateId=p.emailjsTemplateIdRappel||p.emailjsTemplateId;
+  if(!p.emailjsServiceId||!templateId)return;
+  var demain=new Date(now.getTime()+86400000).toISOString().split('T')[0];
+  (db.events||[]).forEach(function(ev){
+    if(ev.rappelEnvoye)return;
+    if(ev.start!==demain)return; // le RDV a lieu demain
+    var client=ev.clientId?db.clients.find(function(x){return x.id===parseInt(ev.clientId);}):null;
+    if(!client||!client.email){ev.rappelEnvoye=true;return;} // pas d'email : on marque quand meme pour ne pas reessayer en boucle
+    var tl={chantier:'Chantier',rdv:'Rendez-vous',livraison:'Livraison',autre:'Autre'};
+    var subject='Rappel — '+(tl[ev.type]||'Rendez-vous')+' demain — '+(ev.titre||'');
+    var message='Bonjour'+(client.contact?' '+client.contact:'')+',\n\nPetit rappel : vous avez '+(tl[ev.type]||'un rendez-vous').toLowerCase()+' prevu demain'+(ev.hstart?' a '+ev.hstart:'')+'.\n\n'+
+      'Objet : '+(ev.titre||'—')+
+      (ev.lieu?'\nLieu : '+ev.lieu:'')+
+      (ev.notes?'\nNotes : '+ev.notes:'')+
+      '\n\nA demain !\n\nCordialement,\n'+(p.nom||'')+(p.tel?'\nTel. : '+p.tel:'');
+    var form=document.getElementById('ej-hidden-form');
+    form.to_email.value=client.email;
+    form.to_name.value=client.nom||client.contact||'';
+    form.cc_email.value=p.email||'';
+    form.subject.value=subject;
+    form.message.value=message;
+    form.from_name.value=p.nom||'Mon Entreprise';
+    form.attachment.value='';
+    emailjs.sendForm(p.emailjsServiceId,templateId,form).then(function(){
+      console.log('Rappel RDV envoye pour l\'evenement '+ev.id);
+      enregistrerEmailEnvoye(client.id,{type:'rappel-rdv',sujet:subject,apercu:message,docNumero:ev.titre||null});
+    }).catch(function(err){
+      console.error('Echec envoi rappel RDV pour l\'evenement '+ev.id+':',err);
+    });
+    ev.rappelEnvoye=true; // on marque envoye immediatement pour eviter les doublons meme si la requete echoue en arriere-plan
+    sDB();
+  });
+}
+// Verification au chargement puis toutes les 30 minutes (tant que l'appli reste ouverte dans le navigateur/PWA)
+setTimeout(verifierRappelsRDV,4000);
+setInterval(verifierRappelsRDV,30*60*1000);
+
 // ═══ CLIENTS ════════════════════════════════════════════
 var editCId=null;
 function openClientModal(id){
   editCId=id||null;
   document.getElementById('mc-title').textContent=editCId?'Modifier le client':'Nouveau client';
   var f=['nom','contact','email','tel','adresse','cp','ville','siret'];
-  if(editCId){var c=db.clients.find(function(x){return x.id===editCId;});f.forEach(function(k){var el=document.getElementById('c-'+k);if(el)el.value=c[k]||'';});}
-  else f.forEach(function(k){var el=document.getElementById('c-'+k);if(el)el.value='';});
+  var portalWrap=document.getElementById('mc-portal-wrap');
+  if(editCId){
+    var c=db.clients.find(function(x){return x.id===editCId;});
+    f.forEach(function(k){var el=document.getElementById('c-'+k);if(el)el.value=c[k]||'';});
+    document.getElementById('c-type').value=c.typeClient||'particulier';
+    if(!c.numeroClient){c.numeroClient=genererNumeroClient();sDB();}
+    if(!c.codeClient){c.codeClient=genererCodeClient();sDB();}
+    document.getElementById('mc-portal-num').textContent=c.numeroClient;
+    document.getElementById('mc-portal-code').textContent=c.codeClient;
+    document.getElementById('mc-portal-regen').onclick=function(){regenererCodeClient(editCId);};
+    document.getElementById('mc-portal-resend').onclick=function(){renvoyerEmailAccesClient(editCId);};
+    portalWrap.style.display='block';
+  }else{
+    f.forEach(function(k){var el=document.getElementById('c-'+k);if(el)el.value='';});
+    document.getElementById('c-type').value='particulier';
+    portalWrap.style.display='none';
+  }
   openModal('modal-client');
+}
+function genererNumeroClient(){
+  if(!db.counters.client)db.counters.client=1;
+  var n='CLI-'+String(db.counters.client).padStart(4,'0');
+  db.counters.client++;
+  return n;
+}
+function genererCodeClient(){
+  return Math.random().toString(36).substring(2,8).toUpperCase();
+}
+// Migration douce : attribue un numeroClient aux clients existants qui n'en ont pas encore
+function assurerNumerosClients(){
+  var changed=false;
+  (db.clients||[]).forEach(function(c){
+    if(!c.numeroClient){c.numeroClient=genererNumeroClient();changed=true;}
+    if(!c.codeClient){c.codeClient=genererCodeClient();changed=true;}
+  });
+  if(changed)sDB();
 }
 function saveClient(){
   var nom=document.getElementById('c-nom').value.trim();if(!nom){alert('Nom obligatoire.');return;}
-  var obj={nom:nom,contact:document.getElementById('c-contact').value,email:document.getElementById('c-email').value,tel:document.getElementById('c-tel').value,adresse:document.getElementById('c-adresse').value,cp:document.getElementById('c-cp').value,ville:document.getElementById('c-ville').value,siret:document.getElementById('c-siret').value};
-  if(editCId){var i=db.clients.findIndex(function(x){return x.id===editCId;});db.clients[i]=Object.assign({},db.clients[i],obj);}
-  else{obj.id=Date.now();db.clients.push(obj);}
+  var obj={nom:nom,typeClient:document.getElementById('c-type').value||'particulier',contact:document.getElementById('c-contact').value,email:document.getElementById('c-email').value,tel:document.getElementById('c-tel').value,adresse:document.getElementById('c-adresse').value,cp:document.getElementById('c-cp').value,ville:document.getElementById('c-ville').value,siret:document.getElementById('c-siret').value};
+  var isNew=!editCId;
+  var savedClient;
+  if(editCId){var i=db.clients.findIndex(function(x){return x.id===editCId;});db.clients[i]=Object.assign({},db.clients[i],obj);savedClient=db.clients[i];publierClientPublic(savedClient);}
+  else{
+    obj.id=Date.now();
+    obj.numeroClient=genererNumeroClient();
+    obj.codeClient=genererCodeClient();
+    db.clients.push(obj);
+    savedClient=obj;
+  }
   sDB();closeModal('modal-client');renderClients();
+  if(isNew){
+    publierClientPublic(savedClient);
+    if(savedClient.email)envoyerEmailAccesClient(savedClient);
+  }
 }
-function deleteClient(id){if(!confirm('Supprimer ce client ?'))return;db.clients=db.clients.filter(function(x){return x.id!==id;});sDB();renderClients();}
+// Regenere le code d'acces d'un client (ex: code perdu ou compromis) et republie/renvoie l'email si demande.
+function regenererCodeClient(id){
+  var c=db.clients.find(function(x){return x.id===id;});
+  if(!c)return;
+  if(!confirm('Regenerer le code d\'acces de '+c.nom+' ?\n\nL\'ancien code ne fonctionnera plus. Pensez a le communiquer a nouveau au client.'))return;
+  c.codeClient=genererCodeClient();
+  sDB();
+  publierClientPublic(c);
+  renderClients();
+  var codeEl=document.getElementById('mc-portal-code');
+  if(codeEl)codeEl.textContent=c.codeClient;
+  if(c.email&&confirm('Envoyer le nouveau code par email a '+c.nom+' maintenant ?'))envoyerEmailAccesClient(c);
+  else alert('Nouveau code genere : '+c.codeClient);
+}
+function renvoyerEmailAccesClient(id){
+  var c=db.clients.find(function(x){return x.id===id;});
+  if(!c)return;
+  if(!c.email){alert('Ce client n\'a pas d\'adresse email renseignee.');return;}
+  if(!c.codeClient){c.codeClient=genererCodeClient();sDB();publierClientPublic(c);}
+  envoyerEmailAccesClient(c);
+}
+function deleteClient(id){
+  if(!confirm('Supprimer ce client ?\n\nSes devis/factures resteront dans l\'historique mais ne seront plus rattaches a un client visible.'))return;
+  var docsDuClient=db.documents.filter(function(x){return x.clientId===id;});
+  db.clients=db.clients.filter(function(x){return x.id!==id;});
+  sDB();renderClients();
+  // Supprime aussi la fiche client publique et tous ses documents publics, pour que plus rien
+  // ne reste consultable par ce client sur consultation.html une fois supprime cote gestion.
+  if(FIREBASE_ENABLED&&fbUser&&fbDb){
+    var prefix=fbUser.uid.substring(0,6).toUpperCase();
+    fbDb.collection('clientsPublics').doc(prefix+'_'+id).delete()
+      .catch(function(e){console.error('Erreur suppression fiche client publique:',e);});
+    docsDuClient.forEach(function(doc){
+      fbDb.collection('documentsPublics').doc(prefix+'_'+doc.id).delete()
+        .catch(function(e){console.error('Erreur suppression document public:',e);});
+    });
+  }
+}
+var filtreTypeClient='tous';
+function setFiltreTypeClient(type){
+  filtreTypeClient=type;
+  ['tous','particulier','professionnel'].forEach(function(t){
+    var btn=document.getElementById('filtre-client-'+t);
+    if(!btn)return;
+    btn.className=(t===type)?'btn btn-primary btn-sm':'btn btn-ghost btn-sm';
+  });
+  renderClients();
+}
+
 function renderClients(){
+  assurerNumerosClients();
   var tb=document.getElementById('clients-list');
-  if(!db.clients.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:28px">Aucun client</td></tr>';return;}
-  tb.innerHTML=db.clients.map(function(c){
-    return '<tr><td><strong>'+esc(c.nom)+'</strong></td><td>'+esc(c.contact)+'</td><td>'+esc(c.email)+'</td><td>'+esc(c.tel)+'</td><td>'+esc((c.cp+' '+c.ville).trim())+'</td><td style="display:flex;gap:4px"><button class="btn btn-ghost btn-sm" onclick="openClientModal('+c.id+')">✏️</button><button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteClient('+c.id+')">🗑</button></td></tr>';
+  var liste=db.clients.filter(function(c){
+    if(filtreTypeClient==='tous')return true;
+    return (c.typeClient||'particulier')===filtreTypeClient;
+  });
+  if(!liste.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:28px">Aucun client</td></tr>';return;}
+  tb.innerHTML=liste.map(function(c){
+    var isPro=c.typeClient==='professionnel';
+    var typeBadge=isPro
+      ?'<span class="badge" style="background:#EDE9FE;color:#6D28D9">🏢 Pro</span>'
+      :'<span class="badge" style="background:#F1F5F9;color:#475569">👤 Particulier</span>';
+    return '<tr><td><strong>'+esc(c.nom)+'</strong><br><span style="font-size:11px;color:var(--muted)">'+esc(c.numeroClient||'')+'</span></td><td>'+typeBadge+'</td><td>'+esc(c.contact)+'</td><td>'+esc(c.email)+'</td><td>'+esc(c.tel)+'</td><td>'+esc((c.cp+' '+c.ville).trim())+'</td><td style="display:flex;gap:4px"><button class="btn btn-ghost btn-sm" title="Historique des emails" onclick="openHistoriqueEmailsModal('+c.id+')">📜'+((c.emailsHistorique&&c.emailsHistorique.length)?'<span style="background:var(--primary);color:#fff;border-radius:8px;font-size:9px;padding:1px 5px;margin-left:3px">'+c.emailsHistorique.length+'</span>':'')+'</button><button class="btn btn-ghost btn-sm" title="Envoyer un email" onclick="openEmailClientModal('+c.id+')">✉️</button><button class="btn btn-ghost btn-sm" onclick="openClientModal('+c.id+')">✏️</button><button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteClient('+c.id+')">🗑</button></td></tr>';
   }).join('');
+}
+
+// ═══ EMAIL LIBRE AU CLIENT (via EmailJS, meme configuration que les envois automatiques) ═══
+var ecClientId=null;
+function openEmailClientModal(id){
+  var client=db.clients.find(function(x){return x.id===id;});
+  if(!client)return;
+  if(!client.email){alert('Ce client n\'a pas d\'adresse email enregistree. Ajoutez-en une dans sa fiche avant d\'envoyer un message.');return;}
+  var p=db.params;
+  if(!p.emailjsActif){alert('L\'envoi d\'emails n\'est pas configure. Rendez-vous dans Parametres > Envoi automatique d\'emails (EmailJS) pour l\'activer.');return;}
+  ecClientId=id;
+  document.getElementById('ec-destinataire').value=(client.nom||client.contact||'')+' <'+client.email+'>';
+  document.getElementById('ec-objet').value='';
+  document.getElementById('ec-message').value='Bonjour'+(client.contact?' '+client.contact:'')+',\n\n\n\nCordialement,\n'+(p.nom||'');
+  document.getElementById('ec-status').textContent='';
+  document.getElementById('ec-status').style.color='';
+  openModal('modal-email-client');
+}
+
+function envoyerEmailClient(){
+  var client=db.clients.find(function(x){return x.id===ecClientId;});
+  var statusEl=document.getElementById('ec-status');
+  if(!client){statusEl.style.color='var(--danger)';statusEl.textContent='Erreur : client introuvable.';return;}
+  var objet=document.getElementById('ec-objet').value.trim();
+  var message=document.getElementById('ec-message').value.trim();
+  if(!objet){statusEl.style.color='var(--danger)';statusEl.textContent='Merci de renseigner un objet.';return;}
+  if(!message){statusEl.style.color='var(--danger)';statusEl.textContent='Merci d\'ecrire un message.';return;}
+
+  var p=db.params;
+  initEmailJS();
+  if(!emailjsReady||!p.emailjsServiceId||!p.emailjsTemplateId){
+    statusEl.style.color='var(--danger)';
+    statusEl.textContent='Configuration EmailJS incomplete. Verifiez-la dans Parametres.';
+    return;
+  }
+
+  var btn=document.getElementById('ec-btn-envoyer');
+  btn.disabled=true;
+  statusEl.style.color='var(--muted)';
+  statusEl.textContent='Envoi en cours...';
+
+  var form=document.getElementById('ej-hidden-form');
+  form.to_email.value=client.email;
+  form.to_name.value=client.nom||client.contact||'';
+  form.cc_email.value=p.email||'';
+  form.subject.value=objet;
+  form.message.value=message;
+  form.from_name.value=p.nom||'Mon Entreprise';
+  form.attachment.value='';
+
+  emailjs.sendForm(p.emailjsServiceId,p.emailjsTemplateId,form).then(function(){
+    statusEl.style.color='var(--accent)';
+    statusEl.textContent='✓ Email envoye a '+client.email+' !';
+    btn.disabled=false;
+    enregistrerEmailEnvoye(client.id,{type:'libre',sujet:objet,apercu:message});
+    setTimeout(function(){closeModal('modal-email-client');},1500);
+  }).catch(function(err){
+    console.error('Erreur envoi email client:',err);
+    statusEl.style.color='var(--danger)';
+    statusEl.textContent='Echec de l\'envoi : '+((err&&err.text)||'erreur inconnue')+'. Verifiez votre configuration EmailJS.';
+    btn.disabled=false;
+  }).finally(function(){
+    form.attachment.value='';
+  });
 }
 
 // ═══ PRODUITS ═══════════════════════════════════════════
@@ -2178,11 +3002,30 @@ function openDocModal(type,id){
     docLines=[];
   }
   renderLines();
+  // La case "envoyer par email" n'apparait que si EmailJS est configure et actif,
+  // et uniquement a la CREATION (l'edition d'un document existant n'en renvoie pas un nouveau).
+  var emailOptWrap=document.getElementById('doc-email-opt-wrap');
+  if(emailOptWrap){
+    var canSend=!!db.params.emailjsActif&&!editDId;
+    emailOptWrap.style.display=canSend?'block':'none';
+    if(canSend)document.getElementById('doc-send-email').checked=true;
+  }
+  var clientSigWrap=document.getElementById('doc-client-sig-wrap');
+  if(clientSigWrap){
+    var showClientSig=(type==='devis')&&!!editDId;
+    clientSigWrap.style.display=showClientSig?'block':'none';
+  }
   openModal('modal-doc');
   setTimeout(function(){
     initSig('doc');
     if(editDId){var doc=db.documents.find(function(x){return x.id===editDId;});if(doc.signature)setSig('doc',doc.signature);}
     else clearSig('doc');
+    if(clientSigWrap&&clientSigWrap.style.display==='block'){
+      initSig('doc-client');
+      var doc2=db.documents.find(function(x){return x.id===editDId;});
+      if(doc2&&doc2.signatureClientData)setSig('doc-client',doc2.signatureClientData);
+      else clearSig('doc-client');
+    }
   },80);
 }
 function addLine(){docLines.push({desc:'',qty:1,prix:0,remise:0});renderLines();}
@@ -2263,12 +3106,29 @@ function saveDoc(){
     obj.id=Date.now();
     if(curType==='devis')db.counters.devis++;else db.counters.facture++;
     db.documents.push(obj);
+    // Envoi automatique de l'email au client, seulement si actif ET si la case est cochee
+    var sendEmailChk=document.getElementById('doc-send-email');
+    var wantsSend=!sendEmailChk||sendEmailChk.checked;
+    if(db.params.emailjsActif&&wantsSend)envoyerEmailDocAuto(obj);
   }
   sDB();closeModal('modal-doc');
   if(curType==='devis')renderDevis();else renderFactures();
   renderDash();if(pvId!==null&&pvId===editDId)showPv(pvId);
 }
-function deleteDoc(id){if(!confirm('Supprimer ce document ?'))return;db.documents=db.documents.filter(function(x){return x.id!==id;});sDB();renderDevis();renderFactures();renderDash();}
+function deleteDoc(id){
+  if(!confirm('Supprimer ce document ?'))return;
+  var doc=db.documents.find(function(x){return x.id===id;});
+  db.documents=db.documents.filter(function(x){return x.id!==id;});
+  sDB();renderDevis();renderFactures();renderDash();
+  // Supprime aussi la version publique consultable par le client sur consultation.html,
+  // pour que ce document disparaisse immediatement de son espace (plus de doublon/fantome).
+  if(doc&&FIREBASE_ENABLED&&fbUser&&fbDb){
+    var prefix=fbUser.uid.substring(0,6).toUpperCase();
+    var docId=prefix+'_'+doc.id;
+    fbDb.collection('documentsPublics').doc(docId).delete()
+      .catch(function(e){console.error('Erreur suppression document public:',e);});
+  }
+}
 function convertToF(id){
   if(!confirm('Convertir ce devis en facture ? Une nouvelle facture sera creee ; le devis original sera conserve dans la liste des devis.'))return;
   var doc=db.documents.find(function(x){return x.id===id;});
@@ -2279,16 +3139,17 @@ function convertToF(id){
   nd.type='facture';
   nd.statut='emise';
   nd.numero='F'+year+'-'+num;
-  nd.date=new Date().toISOString().split('T')[0];
   nd.convertiDepuisDevis=doc.numero;
   nd.historique=[]; // historique propre a la facture, independant de celui du devis d'origine
   db.counters.facture++;
   db.documents.push(nd);
   pushHistorique(nd,[],'Facture creee par conversion du devis '+doc.numero+'.');
+  if(db.params.emailjsActif&&confirm('Envoyer cette facture par email au client maintenant ?'))envoyerEmailDocAuto(nd);
   // Le devis original est conserve (non supprime) pour garder une trace de l'historique
   doc.convertiEnFacture=nd.numero;
   pushHistorique(doc,[{label:'Statut',avant:'en-cours',apres:'verrouille (converti)'}],'Converti en facture '+nd.numero+'.');
   sDB();
+  if(clientAConsultation(doc.clientId))publierDocumentPublic(doc);
   showPage('factures');
 }
 
@@ -2296,21 +3157,25 @@ function convertToF(id){
 function renderDevis(){
   var tb=document.getElementById('devis-list');
   var docs=db.documents.filter(function(d){return d.type==='devis';}).sort(function(a,b){return b.id-a.id;});
+  updateBadgeDevisSignes();
   if(!docs.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:28px">Aucun devis</td></tr>';return;}
   tb.innerHTML=docs.map(function(d){
     var c=db.clients.find(function(x){return x.id===d.clientId;});
     var statutBadge=d.convertiEnFacture
       ?'<span class="badge bp" title="Converti en facture '+esc(d.convertiEnFacture)+'">🔒 Converti</span>'
-      :'<span class="badge bd">'+d.statut+'</span>';
+      :d.devisSigne
+        ?'<span class="badge" style="background:#DCFCE7;color:#15803D;font-weight:700" title="Signé par le client le '+(d.signatureClientDate?fmtDate(d.signatureClientDate.split('T')[0]):'')+'">✓ Signé — prêt à facturer</span>'
+        :'<span class="badge bd">'+d.statut+'</span>';
     var convertBtn=d.convertiEnFacture
       ?'<button class="btn btn-ghost btn-sm" onclick="unlockDevis('+d.id+')" title="Annuler la conversion et repasser en brouillon">🔓</button>'
       :'<button class="btn btn-accent btn-sm" onclick="convertToF('+d.id+')" title="Convertir en facture">→F</button>';
     var acompteBtn=d.convertiEnFacture?'':'<button class="btn btn-ghost btn-sm" onclick="openAcompteModal('+d.id+')" title="Créer une facture d\'acompte">💶 Acompte</button>';
     var histBtn=(d.historique&&d.historique.length)?'<button class="btn btn-ghost btn-sm" onclick="showHistoriqueModal('+d.id+')" title="Historique des modifications">📝</button>':'';
+    var consultBtn=clientAConsultation(d.clientId)?'<button class="btn btn-ghost btn-sm" onclick="showConsultationInfo('+d.id+')" title="Code et statut de consultation client">🔗</button>':'';
     return '<tr><td><strong>'+esc(d.numero)+'</strong></td><td>'+(c?esc(c.nom):'—')+'</td><td>'+fmtDate(d.date)+'</td><td><strong>'+fmt(d.totalHT)+' €</strong></td><td>'+statutBadge+'</td><td style="display:flex;gap:3px;flex-wrap:wrap">'+
       '<button class="btn btn-ghost btn-sm" onclick="showPv('+d.id+')">👁</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="openDocModal(\'devis\','+d.id+')">✏️</button>'+
-      convertBtn+acompteBtn+histBtn+
+      convertBtn+acompteBtn+histBtn+consultBtn+
       '<button class="btn btn-primary btn-sm" onclick="downloadPDF('+d.id+',true)">⬇</button>'+
       '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteDoc('+d.id+')">🗑</button>'+
     '</td></tr>';
@@ -2324,6 +3189,19 @@ function unlockDevis(id){
   pushHistorique(doc,[{label:'Verrouillage',avant:'Converti ('+doc.convertiEnFacture+')',apres:'Repasse en brouillon'}],'Conversion annulee manuellement.');
   delete doc.convertiEnFacture;
   sDB();renderDevis();
+  if(clientAConsultation(doc.clientId))publierDocumentPublic(doc);
+}
+
+// Compte les devis signes par le client mais pas encore convertis en facture,
+// et met a jour les badges du menu (desktop + mobile).
+function updateBadgeDevisSignes(){
+  var count=db.documents.filter(function(d){return d.type==='devis'&&d.devisSigne&&!d.convertiEnFacture;}).length;
+  ['badge-devis-signes','badge-devis-signes-mobile'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(!el)return;
+    if(count>0){el.textContent=count;el.style.display='inline-block';}
+    else{el.style.display='none';}
+  });
 }
 
 // ═══ FACTURE D'ACOMPTE ═══════════════════════════════════
@@ -2409,6 +3287,7 @@ function createAcompteFacture(){
   db.counters.facture++;
   db.documents.push(nf);
   pushHistorique(nf,[],'Facture d\'acompte creee depuis le devis '+doc.numero+' ('+fmt(montant)+' €).');
+  if(db.params.emailjsActif&&confirm('Envoyer cette facture d\'acompte par email au client maintenant ?'))envoyerEmailDocAuto(nf);
   sDB();
   closeModal('modal-acompte');
   showPage('factures');
@@ -2425,11 +3304,12 @@ function renderFactures(){
     var acompteTag=d.estAcompte?' <span class="badge" style="background:#FEF3C7;color:#92400E">Acompte '+(d.acomptePourcent?d.acomptePourcent+'%':'')+'</span>':'';
     var histBtn=(d.historique&&d.historique.length)?'<button class="btn btn-ghost btn-sm" onclick="showHistoriqueModal('+d.id+')" title="Historique des modifications">📝</button>':'';
     var avisBtn=d.codeAvis?'<button class="btn btn-ghost btn-sm" onclick="showAvisCodeModal('+d.id+')" title="Code avis client">⭐</button>':'';
+    var consultBtn=clientAConsultation(d.clientId)?'<button class="btn btn-ghost btn-sm" onclick="showConsultationInfo('+d.id+')" title="Code et statut de consultation client">🔗</button>':'';
     return '<tr><td><strong>'+esc(d.numero)+'</strong>'+acompteTag+'</td><td>'+(c?esc(c.nom):'—')+'</td><td>'+fmtDate(d.date)+'</td><td><strong>'+fmt(d.totalHT)+' €</strong></td><td><span class="badge '+bc+'">'+lb+'</span></td><td style="display:flex;gap:3px;flex-wrap:wrap">'+
       '<button class="btn btn-ghost btn-sm" onclick="showPv('+d.id+')">👁</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="openDocModal(\'facture\','+d.id+')">✏️</button>'+
       (!paid?'<button class="btn btn-accent btn-sm" onclick="openReceiptModal('+d.id+')">💰</button>':'<button class="btn btn-ghost btn-sm" onclick="downloadReceiptPDF('+d.id+')" title="Recu">🧾</button>')+
-      avisBtn+histBtn+
+      avisBtn+histBtn+consultBtn+
       '<button class="btn btn-primary btn-sm" onclick="downloadPDF('+d.id+',true)">⬇ Moi</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="downloadPDF('+d.id+',false)">⬇ Client</button>'+
       '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteDoc('+d.id+')">🗑</button>'+
@@ -2437,6 +3317,7 @@ function renderFactures(){
   }).join('');
 }
 function renderDash(){
+  renderUrssafAlerte();
   document.getElementById('stat-devis').textContent=db.documents.filter(function(d){return d.type==='devis'&&d.statut==='en-cours';}).length;
   document.getElementById('stat-factures').textContent=db.documents.filter(function(d){return d.type==='facture';}).length;
   document.getElementById('stat-ca').textContent=fmt(db.documents.filter(function(d){return d.type==='facture';}).reduce(function(s,d){return s+d.totalHT;},0))+' €';
@@ -2470,7 +3351,18 @@ function showPv(id){
   var stamp=showStamp?(isPaid?'<div style="padding:3px 14px 0"><span class="pv-stamp-p">PAYE'+(doc.receipt?' · '+fmtDate(doc.receipt.date):'')+' </span></div>':'<div style="padding:3px 14px 0"><span class="pv-stamp-n">NON PAYE</span></div>'):'';
   var rows=doc.lignes.map(function(l){return'<tr><td>'+esc(l.desc||'')+'</td><td>'+(l.qty%1===0?l.qty:l.qty.toFixed(2))+'</td><td>'+fmt(l.prix)+' €</td><td><strong>'+fmt(lTotal(l))+' €</strong></td></tr>';}).join('');
   var conds=!isD?'<div class="pv-conds"><div><div class="cl">Conditions de paiement :</div><p>'+esc(p.paiement||'A reception.')+'</p>'+(p.iban?'<div class="cl" style="margin-top:4px">Moyens :</div><p>Virement ('+esc(p.iban)+'), cheque</p>':'')+'</div><div><div class="cr">Penalites de retard :</div><p>Au taux legal en vigueur.</p><div class="cr" style="margin-top:4px">Indemnite forfaitaire :</div><p>40 € (art. D.441-5 C.com.)</p></div></div>':'';
-  var sigs='<div class="pv-sigs"><div class="pv-sig"><div class="pv-sig-l">SIGNATURE '+(p.nom||'emetteur').toUpperCase()+'</div><div class="pv-sig-b">'+(doc.signature?'<img src="'+doc.signature+'" alt="sig">':'<span style="font-size:9px;color:#CBD5E1">Non signe</span>')+'</div><div class="pv-sig-n">'+esc(p.nom||'')+'</div></div>'+(isD?'<div class="pv-sig"><div class="pv-sig-l">BON POUR ACCORD — CLIENT</div><div class="pv-sig-b"><span style="font-size:9px;color:#CBD5E1">Lu et approuve</span></div><div class="pv-sig-n">'+esc(client?client.nom:'')+'</div></div>':'')+'</div>';
+  var sigs='<div class="pv-sigs"><div class="pv-sig"><div class="pv-sig-l">SIGNATURE '+(p.nom||'emetteur').toUpperCase()+'</div><div class="pv-sig-b">'+(doc.signature?'<img src="'+doc.signature+'" alt="sig">':'<span style="font-size:9px;color:#CBD5E1">Non signe</span>')+'</div><div class="pv-sig-n">'+esc(p.nom||'')+'</div></div>'+(isD?'<div class="pv-sig"><div class="pv-sig-l">BON POUR ACCORD — CLIENT</div><div class="pv-sig-b">'+(doc.signatureClientData?'<img src="'+doc.signatureClientData+'" alt="signature client">':'<span style="font-size:9px;color:#CBD5E1">Non signe</span>')+'</div><div class="pv-sig-n">'+esc(client?client.nom:'')+(doc.signatureClientDate?' · '+fmtDate(doc.signatureClientDate.split('T')[0]):'')+'</div></div>':'')+'</div>';
+  var avisUrlRaw=(p.avisPageUrl||'').trim();
+  var avisUrlHref=avisUrlRaw&&!/^https?:\/\//i.test(avisUrlRaw)?'https://'+avisUrlRaw:avisUrlRaw;
+  var avisMsg=avisUrlRaw?'Rendez-vous sur le site ci-dessous et saisissez le code pour laisser votre avis :':'Communiquez ce code sur la page d\'avis de votre artisan :';
+  var avisLink=avisUrlRaw?'<a class="pv-avis-link" href="'+esc(avisUrlHref)+'" target="_blank" rel="noopener">'+esc(avisUrlRaw)+' →</a>':'';
+  var avisBlock=(!isD&&doc.codeAvis)?
+    '<div class="pv-avis">'+
+    '<div class="pv-avis-title">⭐ Votre avis compte pour nous !</div>'+
+    '<div class="pv-avis-msg">'+esc(avisMsg)+'</div>'+
+    '<div class="pv-avis-code-wrap"><span class="pv-avis-code-label">Code</span><span class="pv-avis-code">'+esc(doc.codeAvis)+'</span></div>'+
+    avisLink+
+    '</div>':'';
   var html='<div class="pv">'+
     '<div class="pv-hdr"><div style="display:flex;align-items:flex-start;gap:10px">'+(p.logo?'<img src="'+p.logo+'" style="max-height:52px;max-width:85px;object-fit:contain" alt="logo">':'')+
     '<div class="pv-co"><strong>'+esc(p.nom||'Mon Entreprise')+'</strong>'+(p.adresse?esc(p.adresse)+'<br>':'')+(p.ville?esc(p.ville)+'<br>':'')+(p.tel?'Tel. : '+esc(p.tel)+'<br>':'')+(p.siret?'SIRET : '+esc(p.siret)+'<br>':'')+'<span style="color:#1A56DB;font-weight:600;font-size:10px">TVA non applicable, art. 293B du CGI</span></div></div>'+
@@ -2480,6 +3372,7 @@ function showPv(id){
     '<table class="pv-tbl"><thead><tr><th>Designation</th><th style="text-align:right">Qte</th><th style="text-align:right">Prix HT</th><th style="text-align:right">Total HT</th></tr></thead><tbody>'+rows+'</tbody></table>'+
     '<div class="pv-tots"><div class="pv-tr"><span>Total HT</span><span>'+fmt(doc.totalHT)+' €</span></div><div class="pv-tr"><span>TVA (0%)</span><span>0,00 €</span></div><div class="pv-tr fin"><span>Total TTC</span><span>'+fmt(doc.totalHT)+' €</span></div></div>'+
     conds+sigs+
+    avisBlock+
     '<div class="pv-merci">Merci pour votre confiance !</div>'+
     '<div class="pv-foot">'+esc((p.nom||'')+(p.siret?' · SIRET : '+p.siret:'')+(p.adresse?' · '+p.adresse:'')+(p.ville?' · '+p.ville:''))+'<br>Micro-entreprise · TVA non applicable, article 293B du CGI'+(p.email?' · '+esc(p.email):'')+'</div>'+
   '</div>';
@@ -2516,6 +3409,9 @@ function saveReceipt(){
   sDB();closeModal('modal-receipt');renderFactures();renderDash();
   if(pvId===recDocId)showPv(recDocId);
   downloadReceiptPDF(recDocId);
+  // Republie le document cote Firestore pour que le client voie en direct, sur consultation.html,
+  // le passage en "payee" (tampon PAYEE + disparition de la liste des documents "en cours").
+  if(clientAConsultation(doc.clientId))publierDocumentPublic(doc);
 }
 
 // ═══ CODE AVIS CLIENT ════════════════════════════════════
@@ -2529,6 +3425,198 @@ function generateAvisCode(){
 
 var currentAvisCodeDocId=null;
 var currentAvisCode=null;
+
+// ═══ CONSULTATION CLIENT (lien + code) ═══════════════════
+// Publie une version allegee et lisible publiquement du devis/facture dans Firestore
+// (collection documentsPublics), pour que le client puisse le consulter via consultation.html
+// en renseignant son numero client + un code secret. Reste silencieux en cas d'echec (n'empeche jamais
+// la creation du devis/facture elle-meme).
+// Indique si un client possede deja ses identifiants de consultation (numero + code),
+// utilise pour savoir si un document doit etre republie sur documentsPublics.
+function clientAConsultation(clientId){
+  var c=db.clients.find(function(x){return x.id===clientId;});
+  return !!(c&&c.numeroClient&&c.codeClient);
+}
+function publierDocumentPublic(doc){
+  if(!FIREBASE_ENABLED||!fbUser||!fbDb)return Promise.resolve(null);
+  var client=db.clients.find(function(x){return x.id===doc.clientId;});
+  if(!client)return Promise.resolve(null);
+  if(!client.numeroClient){client.numeroClient=genererNumeroClient();sDB();}
+  if(!client.codeClient){client.codeClient=genererCodeClient();sDB();}
+  var prefix=fbUser.uid.substring(0,6).toUpperCase();
+  var payload={
+    comptePrefixe:prefix,
+    numeroClient:client.numeroClient,
+    code:client.codeClient,
+    type:doc.type,
+    numero:doc.numero,
+    date:doc.date,
+    dateValidite:doc.d2||'',
+    objet:doc.objet||'',
+    lignes:doc.lignes||[],
+    totalHT:doc.totalHT||0,
+    statut:doc.statut||'',
+    convertiEnFacture:doc.convertiEnFacture||'',
+    signature:doc.signature||'',
+    codeAvis:doc.codeAvis||'',
+    chAdr:doc.chAdr||'',chCp:doc.chCp||'',chVille:doc.chVille||'',
+    nomEntreprise:db.params.nom||'',
+    adresseEntreprise:db.params.adresse||'',
+    villeEntreprise:db.params.ville||'',
+    telEntreprise:db.params.tel||'',
+    emailEntreprise:db.params.email||'',
+    siretEntreprise:db.params.siret||'',
+    ibanEntreprise:db.params.iban||'',
+    conditionsPaiement:db.params.paiement||'',
+    logoEntreprise:db.params.logo||'',
+    avisPageUrl:db.params.avisPageUrl||'',
+    nomClient:client.nom||'',
+    contactClient:client.contact||'',
+    adresseClient:client.adresse||'',
+    cpClient:client.cp||'',villeClient:client.ville||'',
+    emailClient:client.email||'',
+    receipt:doc.receipt||null,
+    devisSigne:false, // Sera mis a true quand le client signe sur consultation.html
+    signatureClientData:'', // Image PNG base64 de la signature du client
+    signatureClientDate:null, // Horodatage de la signature
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  };
+  var docId=prefix+'_'+doc.id;
+  return fbDb.collection('documentsPublics').doc(docId).get()
+    .then(function(snap){
+      if(snap.exists){
+        var prev=snap.data();
+        if(prev.devisSigne){payload.devisSigne=true;payload.signatureClientData=prev.signatureClientData||'';payload.signatureClientDate=prev.signatureClientDate||null;}
+      }
+      return fbDb.collection('documentsPublics').doc(docId).set(payload);
+    })
+    .then(function(){return {docId:docId,numeroClient:client.numeroClient,code:client.codeClient};})
+    .catch(function(e){console.error('Erreur publication document public:',e);return null;});
+}
+
+// ═══ FICHE CLIENT PUBLIQUE (portail client) ══════════════
+// Publie/synchronise dans Firestore une entree par client (independante des devis/factures),
+// utilisee par consultation.html pour authentifier le client (numeroClient + codeClient)
+// et lister ensuite tous ses devis en-cours / factures non payees.
+function publierClientPublic(client){
+  if(!FIREBASE_ENABLED||!fbUser||!fbDb||!client)return Promise.resolve(null);
+  if(!client.numeroClient){client.numeroClient=genererNumeroClient();sDB();}
+  if(!client.codeClient){client.codeClient=genererCodeClient();sDB();}
+  var prefix=fbUser.uid.substring(0,6).toUpperCase();
+  var payload={
+    comptePrefixe:prefix,
+    numeroClient:client.numeroClient,
+    codeClient:client.codeClient,
+    nom:client.nom||'',
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  };
+  var docId=prefix+'_'+client.id;
+  return fbDb.collection('clientsPublics').doc(docId).set(payload)
+    .then(function(){return {docId:docId,numeroClient:client.numeroClient,codeClient:client.codeClient};})
+    .catch(function(e){console.error('Erreur publication fiche client publique:',e);return null;});
+}
+
+// Envoie par email le numero client + code d'acces permanent, avec le lien vers consultation.html.
+function envoyerEmailAccesClient(client){
+  var p=db.params;
+  if(!p.emailjsActif){console.warn('Email acces client non envoye : EmailJS non actif.');return;}
+  if(!client.email){console.warn('Email acces client non envoye : client sans adresse email.');return;}
+  initEmailJS();
+  if(!emailjsReady||!p.emailjsServiceId||!p.emailjsTemplateId)return;
+
+  publierClientPublic(client).then(function(pub){
+    var lienUrl=p.consultationUrl||'consultation.html';
+    var subject='Votre acces a vos devis et factures — '+(p.nom||'Mon Entreprise');
+    var message='Bonjour'+(client.contact?' '+client.contact:'')+',\n\n'+
+      'Voici vos identifiants pour consulter en ligne, a tout moment, vos devis et factures en cours :\n\n'+
+      lienUrl+'\n\n'+
+      'Numero client : '+client.numeroClient+'\n'+
+      'Code d\'acces : '+(pub?pub.codeClient:client.codeClient)+'\n\n'+
+      'Conservez ces informations, elles vous permettront de retrouver vos documents a tout moment.\n\n'+
+      'Cordialement,\n'+(p.nom||'')+(p.tel?'\nTel. : '+p.tel:'')+(p.email?'\n'+p.email:'');
+
+    var form=document.getElementById('ej-hidden-form');
+    form.to_email.value=client.email;
+    form.to_name.value=client.nom||client.contact||'';
+    form.cc_email.value=p.email||'';
+    form.subject.value=subject;
+    form.message.value=message;
+    form.from_name.value=p.nom||'Mon Entreprise';
+    form.attachment.value='';
+
+    emailjs.sendForm(p.emailjsServiceId,p.emailjsTemplateId,form).then(function(){
+      console.log('Email d\'acces envoye a '+client.nom);
+      enregistrerEmailEnvoye(client.id,{type:'acces',sujet:subject,apercu:message});
+    }).catch(function(err){
+      console.error('Echec envoi email d\'acces pour '+client.nom+':',err);
+      alert('⚠️ L\'email d\'acces pour '+client.nom+' n\'a pas pu etre envoye : '+((err&&err.text)||'erreur inconnue'));
+    }).finally(function(){
+      form.attachment.value='';
+    });
+  });
+}
+// L'URL de la page de consultation cliente est configuree dans Parametres (db.params.consultationUrl).
+
+// Affiche dans une modal : numero client, code, lien complet, et statut de consultation
+// (date de derniere lecture + nombre de consultations), recupere en direct depuis Firestore.
+function showConsultationInfo(docId){
+  var doc=db.documents.find(function(x){return x.id===docId;});
+  if(!doc){return;}
+  var client=db.clients.find(function(x){return x.id===doc.clientId;});
+  var body=document.getElementById('consult-info-body');
+  openModal('modal-consultation-info');
+
+  if(!client||!client.numeroClient||!client.codeClient){
+    body.innerHTML='<p style="font-size:13px;color:var(--muted)">Ce document n\'a pas encore été envoyé par email avec un lien de consultation. Renvoyez-le pour générer les identifiants du client.</p>';
+    return;
+  }
+
+  var url=db.params.consultationUrl||'consultation.html';
+  var infosBase=
+    '<div style="background:#F0FDF4;border:2px solid #BBF7D0;border-radius:10px;padding:16px;margin-bottom:16px">'+
+      '<div style="font-size:11px;color:var(--muted);margin-bottom:3px">Numéro client</div>'+
+      '<div style="font-size:16px;font-weight:800;color:#15803D;margin-bottom:10px">'+esc(client.numeroClient)+'</div>'+
+      '<div style="font-size:11px;color:var(--muted);margin-bottom:3px">Code d\'accès (identique pour tous ses devis/factures)</div>'+
+      '<div style="font-size:22px;font-weight:800;color:#15803D;letter-spacing:.05em;font-family:monospace">'+esc(client.codeClient)+'</div>'+
+    '</div>'+
+    '<div style="font-size:11.5px;color:var(--muted);margin-bottom:14px;word-break:break-all">Lien : '+esc(url)+'</div>'+
+    '<button class="btn btn-ghost" style="width:100%;margin-bottom:14px" onclick="copyConsultationInfo(\''+esc(client.numeroClient)+'\',\''+esc(client.codeClient)+'\',\''+esc(url)+'\')">📋 Copier numéro + code + lien</button>'+
+    '<div id="consult-status-zone" style="font-size:13px;color:var(--muted)">Vérification de la consultation…</div>';
+  body.innerHTML=infosBase;
+
+  if(!FIREBASE_ENABLED||!fbUser||!fbDb){
+    document.getElementById('consult-status-zone').innerHTML='<span style="color:var(--muted)">Connexion au compte requise pour voir le statut de consultation.</span>';
+    return;
+  }
+  var prefix=fbUser.uid.substring(0,6).toUpperCase();
+  var pubDocId=prefix+'_'+doc.id;
+  fbDb.collection('documentsPublics').doc(pubDocId).get().then(function(snap){
+    var zone=document.getElementById('consult-status-zone');
+    if(!zone)return; // la modal a pu etre fermee entre temps
+    if(!snap.exists){zone.innerHTML='<span style="color:var(--muted)">Pas encore consulté.</span>';return;}
+    var data=snap.data();
+    if(data.derniereConsultation){
+      var d=data.derniereConsultation.toDate?data.derniereConsultation.toDate():new Date(data.derniereConsultation);
+      var dStr=d.toLocaleDateString('fr-FR')+' à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+      var nb=data.nbConsultations||1;
+      zone.innerHTML='<span style="color:var(--accent);font-weight:600">✓ Consulté</span><br>Dernière consultation : '+esc(dStr)+(nb>1?' ('+nb+' fois)':'');
+    }else{
+      zone.innerHTML='<span style="color:var(--muted)">Pas encore consulté par le client.</span>';
+    }
+  }).catch(function(e){
+    console.error('Erreur recuperation statut consultation:',e);
+    var zone=document.getElementById('consult-status-zone');
+    if(zone)zone.innerHTML='<span style="color:var(--danger)">Erreur lors de la vérification du statut.</span>';
+  });
+}
+function copyConsultationInfo(numClient,code,url){
+  var txt='Lien de consultation : '+url+'\nNuméro client : '+numClient+'\nCode d\'accès : '+code;
+  navigator.clipboard.writeText(txt).then(function(){
+    alert('Copié dans le presse-papiers !');
+  }).catch(function(){
+    prompt('Copiez manuellement :',txt);
+  });
+}
 function showAvisCodeModal(docId){
   var doc=db.documents.find(function(x){return x.id===docId;});
   if(!doc||!doc.codeAvis)return;
@@ -2657,9 +3745,19 @@ function startAvisListener(){
   if(!FIREBASE_ENABLED||!fbUser)return;
   if(fbAvisUnsubscribe)return; // deja en ecoute, pas besoin de relancer
   var monPrefixe=fbUser.uid.substring(0,6).toUpperCase();
+  var premierChargementAvis=true;
   fbAvisUnsubscribe=fbDb.collection('avisClients').where('comptePrefixe','==',monPrefixe).onSnapshot(function(snap){
     var avis=[];
     snap.forEach(function(doc){avis.push(doc.data());});
+    if(!premierChargementAvis){
+      snap.docChanges().forEach(function(ch){
+        if(ch.type==='added'){
+          var a=ch.doc.data();
+          envoyerNotif('⭐ Nouvel avis client',(a.note||'?')+'/5 — '+(a.commentaire?a.commentaire.slice(0,80):'Sans commentaire'),'avis');
+        }
+      });
+    }
+    premierChargementAvis=false;
     if(!db.avisClients)db.avisClients={};
     db.avisClients.liste=avis;
     sDB();
@@ -2709,8 +3807,54 @@ function renderAvisList(){
   }).join('');
 }
 
-// ═══ PAGE DEMANDES SITE WEB (devis + contacts publics) ══
-var fbDemandesDevisUnsubscribe=null,fbContactsUnsubscribe=null;
+// ═══ NOTIFICATIONS SUR CET APPAREIL ═════════════════════
+// Utilise l'API Notification du navigateur : fonctionne quand l'appli est
+// ouverte (onglet actif ou en arriere-plan / PWA installee). Ne fonctionne
+// PAS quand l'appli est totalement fermee (necessiterait un vrai serveur push).
+function notifSupporte(){return'Notification'in window;}
+function notifActivees(){return notifSupporte()&&Notification.permission==='granted'&&localStorage.getItem('notifsActivees')==='1';}
+
+function demanderPermissionNotif(){
+  if(!notifSupporte()){alert("Votre navigateur ne supporte pas les notifications.");return;}
+  Notification.requestPermission().then(function(perm){
+    if(perm==='granted'){
+      localStorage.setItem('notifsActivees','1');
+      new Notification('Notifications activées ✅',{body:'Vous recevrez une alerte sur cet appareil pour les nouvelles demandes et avis, tant que l\'appli reste ouverte (même en arrière-plan).',icon:(db.params.logo||undefined)});
+    }else{
+      alert("Autorisation refusée. Vous pouvez la réactiver dans les réglages de notifications de votre navigateur.");
+    }
+    updateNotifSettingsUI();
+  });
+}
+function desactiverNotif(){
+  localStorage.setItem('notifsActivees','0');
+  updateNotifSettingsUI();
+}
+function envoyerNotif(titre,corps,onClickPage){
+  if(!notifActivees())return;
+  try{
+    var n=new Notification(titre,{body:corps,icon:(db.params.logo||undefined),tag:titre+corps});
+    if(onClickPage){
+      n.onclick=function(){window.focus();showPage(onClickPage);n.close();};
+    }
+  }catch(e){console.error('Erreur notification:',e);}
+}
+function updateNotifSettingsUI(){
+  var box=document.getElementById('notif-settings-box');
+  if(!box)return;
+  if(!notifSupporte()){
+    box.innerHTML='<div style="font-size:12.5px;color:var(--muted)">Votre navigateur ne supporte pas les notifications.</div>';
+  }else if(Notification.permission==='denied'){
+    box.innerHTML='<div style="font-size:12.5px;color:#DC2626">🔕 Notifications bloquées par le navigateur. Réactivez-les manuellement dans les réglages du site (icône 🔒 à côté de l\'adresse), puis rechargez la page.</div>';
+  }else if(notifActivees()){
+    box.innerHTML='<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="font-size:12.5px;color:#15803D">🔔 Notifications activées sur cet appareil</span><button class="btn btn-ghost btn-sm" onclick="desactiverNotif()">Désactiver</button></div>';
+  }else{
+    box.innerHTML='<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="font-size:12.5px;color:var(--muted)">Recevez une alerte sur cet appareil pour les nouvelles demandes de devis, messages et avis — tant que l\'appli reste ouverte (même en arrière-plan).</span><button class="btn btn-primary btn-sm" onclick="demanderPermissionNotif()">🔔 Activer les notifications</button></div>';
+  }
+}
+
+
+var fbDemandesDevisUnsubscribe=null,fbContactsUnsubscribe=null,fbMessagesClientsUnsubscribe=null;
 
 function initDemandesPage(){
   startDemandesListeners();
@@ -2722,9 +3866,19 @@ function initDemandesPage(){
 function startDemandesListeners(){
   if(!FIREBASE_ENABLED||!fbUser)return;
   if(!fbDemandesDevisUnsubscribe){
+    var premierChargementDevis=true;
     fbDemandesDevisUnsubscribe=fbDb.collection('demandesDevis').orderBy('date','desc').onSnapshot(function(snap){
       var liste=[];
       snap.forEach(function(doc){liste.push(Object.assign({_id:doc.id},doc.data()));});
+      if(!premierChargementDevis){
+        snap.docChanges().forEach(function(ch){
+          if(ch.type==='added'){
+            var d=ch.doc.data();
+            envoyerNotif('📝 Nouvelle demande de devis',((d.prenom||'')+' '+(d.nom||'')).trim()||'Nouveau client','demandes');
+          }
+        });
+      }
+      premierChargementDevis=false;
       if(!db.demandesDevis)db.demandesDevis={};
       db.demandesDevis.liste=liste;
       sDB();
@@ -2733,15 +3887,63 @@ function startDemandesListeners(){
     },function(e){console.error('Erreur listener demandesDevis:',e);});
   }
   if(!fbContactsUnsubscribe){
+    var premierChargementContacts=true;
     fbContactsUnsubscribe=fbDb.collection('contacts').orderBy('date','desc').onSnapshot(function(snap){
       var liste=[];
       snap.forEach(function(doc){liste.push(Object.assign({_id:doc.id},doc.data()));});
+      if(!premierChargementContacts){
+        snap.docChanges().forEach(function(ch){
+          if(ch.type==='added'){
+            var c=ch.doc.data();
+            envoyerNotif('✉️ Nouveau message de contact',(c.nom||'Un visiteur')+' vous a envoyé un message','demandes');
+          }
+        });
+      }
+      premierChargementContacts=false;
       if(!db.contactsSite)db.contactsSite={};
       db.contactsSite.liste=liste;
       sDB();
       renderDemandes();
       updateDemandesBadge();
     },function(e){console.error('Erreur listener contacts:',e);});
+  }
+  if(!fbMessagesClientsUnsubscribe){
+    var monPrefixeMsg=fbUser.uid.substring(0,6).toUpperCase();
+    var premierChargementMsg=true;
+    fbMessagesClientsUnsubscribe=fbDb.collection('messagesClients').where('comptePrefixe','==',monPrefixeMsg).onSnapshot(function(snap){
+      var liste=[];
+      snap.forEach(function(doc){liste.push(Object.assign({_id:doc.id},doc.data()));});
+      // Tri effectue cote client (JavaScript) plutot que via orderBy() Firestore,
+      // afin de ne pas necessiter la creation d'un index composite.
+      liste.sort(function(a,b){
+        var ta=a.date&&a.date.toMillis?a.date.toMillis():0;
+        var tb=b.date&&b.date.toMillis?b.date.toMillis():0;
+        return tb-ta;
+      });
+      if(!premierChargementMsg){
+        snap.docChanges().forEach(function(ch){
+          if(ch.type==='added'){
+            var m=ch.doc.data();
+            if(m.auteur==='client')envoyerNotif('💬 Nouveau message client',(m.docNumero||'')+' — '+(m.texte?m.texte.slice(0,80):''),'demandes');
+          }
+        });
+      }
+      premierChargementMsg=false;
+      if(!db.messagesClients)db.messagesClients={};
+      db.messagesClients.liste=liste;
+      sDB();
+      renderDemandes();
+      updateDemandesBadge();
+    },function(e){
+      console.error('Erreur listener messagesClients:',e);
+      var c=document.getElementById('dmd-msgclients-list');
+      if(c)c.innerHTML='<div style="padding:16px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;color:#DC2626;font-size:13px">'+
+        '⚠️ Impossible de charger les messages clients.<br>'+
+        (e&&e.code==='permission-denied'
+          ?'Vérifiez que les règles Firestore autorisent la lecture de la collection "messagesClients" (voir les commentaires près de FIREBASE_CONFIG dans ce fichier).'
+          :'Détail technique : '+((e&&e.message)||e))+
+        '</div>';
+    });
   }
 }
 
@@ -2755,7 +3957,8 @@ function fmtDateHeure(ts){
 function updateDemandesBadge(){
   var devis=(db.demandesDevis&&db.demandesDevis.liste)||[];
   var contacts=(db.contactsSite&&db.contactsSite.liste)||[];
-  var nouveau=devis.filter(function(d){return d.statut!=='traite';}).length+contacts.filter(function(c){return c.statut!=='traite';}).length;
+  var messages=(db.messagesClients&&db.messagesClients.liste)||[];
+  var nouveau=devis.filter(function(d){return d.statut!=='traite';}).length+contacts.filter(function(c){return c.statut!=='traite';}).length+messages.filter(function(m){return (m.auteur==='client'||m.auteur==='systeme')&&!m.lu;}).length;
   ['demandes-badge','demandes-badge-bn'].forEach(function(id){
     var el=document.getElementById(id);
     if(!el)return;
@@ -2786,13 +3989,128 @@ function creerClientDepuisDemande(id){
   marquerDemandeTraitee('devis',id,true);
 }
 
+// Regroupe les messages par document (conversation) et affiche le dernier message + un
+// formulaire de reponse rapide. Un message client non lu met en avant la conversation.
+function renderMessagesClients(messages){
+  var container=document.getElementById('dmd-msgclients-list');
+  if(!container)return;
+  if(!messages.length){
+    container.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px">Aucun message reçu pour le moment.</div>';
+    return;
+  }
+  var parDoc={};
+  messages.forEach(function(m){
+    if(!parDoc[m.documentId])parDoc[m.documentId]=[];
+    parDoc[m.documentId].push(m);
+  });
+  var conversations=Object.keys(parDoc).map(function(docId){
+    var msgs=parDoc[docId].slice().sort(function(a,b){
+      var ta=a.date&&a.date.toDate?a.date.toDate().getTime():0;
+      var tb=b.date&&b.date.toDate?b.date.toDate().getTime():0;
+      return ta-tb;
+    });
+    var dernier=msgs[msgs.length-1];
+    var nbNonLus=msgs.filter(function(m){return (m.auteur==='client'||m.auteur==='systeme')&&!m.lu;}).length;
+    return {docId:docId,msgs:msgs,dernier:dernier,nbNonLus:nbNonLus};
+  });
+  conversations.sort(function(a,b){
+    var ta=a.dernier.date&&a.dernier.date.toDate?a.dernier.date.toDate().getTime():0;
+    var tb=b.dernier.date&&b.dernier.date.toDate?b.dernier.date.toDate().getTime():0;
+    return tb-ta;
+  });
+
+  container.innerHTML=conversations.map(function(c){
+    var nouveau=c.nbNonLus>0;
+    var typeLabel=c.dernier.docType==='devis'?'Devis':'Facture';
+    var histoHtml=c.msgs.map(function(m){
+      var estPro=m.auteur==='pro';
+      var estSysteme=m.auteur==='systeme';
+      var bg=estPro?'#DBEAFE':(estSysteme?'#FEF3C7':'#F8FAFC');
+      var border=estPro?'#93C5FD':(estSysteme?'#FCD34D':'var(--border)');
+      var justify=estPro?'flex-end':'flex-start';
+      var label=estPro?'Vous':(estSysteme?'⚠️ Notification automatique':'Client');
+      return '<div style="display:flex;'+justify+';margin-bottom:6px">'+
+        '<div style="max-width:80%;background:'+bg+';border:1px solid '+border+';border-radius:8px;padding:7px 11px;font-size:12.5px;color:var(--text)">'+
+          esc(m.texte)+
+          '<div style="font-size:10px;color:var(--muted);margin-top:3px">'+label+' · '+fmtDateHeure(m.date)+'</div>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+    var dernierEstSysteme=c.dernier.auteur==='systeme';
+    return '<div style="border:1px solid var(--border);border-left:4px solid '+(dernierEstSysteme?'#F59E0B':(nouveau?'#7C3AED':'#CBD5E1'))+';border-radius:10px;padding:14px 16px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px">'+
+        '<div><div style="font-size:14px;font-weight:700;color:var(--text)">'+typeLabel+' '+esc(c.dernier.docNumero||'')+(dernierEstSysteme?' <span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:800;padding:2px 7px;border-radius:8px;margin-left:6px">⚠️ ACCÈS EXPIRÉ TENTÉ</span>':(nouveau?' <span style="background:#EDE9FE;color:#7C3AED;font-size:10px;font-weight:800;padding:2px 7px;border-radius:8px;margin-left:6px">'+c.nbNonLus+' NOUVEAU'+(c.nbNonLus>1?'X':'')+'</span>':''))+'</div>'+
+        '<div style="font-size:11px;color:var(--muted);margin-top:2px">Client '+esc(c.dernier.numeroClient||'')+'</div></div>'+
+      '</div>'+
+      '<div style="max-height:220px;overflow-y:auto;margin-bottom:10px;padding-right:4px">'+histoHtml+'</div>'+
+      '<div style="display:flex;gap:8px;margin-bottom:8px">'+
+        '<input type="text" id="msg-reponse-'+esc(c.docId)+'" placeholder="Répondre au client..." style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12.5px" onkeypress="if(event.key===\'Enter\')repondreMessageClient(\''+esc(c.docId)+'\')">'+
+        '<button class="btn btn-primary btn-sm" onclick="repondreMessageClient(\''+esc(c.docId)+'\')">Répondre</button>'+
+      '</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        (nouveau?'<button class="btn btn-ghost btn-sm" onclick="marquerMessagesLus(\''+esc(c.docId)+'\')">✓ Marquer comme lu</button>':'')+
+        '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="supprimerConversationMessages(\''+esc(c.docId)+'\')">🗑️ Supprimer la conversation</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+// Envoie une reponse de l'artisan dans la meme conversation (meme documentId),
+// visible en direct par le client sur consultation.html.
+function repondreMessageClient(docId){
+  var input=document.getElementById('msg-reponse-'+docId);
+  if(!input)return;
+  var texte=input.value.trim();
+  if(!texte)return;
+  var msgsDoc=((db.messagesClients&&db.messagesClients.liste)||[]).filter(function(m){return m.documentId===docId;});
+  var ref=msgsDoc[0]||{};
+  fbDb.collection('messagesClients').add({
+    documentId:docId,
+    comptePrefixe:ref.comptePrefixe||(fbUser?fbUser.uid.substring(0,6).toUpperCase():''),
+    numeroClient:ref.numeroClient||'',
+    docNumero:ref.docNumero||'',
+    docType:ref.docType||'',
+    auteur:'pro',
+    texte:texte,
+    lu:true,
+    date:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){
+    input.value='';
+  }).catch(function(e){console.error('Erreur envoi reponse:',e);alert('Erreur lors de l\'envoi de la reponse.');});
+}
+
+// Marque tous les messages client (non-lus) d'une conversation comme lus
+function marquerMessagesLus(docId){
+  var aTraiter=((db.messagesClients&&db.messagesClients.liste)||[]).filter(function(m){return m.documentId===docId&&(m.auteur==='client'||m.auteur==='systeme')&&!m.lu;});
+  aTraiter.forEach(function(m){
+    if(m._id)fbDb.collection('messagesClients').doc(m._id).update({lu:true}).catch(function(e){console.error(e);});
+  });
+}
+
+// Supprime tous les messages d'une conversation (liee a un document precis)
+function supprimerConversationMessages(docId){
+  if(!confirm('Supprimer toute cette conversation ? Cette action est irreversible.'))return;
+  var aSupprimer=((db.messagesClients&&db.messagesClients.liste)||[]).filter(function(m){return m.documentId===docId;});
+  aSupprimer.forEach(function(m){
+    if(m._id)fbDb.collection('messagesClients').doc(m._id).delete().catch(function(e){console.error(e);});
+  });
+}
+
 function renderDemandes(){
   var devis=(db.demandesDevis&&db.demandesDevis.liste)||[];
   var contacts=(db.contactsSite&&db.contactsSite.liste)||[];
+  var messages=(db.messagesClients&&db.messagesClients.liste)||[];
 
   document.getElementById('dmd-devis-total').textContent=devis.length;
   document.getElementById('dmd-contacts-total').textContent=contacts.length;
-  document.getElementById('dmd-nouveau-total').textContent=devis.filter(function(d){return d.statut!=='traite';}).length+contacts.filter(function(c){return c.statut!=='traite';}).length;
+  var msgTotalEl=document.getElementById('dmd-msgclients-total');
+  if(msgTotalEl){
+    var docsUniques={};messages.forEach(function(m){docsUniques[m.documentId]=true;});
+    msgTotalEl.textContent=Object.keys(docsUniques).length;
+  }
+  document.getElementById('dmd-nouveau-total').textContent=devis.filter(function(d){return d.statut!=='traite';}).length+contacts.filter(function(c){return c.statut!=='traite';}).length+messages.filter(function(m){return (m.auteur==='client'||m.auteur==='systeme')&&!m.lu;}).length;
+
+  renderMessagesClients(messages);
 
   var devisContainer=document.getElementById('dmd-devis-list');
   if(!devis.length){
@@ -2844,7 +4162,40 @@ function renderDemandes(){
 
 // ═══ PAGE SITE VITRINE (édition du contenu public depuis l'app) ══
 // Lit/écrit le document Firestore "siteConfig/main", lu en direct par vitrine.html.
-var SV_FIELDS=['nom','logoUrl','heroTitre','heroDesc','statClients','statAnnees','telephone','email','horaires1','horaires2','horairesCourt','mapEmbedUrl','zoneTexte','zoneVilles','footerDesc','facebookUrl','instagramUrl','copyright','footerZoneLabel','siret','hebergement','adresseLegale'];
+var SV_FIELDS=['nom','logoUrl','heroImageUrl','heroTitre','heroLabel','heroDesc','statClients','statAnnees','telephone','email','horaires1','horaires2','horairesCourt','mapEmbedUrl','zoneTexte','zoneVilles','footerDesc','facebookUrl','instagramUrl','copyright','footerZoneLabel','siret','hebergement','adresseLegale','metaDescription',
+'servicesLabel','servicesTitre','servicesSousTitre','galerieLabel','galerieTitre','avisLabel','avisTitre','avisSousTitre','devisLabel','devisTitre','devisSousTitre','devisPoint1','devisPoint2','devisPoint3','devisPoint4','zoneLabel','zoneTitre','contactLabel','contactTitre'];
+
+// ═══ EDITEUR DE SERVICES (liste dynamique) ══════════════
+var servicesEditeur=[];
+
+function renderServicesEditeur(){
+  var c=document.getElementById('services-editor-list');
+  if(!c)return;
+  if(!servicesEditeur.length){
+    c.innerHTML='<div style="text-align:center;color:var(--muted);padding:16px;font-size:13px;border:1px dashed var(--border);border-radius:8px">Aucun service personnalisé — les 6 services par défaut du site restent affichés.</div>';
+    return;
+  }
+  c.innerHTML=servicesEditeur.map(function(s,i){
+    return '<div style="display:grid;grid-template-columns:60px 1fr 40px;gap:8px;align-items:start;border:1px solid var(--border);border-radius:8px;padding:10px">'+
+      '<input value="'+esc(s.icone||'')+'" placeholder="🔧" oninput="servicesEditeur['+i+'].icone=this.value" style="text-align:center;font-size:18px;padding:6px">'+
+      '<div style="display:grid;gap:6px">'+
+        '<input value="'+esc(s.titre||'')+'" placeholder="Nom du service" oninput="servicesEditeur['+i+'].titre=this.value">'+
+        '<textarea placeholder="Description" oninput="servicesEditeur['+i+'].description=this.value" style="min-height:44px">'+esc(s.description||'')+'</textarea>'+
+      '</div>'+
+      '<button class="btn btn-ghost btn-sm" onclick="supprimerServiceEditeur('+i+')" style="height:36px">🗑️</button>'+
+    '</div>';
+  }).join('');
+}
+
+function ajouterServiceEditeur(){
+  servicesEditeur.push({icone:'🔧',titre:'',description:''});
+  renderServicesEditeur();
+}
+
+function supprimerServiceEditeur(i){
+  servicesEditeur.splice(i,1);
+  renderServicesEditeur();
+}
 
 function initSiteVitrinePage(){
   if(!FIREBASE_ENABLED||!fbUser){
@@ -2861,6 +4212,12 @@ function initSiteVitrinePage(){
       var prev=document.getElementById('sv-logo-preview');
       prev.src=cfg.logoUrl;prev.style.display='block';
     }
+    if(cfg.heroImageUrl){
+      var prevH=document.getElementById('sv-heroimg-preview');
+      prevH.src=cfg.heroImageUrl;prevH.style.display='block';
+    }
+    servicesEditeur=Array.isArray(cfg.services)?cfg.services.slice():[];
+    renderServicesEditeur();
   }).catch(function(e){console.error('Erreur chargement siteConfig:',e);});
   startGalerieAdminListener();
   startSiteStatsListener();
@@ -2876,6 +4233,7 @@ function saveSiteVitrine(){
     if(el.type==='number')data[k]=v?parseInt(v):null;
     else data[k]=v;
   });
+  data.services=servicesEditeur.filter(function(s){return s.titre&&s.titre.trim();});
   fbDb.collection('siteConfig').doc('main').set(data,{merge:true}).then(function(){
     var el=document.getElementById('sv-save-ok');
     el.style.display='inline';
@@ -2933,8 +4291,9 @@ function renderGalerieAdmin(){
     return;
   }
   grid.innerHTML=galerieAdminListe.map(function(p){
-    return '<div style="position:relative;border-radius:10px;overflow:hidden;aspect-ratio:1;border:1px solid var(--border)">'+
-      '<img src="'+esc(p.url)+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">'+
+    return '<div style="position:relative;border-radius:10px;overflow:hidden;aspect-ratio:1;border:1px solid var(--border);background:#F1F5F9">'+
+      '<img src="'+esc(p.url)+'" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'+
+      '<div style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;text-align:center;font-size:10.5px;color:#DC2626;padding:8px">⚠️ Image introuvable — URL non valide</div>'+
       '<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(15,23,42,.7);color:#fff;font-size:10px;padding:3px 6px">'+esc(p.categorie||'')+'</div>'+
       '<button onclick="supprimerPhotoGalerie(\''+p._id+'\',\''+(p.storagePath||'')+'\')" style="position:absolute;top:6px;right:6px;background:rgba(220,38,38,.9);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:12px">✕</button>'+
     '</div>';
@@ -3253,7 +4612,7 @@ function resetAll(){
   // Remet l'objet en memoire a l'etat initial (comme au premier chargement)
   db={
     params:{nom:'',siret:'',adresse:'',ville:'',tel:'',email:'',iban:'',paiement:'Paiement a reception de facture.',logo:'',signature:''},
-    clients:[],produits:[],documents:[],events:[],counters:{devis:1,facture:1},interventions:[],scans:[],depenses:[]
+    clients:[],produits:[],documents:[],events:[],counters:{devis:1,facture:1,client:1},interventions:[],scans:[],depenses:[]
   };
 
   // Vide le stockage local
@@ -3268,6 +4627,70 @@ function resetAll(){
     location.reload();
   }
 }
+
+// Reinitialisation ciblee : efface clients, devis/factures, bons d'intervention, avis clients,
+// produits, depenses, planning et documents scannes -- mais conserve db.params (informations
+// de l'entreprise, logo, IBAN, configuration EmailJS, etc.) intact.
+// Supprime aussi les donnees correspondantes cote Firebase : le document users/{uid} (donnees privees
+// synchronisees) ET les collections publiques clientsPublics / documentsPublics / avisClients
+// (utilisees par consultation.html et la page d'avis), filtrees par le prefixe de ce compte.
+function resetDonneesMetier(){
+  if(!confirm("Reinitialiser les donnees ? Seront definitivement effaces : clients, devis, factures, bons d'intervention, avis clients, produits, depenses, planning et documents scannes.\n\nSi vous etes connecte, cela supprime aussi ces donnees sur Firebase (y compris les fiches et documents publics consultables par vos clients).\n\nLes parametres de l'entreprise (nom, logo, coordonnees, IBAN, EmailJS...) seront CONSERVES.\n\nCette action est irreversible."))return;
+  if(!confirm("Derniere confirmation : etes-vous certain de vouloir effacer ces donnees, y compris sur Firebase ?"))return;
+
+  var paramsConserves=JSON.parse(JSON.stringify(db.params||{}));
+
+  var ancienneDb=db;
+
+  db={
+    params:paramsConserves,
+    clients:[],produits:[],documents:[],events:[],counters:{devis:1,facture:1,client:1,bi:1},interventions:[],scans:[],depenses:[],
+    avisClients:{liste:[]}
+  };
+
+  sDB();
+
+  if(!FIREBASE_ENABLED||!fbUser||!fbDb){
+    location.reload();
+    return;
+  }
+
+  var prefix=fbUser.uid.substring(0,6).toUpperCase();
+
+  // 1) Ecrase le document prive users/{uid} avec la base nettoyee
+  var pUsers=fbDb.collection('users').doc(fbUser.uid).set({db:db,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+    .catch(function(e){console.error('Erreur reset Firestore (users):',e);});
+
+  // 2) Supprime toutes les fiches clients publiques de ce compte (clientsPublics)
+  var pClientsPub=fbDb.collection('clientsPublics').where('comptePrefixe','==',prefix).get()
+    .then(function(snap){
+      var batchPromises=[];
+      snap.forEach(function(d){batchPromises.push(d.ref.delete());});
+      return Promise.all(batchPromises);
+    })
+    .catch(function(e){console.error('Erreur suppression clientsPublics:',e);});
+
+  // 3) Supprime tous les devis/factures publics de ce compte (documentsPublics)
+  var pDocsPub=fbDb.collection('documentsPublics').where('comptePrefixe','==',prefix).get()
+    .then(function(snap){
+      var batchPromises=[];
+      snap.forEach(function(d){batchPromises.push(d.ref.delete());});
+      return Promise.all(batchPromises);
+    })
+    .catch(function(e){console.error('Erreur suppression documentsPublics:',e);});
+
+  // 4) Supprime tous les avis clients de ce compte (avisClients)
+  var pAvis=fbDb.collection('avisClients').where('comptePrefixe','==',prefix).get()
+    .then(function(snap){
+      var batchPromises=[];
+      snap.forEach(function(d){batchPromises.push(d.ref.delete());});
+      return Promise.all(batchPromises);
+    })
+    .catch(function(e){console.error('Erreur suppression avisClients:',e);});
+
+  Promise.all([pUsers,pClientsPub,pDocsPub,pAvis]).finally(function(){location.reload();});
+}
+
 function generateQR(){
   var id=parseInt(document.getElementById('qr-doc-sel').value);if(!id){alert('Selectionnez un document.');return;}
   var doc=db.documents.find(function(x){return x.id===id;});
@@ -3388,8 +4811,8 @@ function buildDocPDF(id,withStamp){
   if(isD){
     var rx2=W/2+15;
     pdf.setFontSize(7.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);pdf.text('Bon pour accord — Signature client :',rx2,sY);
-    pdf.setDrawColor.apply(pdf,gc);pdf.setLineWidth(0.3);pdf.rect(rx2,sY+3,72,22,'S');
-    pdf.setFontSize(6.5);pdf.setFont('helvetica','normal');pdf.setTextColor(210,210,210);pdf.text('Lu et approuve',rx2+36,sY+15,{align:'center'});
+    if(doc.signatureClientData){try{pdf.addImage(doc.signatureClientData,'PNG',rx2,sY+3,72,22,'','FAST');}catch(e){pdf.setDrawColor.apply(pdf,gc);pdf.setLineWidth(0.3);pdf.rect(rx2,sY+3,72,22,'S');}}
+    else{pdf.setDrawColor.apply(pdf,gc);pdf.setLineWidth(0.3);pdf.rect(rx2,sY+3,72,22,'S');pdf.setFontSize(6.5);pdf.setFont('helvetica','normal');pdf.setTextColor(210,210,210);pdf.text('(non signe)',rx2+36,sY+15,{align:'center'});}
     pdf.setDrawColor(160,160,160);pdf.setLineWidth(0.4);pdf.line(rx2,sY+27,rx2+72,sY+27);
     pdf.setFontSize(7);pdf.setTextColor.apply(pdf,gris);pdf.text(client?client.nom:'',rx2+36,sY+31,{align:'center'});
   }
@@ -3401,7 +4824,7 @@ function buildDocPDF(id,withStamp){
     if(Y+aH>250)Y=250-aH; // evite de deborder en bas de page si le document est tres rempli
     pdf.setFillColor(255,251,235);pdf.setDrawColor(245,158,11);pdf.setLineWidth(0.5);pdf.roundedRect(ML,Y,CW,aH,2,2,'FD');
     pdf.setFontSize(9.5);pdf.setFont('helvetica','bold');pdf.setTextColor(146,64,14);
-    pdf.text('⭐ Votre avis compte pour nous !',ML+5,Y+7.5);
+    pdf.text('Votre avis compte pour nous !',ML+5,Y+7.5); // Pas d'emoji dans jsPDF pour eviter corruption
     pdf.setFontSize(7.5);pdf.setFont('helvetica','normal');pdf.setTextColor(133,100,20);
     var avisMsg=p.avisPageUrl?('Rendez-vous sur '+p.avisPageUrl+' et saisissez le code ci-contre :'):'Communiquez ce code sur la page d\'avis de votre artisan :';
     pdf.text(pdf.splitTextToSize(avisMsg,CW-72),ML+5,Y+13);
@@ -4112,8 +5535,52 @@ function sendRelanceEmail(){
   var numStr=relanceNum===1?'1ere':relanceNum===2?'2eme':'3eme';
   var subj=numStr+' relance — Facture n° '+d.numero+' — '+(db.params.nom||'');
   var body=document.getElementById('relance-text').value;
-  var to=encodeURIComponent(c&&c.email?c.email:'');
-  window.location.href='mailto:'+to+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
+
+  if(!c||!c.email){alert('Ce client n\'a pas d\'adresse email enregistree. Ajoutez-en une dans sa fiche avant d\'envoyer la relance.');return;}
+
+  var p=db.params;
+  if(!p.emailjsActif){
+    if(confirm('L\'envoi automatique d\'emails (EmailJS) n\'est pas configure.\n\nVoulez-vous ouvrir votre messagerie habituelle a la place ?')){
+      window.location.href='mailto:'+encodeURIComponent(c.email)+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
+    }
+    return;
+  }
+  initEmailJS();
+  if(!emailjsReady||!p.emailjsServiceId||!p.emailjsTemplateId){
+    alert('Configuration EmailJS incomplete. Verifiez-la dans Parametres > Envoi automatique d\'emails.');
+    return;
+  }
+
+  var btn=document.querySelector('#modal-relance .btn-ghost[onclick="sendRelanceEmail()"]');
+  var texteOriginal=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Envoi en cours...';}
+
+  var form=document.getElementById('ej-hidden-form');
+  form.to_email.value=c.email;
+  form.to_name.value=c.nom||c.contact||'';
+  form.cc_email.value=p.email||'';
+  form.subject.value=subj;
+  form.message.value=body;
+  form.from_name.value=p.nom||'Mon Entreprise';
+  form.attachment.value='';
+
+  emailjs.sendForm(p.emailjsServiceId,p.emailjsTemplateId,form).then(function(){
+    // Enregistre la relance comme envoyee (meme mecanisme que downloadRelancePDF)
+    if(!d.relances)d.relances=[];
+    if(!d.relances.some(function(r){return r.num===relanceNum;})){
+      d.relances.push({num:relanceNum,date:new Date().toISOString().split('T')[0]});
+      sDB();renderRelances();
+    }
+    enregistrerEmailEnvoye(c.id,{type:'relance',sujet:subj,apercu:body,docNumero:d.numero});
+    alert('✓ Relance envoyee par email a '+c.email+' !');
+    closeModal('modal-relance');
+  }).catch(function(err){
+    console.error('Erreur envoi relance:',err);
+    alert('⚠️ Echec de l\'envoi : '+((err&&err.text)||'erreur inconnue')+'\n\nVerifiez votre configuration EmailJS dans Parametres.');
+  }).finally(function(){
+    form.attachment.value='';
+    if(btn){btn.disabled=false;btn.textContent=texteOriginal;}
+  });
 }
 
 // ═══ INIT ════════════════════════════════════════════════
@@ -4425,6 +5892,119 @@ function getUrssafTaux(){
   return base;
 }
 
+// ═══ ECHEANCES ET ALERTES URSSAF ═══════════════════════
+// Dates officielles de declaration/paiement pour un auto-entrepreneur :
+// - Mensuel : dernier jour du mois suivant
+// - Trimestriel : 30 avril (T1), 31 juillet (T2), 31 octobre (T3), 31 janvier n+1 (T4)
+var URSSAF_MOIS_LABELS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+function urssafDeadlineForPeriod(mode,year,period){
+  if(mode==='mensuel'){
+    var dm=period+1,dy=year;
+    if(dm>11){dm=0;dy=year+1;}
+    return new Date(dy,dm+1,0); // dernier jour du mois dm/dy
+  }else{
+    var map=[{m:3,d:30},{m:6,d:31},{m:9,d:31},{m:0,d:31}];
+    var o=map[period];
+    var dy=period===3?year+1:year;
+    return new Date(dy,o.m,o.d);
+  }
+}
+
+function urssafPeriodeLabel(mode,year,period){
+  return mode==='mensuel'?(URSSAF_MOIS_LABELS[period]+' '+year):('T'+(period+1)+' '+year);
+}
+
+// Retourne la periode dont la declaration est actuellement due (la periode juste avant aujourd'hui)
+function urssafPeriodeAvantCourante(mode,today){
+  if(mode==='mensuel'){
+    var m=today.getMonth()-1,y=today.getFullYear();
+    if(m<0){m=11;y--;}
+    return{year:y,period:m};
+  }else{
+    var q=Math.floor(today.getMonth()/3)-1,y=today.getFullYear();
+    if(q<0){q=3;y--;}
+    return{year:y,period:q};
+  }
+}
+function urssafPeriodeSuivante(mode,year,period){
+  if(mode==='mensuel'){
+    var m=period+1,y=year;
+    if(m>11){m=0;y++;}
+    return{year:y,period:m};
+  }else{
+    var q=period+1,y=year;
+    if(q>3){q=0;y++;}
+    return{year:y,period:q};
+  }
+}
+
+// Renvoie l'echeance a afficher : la plus ancienne periode non declaree
+function getProchaineEcheanceUrssaf(){
+  var mode=db.params.frequenceUrssaf||'trimestriel';
+  var today=new Date();today.setHours(0,0,0,0);
+  if(!db.params.urssafDeclare)db.params.urssafDeclare={};
+  var pp=urssafPeriodeAvantCourante(mode,today);
+  // Remonte tant que la periode precedente n'est pas encore declaree (rattrape le retard si l'app n'a pas ete ouverte)
+  var safety=0;
+  while(safety<24){
+    var key=mode+'-'+pp.year+'-'+pp.period;
+    if(!db.params.urssafDeclare[key]){
+      var deadline=urssafDeadlineForPeriod(mode,pp.year,pp.period);
+      var joursRestants=Math.round((deadline-today)/86400000);
+      return{mode:mode,year:pp.year,period:pp.period,key:key,deadline:deadline,joursRestants:joursRestants,label:urssafPeriodeLabel(mode,pp.year,pp.period)};
+    }
+    // Cette periode est deja declaree : on regarde si la periode suivante (encore anterieure a aujourd'hui) est aussi due
+    var next=urssafPeriodeSuivante(mode,pp.year,pp.period);
+    var nextDeadline=urssafDeadlineForPeriod(mode,next.year,next.period);
+    if(nextDeadline>today)return null; // tout est a jour, rien n'est encore du
+    pp=next;
+    safety++;
+  }
+  return null;
+}
+
+function marquerUrssafDeclare(key){
+  if(!db.params.urssafDeclare)db.params.urssafDeclare={};
+  db.params.urssafDeclare[key]=new Date().toISOString().split('T')[0];
+  sDB();
+  renderUrssafAlerte();
+}
+
+function renderUrssafAlerte(){
+  var ech=getProchaineEcheanceUrssaf();
+
+  // Badges menu (sidebar + mobile)
+  ['urssaf-badge','urssaf-badge-bn'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(!el)return;
+    if(ech&&ech.joursRestants<=14){el.style.display='inline-block';el.textContent=ech.joursRestants<0?'!':ech.joursRestants;}
+    else el.style.display='none';
+  });
+
+  // Bannieres (dashboard + page urssaf)
+  ['urssaf-alert-dashboard','urssaf-alert-page'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(!el)return;
+    if(!ech){el.innerHTML='';return;}
+    var enRetard=ech.joursRestants<0;
+    var urgent=ech.joursRestants<=7;
+    var couleur=enRetard?'#DC2626':(urgent?'#EA580C':'#1A56DB');
+    var fond=enRetard?'#FEF2F2':(urgent?'#FFF7ED':'#EFF6FF');
+    var bordure=enRetard?'#FCA5A5':(urgent?'#FED7AA':'#BFDBFE');
+    var texte=enRetard?
+      ('⚠️ Déclaration URSSAF en retard : <strong>'+ech.label+'</strong> devait être déclarée et payée le '+ech.deadline.toLocaleDateString('fr-FR')+'.'):
+      ('📅 Prochaine échéance URSSAF : <strong>'+ech.label+'</strong> à déclarer et payer avant le <strong>'+ech.deadline.toLocaleDateString('fr-FR')+'</strong> ('+ech.joursRestants+' jour'+(ech.joursRestants>1?'s':'')+' restant'+(ech.joursRestants>1?'s':'')+').');
+    el.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:13px 16px;background:'+fond+';border:1px solid '+bordure+';border-radius:10px;margin-bottom:18px">'+
+      '<span style="font-size:13px;color:'+couleur+'">'+texte+'</span>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        '<button class="btn btn-ghost btn-sm" onclick="showPage(\'urssaf\')">Voir le détail</button>'+
+        '<button class="btn btn-primary btn-sm" onclick="marquerUrssafDeclare(\''+ech.key+'\')">✓ J\'ai déclaré et payé</button>'+
+      '</div>'+
+    '</div>';
+  });
+}
+
 // ═══ DEPENSES ════════════════════════════════════════════
 var DEPENSE_CATEGORIES={
   fournitures:'Fournitures / Matériaux',carburant:'Carburant / Déplacement',outillage:'Outillage / Matériel',
@@ -4708,6 +6288,7 @@ function downloadBilanPDF(){
 }
 
 function initUrssafPage(){
+  renderUrssafAlerte();
   // Remplir annees disponibles a partir des factures payees + annee courante
   var years={};
   years[new Date().getFullYear()]=true;
@@ -5227,6 +6808,7 @@ showPage=function(name){
 
 // INIT
 renderDash();
+updateBadgeDevisSignes();
 setTimeout(applyTableLabels,200);
 </script>
 <!-- LIGHTBOX PHOTO -->
@@ -5244,5 +6826,534 @@ setTimeout(applyTableLabels,200);
   </div>
   <button class="save-toast-close" onclick="document.getElementById('save-toast').classList.remove('show')">✕</button>
 </div>
+
+<!-- NOTIFICATION DEVIS SIGNE -->
+<div id="notification-devis-signe" style="display:none;position:fixed;top:20px;right:20px;background:#fff;border:2px solid #16A34A;border-radius:10px;padding:16px 20px;box-shadow:0 4px 24px rgba(28,49,68,.15);z-index:999;max-width:360px;animation:slideIn .3s ease-out">
+  <div style="display:flex;gap:12px;align-items:flex-start">
+    <div style="font-size:24px">✓</div>
+    <div style="flex:1">
+      <div style="font-weight:700;color:#1A2633;margin-bottom:4px" id="notif-devis-titre"></div>
+      <div style="font-size:13px;color:#6B7C8E;margin-bottom:10px" id="notif-devis-msg"></div>
+      <button class="btn btn-primary btn-sm" id="notif-devis-btn" style="width:auto;padding:8px 16px">📄 Créer la facture</button>
+    </div>
+    <button onclick="document.getElementById('notification-devis-signe').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999">✕</button>
+  </div>
+</div>
+<style>
+@keyframes slideIn{from{transform:translateX(400px);opacity:0}to{transform:translateX(0);opacity:1}}
+</style>
+
+<!-- FORMULAIRE CACHE pour l'envoi de vraies pieces jointes PDF via EmailJS (emailjs.sendForm) -->
+<form id="ej-hidden-form" style="display:none">
+  <input type="hidden" name="to_email">
+  <input type="hidden" name="to_name">
+  <input type="hidden" name="cc_email">
+  <input type="hidden" name="subject">
+  <input type="hidden" name="message">
+  <input type="hidden" name="from_name">
+  <input type="file" name="attachment">
+</form>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   DEVKIT — panneau développeur (test uniquement, non lié à la prod)
+   Activation : ouvrez la console (F12) et tapez :
+       activerModeDev("DEV-2026")
+   Désactivation : desactiverModeDev()
+   ═══════════════════════════════════════════════════════════════ */
+(function(){
+  'use strict';
+
+  var DEV_CODE = "DEV-2026";
+  var STORAGE_FLAG = "devkit_actif";
+  var LOG_MAX = 60;
+  var logs = [];
+
+  // ── Interception des erreurs / logs pour affichage mobile ──────
+  function pushLog(type, args){
+    try{
+      var msg = Array.prototype.slice.call(args).map(function(a){
+        if(a instanceof Error) return a.message;
+        if(typeof a==='object'){ try{return JSON.stringify(a);}catch(e){return String(a);} }
+        return String(a);
+      }).join(' ');
+      logs.push({type:type, msg:msg, time:new Date().toLocaleTimeString('fr-FR')});
+      if(logs.length>LOG_MAX) logs.shift();
+      renderLogPanel();
+    }catch(e){}
+  }
+
+  var origError = console.error, origWarn = console.warn, origLog = console.log;
+  console.error = function(){ pushLog('error', arguments); origError.apply(console, arguments); };
+  console.warn  = function(){ pushLog('warn', arguments);  origWarn.apply(console, arguments); };
+  window.addEventListener('error', function(e){
+    pushLog('error', [e.message + ' (' + (e.filename||'').split('/').pop() + ':' + e.lineno + ')']);
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    pushLog('error', ['Promise rejetée: ' + (e.reason && e.reason.message ? e.reason.message : e.reason)]);
+  });
+
+  // ── Utilitaires génériques ─────────────────────────────────────
+  function rand(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+  function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+  function pad4(n){ return String(n).padStart(4,'0'); }
+  function todayISO(){ return new Date().toISOString().split('T')[0]; }
+  function isoDaysAgo(n){ var d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().split('T')[0]; }
+  function codeClientRandom(){ return Math.random().toString(36).substring(2,8).toUpperCase(); }
+
+  var NOMS = ["Dupont","Martin","Bernard","Petit","Durand","Leroy","Moreau","Simon","Laurent","Lefebvre","Michel","Garcia","David","Bertrand","Roux","Vincent","Fournier","Morel","Girard","Andre"];
+  var PRENOMS = ["Jean","Marie","Pierre","Sophie","Nicolas","Isabelle","Julien","Camille","Thomas","Emma","Lucas","Chloe","Antoine","Laura","Maxime"];
+  var VILLES = [["Valenciennes","59300"],["Lille","59000"],["Douai","59500"],["Cambrai","59400"],["Amiens","80000"],["Arras","62000"],["Saint-Quentin","02100"]];
+  var RUES = ["rue des Lilas","avenue Victor Hugo","rue de la Paix","impasse des Roses","boulevard Gambetta","rue du Moulin","allée des Chênes"];
+  var PRESTATIONS = [
+    {desc:"Installation chauffe-eau électrique", prix:420},
+    {desc:"Dépannage plomberie - fuite robinet", prix:95},
+    {desc:"Pose carrelage salle de bain (m²)", prix:55},
+    {desc:"Rénovation électrique complète", prix:3200},
+    {desc:"Peinture pièce standard (m²)", prix:28},
+    {desc:"Installation VMC", prix:680},
+    {desc:"Remplacement chaudière gaz", prix:2450},
+    {desc:"Débouchage canalisation", prix:120},
+    {desc:"Pose fenêtre PVC", prix:540},
+    {desc:"Isolation combles (m²)", prix:38}
+  ];
+
+  function fakeClient(idBase){
+    var ville = rand(VILLES);
+    var nom = rand(PRENOMS)+" "+rand(NOMS);
+    return {
+      id: idBase,
+      nom: nom,
+      contact: nom,
+      email: nom.toLowerCase().replace(/ /g,'.').replace(/[éè]/g,'e') + "@exemple-test.fr",
+      tel: "0"+randInt(6,7)+" "+randInt(10,99)+" "+randInt(10,99)+" "+randInt(10,99)+" "+randInt(10,99),
+      adresse: randInt(1,150)+" "+rand(RUES),
+      cp: ville[1],
+      ville: ville[0],
+      siret: "",
+      numeroClient: "CLI-"+pad4(randInt(1,9999)),
+      codeClient: codeClientRandom()
+    };
+  }
+
+  function fakeDoc(idBase, type, clientId, numCounter){
+    var nbLignes = randInt(1,4);
+    var lignes = [];
+    for(var i=0;i<nbLignes;i++){
+      var p = rand(PRESTATIONS);
+      lignes.push({desc:p.desc, qty:randInt(1,5), prix:p.prix, remise: rand([0,0,0,5,10])});
+    }
+    var ht = lignes.reduce(function(s,l){ return s + l.qty*l.prix*(1-l.remise/100); },0);
+    var isDevis = type==='devis';
+    var year = new Date().getFullYear();
+    var joursAgo = randInt(0,60);
+    return {
+      id: idBase,
+      type: type,
+      numero: (isDevis?'D':'F')+year+'-'+pad4(numCounter),
+      date: isoDaysAgo(joursAgo),
+      d2: '30',
+      clientId: clientId,
+      objet: rand(["Travaux chantier", "Intervention urgente", "Rénovation", "Suivi contrat annuel", ""]),
+      notes: "",
+      chAdr: "", chCp: "", chVille: "",
+      lignes: lignes,
+      statut: isDevis ? rand(['en-cours','en-cours','signe']) : rand(['emise','emise','payee']),
+      totalHT: Math.round(ht*100)/100,
+      signature: ''
+    };
+  }
+
+  // ── Génération de données de test (app principale) ─────────────
+  function genererDonneesTest(nbClients, nbDocs){
+    nbClients = nbClients || 6;
+    nbDocs = nbDocs || 10;
+    if(typeof db === 'undefined'){ alert('DEVKIT: variable "db" introuvable sur cette page.'); return; }
+    var baseId = Date.now();
+    var newClients = [];
+    for(var i=0;i<nbClients;i++){
+      newClients.push(fakeClient(baseId+i));
+    }
+    db.clients = db.clients.concat(newClients);
+
+    for(var j=0;j<nbDocs;j++){
+      var type = j%3===0 ? 'facture' : 'devis';
+      var cl = rand(newClients);
+      var counter = type==='devis' ? (db.counters.devis||1) : (db.counters.facture||1);
+      var doc = fakeDoc(baseId+1000+j, type, cl.id, counter);
+      db.documents.push(doc);
+      if(type==='devis') db.counters.devis = counter+1; else db.counters.facture = counter+1;
+    }
+
+    if(typeof sDB==='function') sDB();
+    ['renderClients','renderDevis','renderFactures','renderDash','renderProduits'].forEach(function(fn){
+      if(typeof window[fn]==='function'){ try{ window[fn](); }catch(e){} }
+    });
+    alert('DEVKIT: '+nbClients+' clients et '+nbDocs+' documents de test ajoutés.');
+  }
+
+  // ── Voir / exporter le localStorage brut ────────────────────────
+  function detectStorageKey(){
+    var candidates = ['gdf_v5'];
+    for(var i=0;i<candidates.length;i++){
+      if(localStorage.getItem(candidates[i])!==null) return candidates[i];
+    }
+    // fallback : première clé qui ressemble à du JSON volumineux
+    for(var k in localStorage){
+      if(localStorage.hasOwnProperty(k)){
+        var v = localStorage.getItem(k);
+        if(v && v.length>50 && (v[0]==='{'||v[0]==='[')) return k;
+      }
+    }
+    return null;
+  }
+
+  function voirStorage(){
+    var key = detectStorageKey();
+    if(!key){ alert('DEVKIT: aucune donnée locale trouvée.'); return; }
+    var raw = localStorage.getItem(key);
+    var w = window.open('', '_blank');
+    if(!w){ alert('DEVKIT: autorisez les pop-ups pour voir les données.'); return; }
+    w.document.write('<pre style="white-space:pre-wrap;word-break:break-all;font-family:monospace;font-size:12px;padding:16px;">'+
+      raw.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</pre>');
+    w.document.title = 'DEVKIT - localStorage['+key+']';
+  }
+
+  function exporterStorageJSON(){
+    var key = detectStorageKey();
+    if(!key){ alert('DEVKIT: aucune donnée locale trouvée.'); return; }
+    var raw = localStorage.getItem(key);
+    var blob = new Blob([raw], {type:'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = key+'_export_'+todayISO()+'.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function copierStoragePressePapier(){
+    var key = detectStorageKey();
+    if(!key){ alert('DEVKIT: aucune donnée locale trouvée.'); return; }
+    var raw = localStorage.getItem(key);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(raw).then(function(){
+        alert('DEVKIT: contenu de "'+key+'" copié dans le presse-papier.');
+      }).catch(function(){ prompt('Copiez manuellement :', raw); });
+    } else {
+      prompt('Copiez manuellement :', raw);
+    }
+  }
+
+  // ── Reset complet ────────────────────────────────────────────
+  function resetComplet(){
+    if(!confirm('DEVKIT: supprimer TOUTES les données locales de cette page et recharger ?')) return;
+    try{
+      var key = detectStorageKey();
+      if(key) localStorage.removeItem(key);
+      localStorage.removeItem('mobileViewEnabled');
+      localStorage.removeItem('notifsActivees');
+    }catch(e){}
+    location.reload();
+  }
+
+  // ── Désactiver les validations de formulaire ────────────────────
+  var validationsDesactivees = false;
+  function toggleValidations(force){
+    validationsDesactivees = (force!==undefined) ? force : !validationsDesactivees;
+    document.querySelectorAll('input[required], select[required], textarea[required]').forEach(function(el){
+      if(validationsDesactivees) el.removeAttribute('required'); else el.setAttribute('required','required');
+    });
+    document.querySelectorAll('form').forEach(function(f){ f.setAttribute('novalidate', validationsDesactivees ? 'novalidate' : ''); if(!validationsDesactivees) f.removeAttribute('novalidate'); });
+    return validationsDesactivees;
+  }
+
+  // ── Bypass écran de connexion (gestion-devis-factures.html) ────
+  function bypassAuth(){
+    if(typeof skipAuthAndUseLocal==='function'){
+      skipAuthAndUseLocal();
+      return 'DEVKIT: connexion Firebase court-circuitée, mode local activé.';
+    }
+    return 'DEVKIT: fonction skipAuthAndUseLocal introuvable sur cette page.';
+  }
+
+  // ── Bypass consultation.html : simuler un client + documents ───
+  function simulerConsultation(){
+    if(typeof afficherListeDocuments!=='function'){
+      alert('DEVKIT: cette fonction est spécifique à consultation.html');
+      return;
+    }
+    var clientFake = {nom:'Client Test DEVKIT', numeroClient:'CLI-TEST'};
+    var docs = [
+      {type:'devis', numero:'D2026-0001', date:isoDaysAgo(3), totalHT:1250.5, devisSigne:false, _firestoreId:'devkit-fake-1'},
+      {type:'devis', numero:'D2026-0002', date:isoDaysAgo(10), totalHT:840, devisSigne:true, _firestoreId:'devkit-fake-2'},
+      {type:'facture', numero:'F2026-0001', date:isoDaysAgo(20), totalHT:2100, statut:'emise', _firestoreId:'devkit-fake-3'}
+    ];
+    window.__devkitFakeDocs = {};
+    docs.forEach(function(d){ window.__devkitFakeDocs[d._firestoreId] = fakeDocDetail(d, clientFake); });
+    afficherListeDocuments(clientFake, docs);
+
+    // On intercepte ouvrirDocument pour servir les fausses données au lieu d'appeler Firestore
+    if(typeof window.__devkitOrigOuvrirDocument==='undefined' && typeof ouvrirDocument==='function'){
+      window.__devkitOrigOuvrirDocument = ouvrirDocument;
+      window.ouvrirDocument = function(id){
+        if(window.__devkitFakeDocs && window.__devkitFakeDocs[id]){
+          document.getElementById('liste-wrap').style.display='none';
+          afficherDocument(window.__devkitFakeDocs[id], id);
+        } else {
+          window.__devkitOrigOuvrirDocument(id);
+        }
+      };
+    }
+  }
+  function fakeDocDetail(d, clientFake){
+    return Object.assign({}, d, {
+      clientNom: clientFake.nom,
+      clientAdresse: "12 rue de Test", clientCp:"59300", clientVille:"Valenciennes",
+      lignes: [
+        {desc:"Prestation de test DEVKIT", qty:1, prix:d.totalHT, remise:0}
+      ],
+      entrepriseNom: "Entreprise Démo",
+      d2: "30"
+    });
+  }
+
+  // ── Navigation rapide entre les 3 pages ─────────────────────────
+  function detectFileNames(){
+    // Ces noms doivent correspondre aux fichiers réellement déployés
+    return {
+      gestion: 'gestion-devis-factures.html',
+      consultation: 'consultation.html',
+      vitrine: 'vitrine.html'
+    };
+  }
+
+  // ── Simulation d'états (payée/non payée, signée/non signée…) ───
+  function simulerEtatDocument(id, patch){
+    if(typeof db==='undefined'){ alert('DEVKIT: "db" introuvable.'); return; }
+    var doc = db.documents.find(function(x){ return x.id===id; });
+    if(!doc){ alert('DEVKIT: document id='+id+' introuvable.'); return; }
+    Object.assign(doc, patch);
+    if(typeof sDB==='function') sDB();
+    ['renderDevis','renderFactures','renderDash'].forEach(function(fn){ if(typeof window[fn]==='function'){ try{window[fn]();}catch(e){} } });
+    console.log('DEVKIT: document', id, 'mis à jour', patch);
+  }
+
+  // ── Horloge fictive (avance/recule le temps perçu par l'app) ───
+  var dateOffsetMs = 0;
+  var RealDate = Date;
+  function activerHorlogeFictive(dateISO){
+    var target = new Date(dateISO);
+    dateOffsetMs = target.getTime() - RealDate.now();
+    window.Date = function(){
+      if(arguments.length===0) return new RealDate(RealDate.now()+dateOffsetMs);
+      return new (Function.prototype.bind.apply(RealDate, [null].concat(Array.prototype.slice.call(arguments))))();
+    };
+    window.Date.prototype = RealDate.prototype;
+    window.Date.now = function(){ return RealDate.now()+dateOffsetMs; };
+    console.log('DEVKIT: horloge fictive activée →', new Date().toString());
+  }
+  function desactiverHorlogeFictive(){
+    window.Date = RealDate;
+    dateOffsetMs = 0;
+    console.log('DEVKIT: horloge réelle restaurée.');
+  }
+
+  // ── Panneau flottant ─────────────────────────────────────────
+  var panelEl = null;
+  function buildPanel(){
+    if(panelEl) return panelEl;
+    var css = document.createElement('style');
+    css.textContent = [
+      '#devkit-fab{position:fixed;bottom:16px;right:16px;z-index:999999;width:48px;height:48px;border-radius:50%;',
+      'background:#111827;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;',
+      'cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35);user-select:none;}',
+      '#devkit-panel{position:fixed;bottom:74px;right:16px;z-index:999999;width:320px;max-height:70vh;overflow:auto;',
+      'background:#111827;color:#E5E7EB;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.45);',
+      'font-family:monospace;font-size:12.5px;display:none;}',
+      '#devkit-panel.open{display:block;}',
+      '#devkit-panel h3{margin:0;padding:10px 14px;background:#1F2937;border-radius:12px 12px 0 0;font-size:13px;color:#F9FAFB;',
+      'display:flex;justify-content:space-between;align-items:center;}',
+      '#devkit-panel .devkit-close{cursor:pointer;color:#9CA3AF;}',
+      '#devkit-panel section{padding:10px 14px;border-bottom:1px solid #1F2937;}',
+      '#devkit-panel section h4{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#9CA3AF;}',
+      '#devkit-panel button{display:block;width:100%;text-align:left;background:#1F2937;color:#E5E7EB;border:none;',
+      'border-radius:6px;padding:7px 10px;margin-bottom:6px;cursor:pointer;font-family:monospace;font-size:12px;}',
+      '#devkit-panel button:hover{background:#374151;}',
+      '#devkit-panel .devkit-row{display:flex;gap:6px;}',
+      '#devkit-panel .devkit-row button{flex:1;}',
+      '#devkit-panel input[type=text],#devkit-panel input[type=number]{width:100%;box-sizing:border-box;background:#0B1220;',
+      'color:#E5E7EB;border:1px solid #374151;border-radius:6px;padding:6px 8px;margin-bottom:6px;font-family:monospace;font-size:12px;}',
+      '#devkit-log{max-height:140px;overflow:auto;background:#0B1220;border-radius:6px;padding:6px 8px;}',
+      '#devkit-log div{padding:2px 0;border-bottom:1px solid #1F2937;word-break:break-word;}',
+      '#devkit-log .err{color:#F87171;}',
+      '#devkit-log .warn{color:#FBBF24;}',
+      '#devkit-badge{position:fixed;top:0;left:0;right:0;background:#DC2626;color:#fff;text-align:center;',
+      'font-family:monospace;font-size:11px;padding:3px;z-index:999998;letter-spacing:.05em;}'
+    ].join('');
+    document.head.appendChild(css);
+
+    var badge = document.createElement('div');
+    badge.id = 'devkit-badge';
+    badge.textContent = '🛠 MODE DÉVELOPPEUR ACTIF — données et actions de test uniquement';
+    document.body.appendChild(badge);
+
+    var fab = document.createElement('div');
+    fab.id = 'devkit-fab';
+    fab.textContent = '🛠';
+    fab.title = 'Panneau développeur';
+    fab.onclick = function(){ panelEl.classList.toggle('open'); };
+    document.body.appendChild(fab);
+
+    var files = detectFileNames();
+    var pageHint = (function(){
+      var p = location.pathname.split('/').pop();
+      if(!p) return '';
+      return p;
+    })();
+
+    var panel = document.createElement('div');
+    panel.id = 'devkit-panel';
+    panel.innerHTML =
+      '<h3>Panneau développeur <span class="devkit-close" id="devkit-close">✕</span></h3>' +
+
+      '<section><h4>Navigation</h4>' +
+        '<div class="devkit-row">' +
+          '<button id="devkit-nav-gestion">Gestion</button>' +
+          '<button id="devkit-nav-consultation">Consultation</button>' +
+          '<button id="devkit-nav-vitrine">Vitrine</button>' +
+        '</div>' +
+        '<div style="color:#6B7280;font-size:10.5px;margin-top:4px">Page actuelle : '+pageHint+'</div>' +
+      '</section>' +
+
+      '<section><h4>Données de test</h4>' +
+        '<button id="devkit-gen-data">➕ Générer clients/devis/factures</button>' +
+        '<button id="devkit-simul-consult">🧪 Simuler client (consultation.html)</button>' +
+      '</section>' +
+
+      '<section><h4>Stockage local</h4>' +
+        '<button id="devkit-view-storage">👁 Voir le JSON brut</button>' +
+        '<button id="devkit-export-storage">⬇ Exporter en fichier .json</button>' +
+        '<button id="devkit-copy-storage">📋 Copier dans le presse-papier</button>' +
+        '<button id="devkit-reset" style="color:#F87171">🗑 Réinitialisation complète</button>' +
+      '</section>' +
+
+      '<section><h4>Formulaires & connexion</h4>' +
+        '<button id="devkit-toggle-valid">☑ Désactiver les validations</button>' +
+        '<button id="devkit-bypass-auth">🔓 Contourner la connexion (local)</button>' +
+      '</section>' +
+
+      '<section><h4>Horloge fictive</h4>' +
+        '<input type="text" id="devkit-date-input" placeholder="AAAA-MM-JJ">' +
+        '<div class="devkit-row">' +
+          '<button id="devkit-set-date">Appliquer</button>' +
+          '<button id="devkit-reset-date">Réel</button>' +
+        '</div>' +
+      '</section>' +
+
+      '<section><h4>Journal (erreurs / avertissements)</h4>' +
+        '<div id="devkit-log"></div>' +
+        '<button id="devkit-clear-log" style="margin-top:6px">Vider le journal</button>' +
+      '</section>' +
+
+      '<section><h4>Sortie</h4>' +
+        '<button id="devkit-off" style="color:#F87171">⏻ Désactiver le mode développeur</button>' +
+      '</section>';
+
+    document.body.appendChild(panel);
+    panelEl = panel;
+
+    // Wiring
+    document.getElementById('devkit-close').onclick = function(){ panel.classList.remove('open'); };
+    document.getElementById('devkit-nav-gestion').onclick = function(){ location.href = files.gestion; };
+    document.getElementById('devkit-nav-consultation').onclick = function(){ location.href = files.consultation; };
+    document.getElementById('devkit-nav-vitrine').onclick = function(){ location.href = files.vitrine; };
+
+    document.getElementById('devkit-gen-data').onclick = function(){ genererDonneesTest(6,10); };
+    document.getElementById('devkit-simul-consult').onclick = simulerConsultation;
+
+    document.getElementById('devkit-view-storage').onclick = voirStorage;
+    document.getElementById('devkit-export-storage').onclick = exporterStorageJSON;
+    document.getElementById('devkit-copy-storage').onclick = copierStoragePressePapier;
+    document.getElementById('devkit-reset').onclick = resetComplet;
+
+    var validBtn = document.getElementById('devkit-toggle-valid');
+    validBtn.onclick = function(){
+      var state = toggleValidations();
+      validBtn.textContent = state ? '☑ Réactiver les validations' : '☑ Désactiver les validations';
+    };
+    document.getElementById('devkit-bypass-auth').onclick = function(){ alert(bypassAuth()); };
+
+    document.getElementById('devkit-set-date').onclick = function(){
+      var v = document.getElementById('devkit-date-input').value.trim();
+      if(!v){ alert('Entrez une date au format AAAA-MM-JJ'); return; }
+      activerHorlogeFictive(v);
+    };
+    document.getElementById('devkit-reset-date').onclick = desactiverHorlogeFictive;
+
+    document.getElementById('devkit-clear-log').onclick = function(){ logs = []; renderLogPanel(); };
+    document.getElementById('devkit-off').onclick = function(){ desactiverModeDev(); };
+
+    renderLogPanel();
+    return panel;
+  }
+
+  function renderLogPanel(){
+    var el = document.getElementById('devkit-log');
+    if(!el) return;
+    el.innerHTML = logs.slice().reverse().map(function(l){
+      return '<div class="'+(l.type==='error'?'err':l.type==='warn'?'warn':'')+'">['+l.time+'] '+esc(l.msg)+'</div>';
+    }).join('') || '<div style="color:#6B7280">Aucune entrée pour le moment.</div>';
+  }
+  function esc(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // ── Activation / désactivation ──────────────────────────────
+  window.activerModeDev = function(code){
+    if(code !== DEV_CODE){
+      console.log('%cDEVKIT: code incorrect.', 'color:#DC2626');
+      return false;
+    }
+    try{ sessionStorage.setItem(STORAGE_FLAG, '1'); }catch(e){}
+    buildPanel();
+    console.log('%c🛠 Mode développeur activé.', 'color:#16A34A;font-weight:bold');
+    console.log('Fonctions dispo : genererDonneesTest(nbClients,nbDocs), voirStorage(), exporterStorageJSON(), resetComplet(), toggleValidations(), bypassAuth(), simulerConsultation(), simulerEtatDocument(id,{...}), activerHorlogeFictive("AAAA-MM-JJ"), desactiverHorlogeFictive(), desactiverModeDev()');
+    return true;
+  };
+
+  window.desactiverModeDev = function(){
+    try{ sessionStorage.removeItem(STORAGE_FLAG); }catch(e){}
+    var panel = document.getElementById('devkit-panel');
+    var fab = document.getElementById('devkit-fab');
+    var badge = document.getElementById('devkit-badge');
+    if(panel) panel.remove();
+    if(fab) fab.remove();
+    if(badge) badge.remove();
+    panelEl = null;
+    console.log('%cMode développeur désactivé.', 'color:#DC2626');
+  };
+
+  // Expose les fonctions utilitaires pour un usage direct en console
+  window.genererDonneesTest = genererDonneesTest;
+  window.voirStorage = voirStorage;
+  window.exporterStorageJSON = exporterStorageJSON;
+  window.copierStoragePressePapier = copierStoragePressePapier;
+  window.resetComplet = resetComplet;
+  window.toggleValidations = toggleValidations;
+  window.bypassAuth = bypassAuth;
+  window.simulerConsultation = simulerConsultation;
+  window.simulerEtatDocument = simulerEtatDocument;
+  window.activerHorlogeFictive = activerHorlogeFictive;
+  window.desactiverHorlogeFictive = desactiverHorlogeFictive;
+
+  // Réactivation automatique si déjà activé dans cette session (persiste à la navigation)
+  try{
+    if(sessionStorage.getItem(STORAGE_FLAG)==='1'){
+      document.addEventListener('DOMContentLoaded', function(){ buildPanel(); });
+      if(document.readyState==='complete' || document.readyState==='interactive') buildPanel();
+    }
+  }catch(e){}
+
+})();
+
+</script>
 </body>
 </html>
