@@ -20,6 +20,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <!-- EMAILJS (envoi automatique d'emails : devis/factures + rappels de rendez-vous) -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -429,7 +430,75 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
 
 @media(max-width:680px){
   /* Detection ecran etroit : propose automatiquement le mode mobile au 1er chargement via JS (voir script) */
+
+  /* ═══ MOBILE : tableaux transformes en cartes empilees ═══
+     S'applique aux tableaux "metier" simples (sans style inline), pas aux
+     apercus de documents/PDF qui doivent garder leur mise en page fixe. */
+  .content table:not([style]),
+  .card table:not([style]){
+    border:none;
+  }
+  .content table:not([style]) thead,
+  .card table:not([style]) thead{
+    display:none;
+  }
+  .content table:not([style]) tbody,
+  .card table:not([style]) tbody{
+    display:block;
+  }
+  .content table:not([style]) tr,
+  .card table:not([style]) tr{
+    display:block;
+    background:#fff;
+    border:1px solid var(--border,#E2E8F0);
+    border-radius:10px;
+    margin-bottom:10px;
+    padding:10px 12px;
+  }
+  .content table:not([style]) td,
+  .card table:not([style]) td{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    padding:6px 0;
+    border:none;
+    border-bottom:1px solid #F1F5F9;
+    text-align:right;
+  }
+  .content table:not([style]) td:last-child,
+  .card table:not([style]) td:last-child{
+    border-bottom:none;
+  }
+  .content table:not([style]) td:before,
+  .card table:not([style]) td:before{
+    content:attr(data-label);
+    font-weight:600;
+    font-size:11px;
+    color:var(--muted,#94A3B8);
+    text-align:left;
+    margin-right:8px;
+    white-space:nowrap;
+  }
+  /* Cellules d'actions (boutons) : on les laisse en ligne, sans label ni bordure de champ */
+  .content table:not([style]) td:has(button):not(:has(strong)),
+  .card table:not([style]) td:has(button):not(:has(strong)){
+    justify-content:flex-end;
+    flex-wrap:wrap;
+  }
+
+  /* Topbar / boutons d'action : empiler proprement sur mobile */
+  .topbar{flex-direction:column;align-items:flex-start;gap:10px;}
+  .topbar > div{width:100%;flex-wrap:wrap;}
+  .topbar h1{font-size:17px;}
+
+  /* Formulaires en grille : toujours 1 colonne sur mobile */
+  .fg.s2{grid-column:auto;}
+
+  /* Modals : occuper presque tout l'ecran, eviter le debordement horizontal */
+  .modal{max-width:96vw !important;}
 }
+
 #section-bloquee-screen{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:9999;padding:20px;}
 #section-bloquee-screen.visible{display:flex;}
 #section-bloquee-screen .box{background:#fff;border-radius:14px;max-width:440px;width:100%;padding:32px 28px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.25);}
@@ -438,6 +507,16 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
 #section-bloquee-screen p{font-size:13.5px;color:#6B7280;line-height:1.6;white-space:pre-wrap;margin-bottom:22px;}
 #section-bloquee-screen button{background:var(--primary);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:13.5px;font-weight:600;cursor:pointer;}
 #section-bloquee-screen button:hover{background:var(--primary-dark);}
+
+/* ═══ MODE PRESENTATION CLIENT : masque toute l'interface d'administration pour ne montrer
+   que le document en cours (devis/facture) plein ecran, a montrer directement au client sur
+   place (tablette/telephone). ═══ */
+body.mode-presentation #topnav{display:none!important}
+body.mode-presentation .page{padding:0!important}
+body.mode-presentation .page.active .content>div>.card:first-child{display:none!important}
+body.mode-presentation .card-header{display:none!important}
+body.mode-presentation .pv{max-width:760px;margin:50px auto;font-size:1.08em;box-shadow:0 8px 32px rgba(0,0,0,.12);border-radius:10px}
+body.mode-presentation{background:#F1F5F9}
 </style>
 </head>
 <body>
@@ -620,6 +699,7 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
   </div>
 </div>
 
+<button id="btn-quitter-presentation" onclick="quitterModePresentation()" style="display:none;position:fixed;top:14px;right:14px;z-index:9999;background:#111827;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.25)">✕ Quitter le mode présentation</button>
 <div class="app">
 <div class="topnav" id="topnav">
   <div class="topnav-row1">
@@ -670,6 +750,21 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
         <div class="nav-item topmenu-item" data-page="produits" onclick="showPage('produits')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>Produits &amp; Services
         </div>
+        <div class="nav-item topmenu-item" data-page="contrats" onclick="showPage('contrats')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg>Contrats d'entretien
+        </div>
+        <div class="nav-item topmenu-item" data-page="brouillons" onclick="showPage('brouillons')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>Brouillons de devis<span id="nav-brouillons-badge" style="display:none;background:#1A56DB;color:#fff;border-radius:9px;font-size:10px;padding:1px 6px;margin-left:6px"></span>
+        </div>
+        <div class="nav-item topmenu-item" data-page="litiges" onclick="showPage('litiges')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>Litiges & réclamations<span id="nav-litiges-badge" style="display:none;background:#DC2626;color:#fff;border-radius:9px;font-size:10px;padding:1px 6px;margin-left:6px"></span>
+        </div>
+        <div class="nav-item topmenu-item" data-page="materiel" onclick="showPage('materiel')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Matériel & Outillage<span id="nav-mat-controle-badge" style="display:none;background:#EF4444;color:#fff;border-radius:9px;font-size:10px;padding:1px 6px;margin-left:6px"></span>
+        </div>
+        <div class="nav-item topmenu-item" data-page="historique-materiel" onclick="showPage('historique-materiel')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>Historique matériel
+        </div>
       </div>
     </div>
 
@@ -678,6 +773,9 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
       <div class="topmenu-panel">
         <div class="nav-item topmenu-item" data-page="planning" onclick="showPage('planning')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Planning Chantiers
+        </div>
+        <div class="nav-item topmenu-item" data-page="equipe-chantiers" onclick="showPage('equipe-chantiers')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Équipe &amp; Chantiers
         </div>
         <div class="nav-item topmenu-item" data-page="emails-recus" onclick="showPage('emails-recus')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Emails reçus
@@ -692,6 +790,9 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
     <div class="topmenu" data-menu="compta">
       <div class="topmenu-btn" onclick="toggleTopMenu(this)">💶 Comptabilité<svg class="topmenu-chevron" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.6" fill="none"/></svg></div>
       <div class="topmenu-panel">
+        <div class="nav-item topmenu-item" data-page="mes-fiches-paie" onclick="showPage('mes-fiches-paie')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>Mes fiches de paie
+        </div>
         <div class="nav-item topmenu-item" data-page="urssaf" style="position:relative" onclick="showPage('urssaf')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Cotisations URSSAF
           <span id="urssaf-badge" style="display:none;margin-left:auto;background:#DC2626;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:10px">!</span>
@@ -764,6 +865,9 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
   <div class="topbar"><h1>📊 Tableau de bord</h1></div>
   <div class="content">
     <div id="urssaf-alert-dashboard"></div>
+    <div id="materiel-retour-alert-dashboard"></div>
+    <div id="materiel-controle-alert-dashboard"></div>
+    <div id="chantiers-retard-alert-dashboard"></div>
     <div class="stats-grid">
       <div class="stat"><div class="stat-icon blue">📋</div><div class="stat-text"><div class="label">Devis en cours</div><div class="value" id="stat-devis">0</div></div></div>
       <div class="stat"><div class="stat-icon green">🧾</div><div class="stat-text"><div class="label">Factures émises</div><div class="value" id="stat-factures">0</div></div></div>
@@ -784,7 +888,7 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
       <div class="card"><div class="card-body tw">
         <table><thead><tr><th>N°</th><th>Client</th><th>Date</th><th>Montant HT</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="devis-list"></tbody></table>
       </div></div>
-      <div class="card"><div class="card-header"><h3>👁 Aperçu</h3></div>
+      <div class="card"><div class="card-header"><h3>👁 Aperçu</h3><button class="btn btn-ghost btn-sm" onclick="activerModePresentation()" title="Afficher ce devis en plein écran pour le montrer au client">🖥️ Présenter au client</button></div>
         <div id="pv-devis" style="padding:12px;text-align:center;color:var(--muted);min-height:160px;display:flex;align-items:center;justify-content:center;font-size:13px">Cliquez sur 👁 pour prévisualiser</div>
       </div>
     </div>
@@ -802,6 +906,7 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
       <div class="card">
         <div class="card-header">
           <h3>👁 Aperçu</h3>
+          <button class="btn btn-ghost btn-sm" onclick="activerModePresentation()" title="Afficher cette facture en plein écran pour le montrer au client">🖥️ Présenter au client</button>
           <div id="stamp-tog-row" style="display:none" class="tog-row">
             <label class="tog"><input type="checkbox" id="toggle-stamp" checked onchange="refreshPv()"><span class="tog-sl"></span></label>
             <span>Afficher statut payé/non payé</span>
@@ -815,7 +920,7 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
 
 <!-- CLIENTS -->
 <div class="page" id="page-clients">
-  <div class="topbar"><h1>👥 Clients</h1><button class="btn btn-primary" onclick="openClientModal()">+ Nouveau client</button></div>
+  <div class="topbar"><h1>👥 Clients</h1><div style="display:flex;gap:8px"><button class="btn btn-ghost" title="A faire une fois apres la mise a jour du 'code d'acces oublie', pour que les clients deja crees en beneficient aussi" onclick="republierTousLesClientsPublics()">🔄 Republier les fiches clients</button><button class="btn btn-primary" onclick="openClientModal()">+ Nouveau client</button></div></div>
   <div class="content"><div class="card"><div class="card-body">
     <div style="display:flex;gap:8px;margin-bottom:14px">
       <button class="btn btn-primary btn-sm" id="filtre-client-tous" onclick="setFiltreTypeClient('tous')">Tous</button>
@@ -832,6 +937,75 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
   <div class="content"><div class="card"><div class="card-body tw">
     <table><thead><tr><th>Référence</th><th>Désignation</th><th>Prix HT</th><th>Unité</th><th>Actions</th></tr></thead><tbody id="produits-list"></tbody></table>
   </div></div></div>
+</div>
+
+<!-- CONTRATS D'ENTRETIEN -->
+<div class="page" id="page-contrats">
+  <div class="topbar"><h1>📝 Contrats d'entretien</h1><button class="btn btn-primary" onclick="openContratModal(null)">+ Nouveau contrat</button></div>
+  <div class="content">
+    <div class="card"><div class="card-body tw">
+      <table><thead><tr><th>Client</th><th>Objet</th><th>Fréquence</th><th>Prochaine visite</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="contrats-list"></tbody></table>
+    </div></div>
+  </div>
+</div>
+
+<!-- BROUILLONS DE DEVIS : notes prises depuis agenda-chantier.html (bouton "📝 Noter un
+     devis à faire") sur le terrain, jamais visibles du client (pas des vrais documents).
+     "Transformer en devis" ouvre le formulaire habituel pre-rempli, puis cree un vrai
+     devis MASQUE du client (visibleClient=false) jusqu'a publication explicite. -->
+<div class="page" id="page-brouillons">
+  <div class="topbar"><h1>📝 Brouillons de devis</h1></div>
+  <div class="content">
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Notes prises sur le terrain (depuis Agenda Chantier) en attendant de les chiffrer. Ce ne sont pas des devis réels — rien n'est visible côté client tant que vous n'avez pas cliqué sur « Transformer en devis », et même après, le devis reste masqué du client jusqu'à ce que vous le publiiez explicitement.</p>
+    <div class="card"><div class="card-body tw">
+      <table><thead><tr><th>Noté le</th><th>Client</th><th>Objet</th><th>Notes</th><th>Actions</th></tr></thead><tbody id="brouillons-list"></tbody></table>
+    </div></div>
+  </div>
+</div>
+
+<!-- LITIGES & RECLAMATIONS -->
+<div class="page" id="page-litiges">
+  <div class="topbar"><h1>⚖️ Litiges & réclamations</h1><button class="btn btn-primary" onclick="openLitigeModal(null)">+ Nouveau dossier</button></div>
+  <div class="content">
+    <div class="card"><div class="card-body tw">
+      <table><thead><tr><th>Ouvert le</th><th>Client</th><th>Objet</th><th>Document lié</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="litiges-list"></tbody></table>
+    </div></div>
+  </div>
+</div>
+
+<!-- MATERIEL & OUTILLAGE -->
+<div class="page" id="page-materiel">
+  <div class="topbar"><h1>🧰 Matériel & Outillage</h1><div style="display:flex;gap:8px;align-items:center"><button class="btn btn-ghost" onclick="ouvrirScannerMateriel()">📷 Scanner un QR</button>
+    <select id="mt-print-format" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border)">
+      <option value="normal">Format normal (grille 3×4)</option>
+      <option value="etroit">Format étroit (tournevis, petits outils)</option>
+    </select>
+    <button class="btn btn-ghost" onclick="imprimerPlancheEtiquettes('selection')">🖨 Imprimer la sélection</button><button class="btn btn-ghost" onclick="imprimerPlancheEtiquettes('tous')">🖨 Imprimer tout</button><button class="btn btn-primary" onclick="openMaterielModal(null)">+ Nouvel outil</button></div></div>
+  <div class="content">
+    <div class="card"><div class="card-body tw" style="padding-bottom:0">
+      <input id="mt-recherche" placeholder="🔍 Rechercher un outil (nom, référence, n° de série)..." style="width:100%;max-width:360px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);margin-bottom:12px" oninput="renderMateriel()">
+    </div></div>
+    <div class="card"><div class="card-body tw">
+      <table><thead><tr><th><input type="checkbox" id="mt-select-all" onchange="toggleToutMateriel(this)"></th><th>Réf.</th><th>Nom</th><th>N° de série</th><th>Statut</th><th>Détenu par</th><th>Dernier mouvement</th><th>Actions</th></tr></thead><tbody id="materiel-list"></tbody></table>
+    </div></div>
+  </div>
+</div>
+
+<!-- HISTORIQUE MATERIEL -->
+<div class="page" id="page-historique-materiel">
+  <div class="topbar"><h1>🕓 Historique matériel</h1></div>
+  <div class="content">
+    <div class="card"><div class="card-body tw" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <div class="fg" style="min-width:180px"><label>Outil</label><select id="hm-filtre-outil" onchange="renderHistoriqueMateriel()"><option value="">Tous les outils</option></select></div>
+      <div class="fg" style="min-width:160px"><label>Personne</label><input id="hm-filtre-personne" placeholder="Nom..." oninput="renderHistoriqueMateriel()"></div>
+      <div class="fg"><label>Du</label><input type="date" id="hm-filtre-du" onchange="renderHistoriqueMateriel()"></div>
+      <div class="fg"><label>Au</label><input type="date" id="hm-filtre-au" onchange="renderHistoriqueMateriel()"></div>
+      <button class="btn btn-ghost btn-sm" onclick="reinitialiserFiltresHistoriqueMateriel()">Réinitialiser</button>
+    </div></div>
+    <div class="card" style="margin-top:12px"><div class="card-body tw">
+      <table><thead><tr><th>Outil</th><th>Personne</th><th>Chantier</th><th>Pris le</th><th>Rendu le</th><th>Statut</th></tr></thead><tbody id="historique-materiel-list"></tbody></table>
+    </div></div>
+  </div>
 </div>
 
 <!-- PLANNING -->
@@ -857,6 +1031,139 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
     </div></div>
     <div class="card"><div class="card-header"><h3 id="cal-list-title">Événements du mois</h3></div>
       <div class="card-body tw"><table><thead><tr><th>Date</th><th>Événement</th><th>Client</th><th>Lieu</th><th>Type</th><th>Actions</th></tr></thead><tbody id="cal-ev-list"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<!-- EQUIPE & CHANTIERS -->
+<div class="page" id="page-equipe-chantiers">
+  <div class="topbar"><h1>👷 Équipe &amp; Chantiers</h1><button class="btn btn-primary" onclick="openEventModal(null,null)">+ Nouveau chantier</button></div>
+  <div class="content">
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><h3>👥 Équipe terrain</h3></div>
+      <div class="card-body">
+        <div style="display:flex;gap:8px;margin-bottom:12px;max-width:420px">
+          <input id="eqc-nouveau-nom" placeholder="Nom du membre d'équipe" style="flex:1" onkeydown="if(event.key==='Enter')ajouterMembreEquipeGDF()">
+          <button type="button" class="btn btn-primary btn-sm" onclick="ajouterMembreEquipeGDF()">+ Ajouter</button>
+        </div>
+        <div id="eqc-liste-equipe" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>🔨 Chantiers &amp; événements</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <select id="eqc-filtre-type" onchange="renderListeChantiers()" style="font-size:12.5px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px">
+            <option value="">Tous les types</option>
+            <option value="chantier">Chantier</option>
+            <option value="devis">Devis / RDV</option>
+            <option value="facture">Facture / Paiement</option>
+            <option value="autre">Autre</option>
+          </select>
+          <select id="eqc-filtre-statut" onchange="renderListeChantiers()" style="font-size:12.5px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px">
+            <option value="">Tous les statuts</option>
+            <option value="a-faire">⏳ À faire</option>
+            <option value="en-cours">🔧 En cours</option>
+            <option value="termine">✅ Terminé</option>
+          </select>
+          <select id="eqc-filtre-equipe" onchange="renderListeChantiers()" style="font-size:12.5px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px">
+            <option value="">Toute l'équipe</option>
+          </select>
+          <input id="eqc-recherche" placeholder="Rechercher..." oninput="renderListeChantiers()" style="font-size:12.5px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;width:160px">
+        </div>
+      </div>
+      <div class="card-body tw">
+        <table>
+          <thead><tr><th>Date</th><th>Événement</th><th>Client</th><th>Type</th><th>Statut</th><th>Équipe assignée</th><th>Suivi</th><th>Actions</th></tr></thead>
+          <tbody id="eqc-liste-chantiers"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MES FICHES DE PAIE (espace employe : chaque utilisateur ne voit que ses propres fiches,
+     retrouvees via son email de connexion associe a sa fiche salarie) -->
+<div class="page" id="page-mes-fiches-paie">
+  <div class="topbar"><h1>🧾 Mes fiches de paie</h1></div>
+  <div class="content">
+    <div class="card">
+      <div class="card-body" id="mfp-corps">
+        <div class="empty">Chargement…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL APERCU FICHE DE PAIE -->
+<div class="modal-overlay" id="modal-apercu-paie">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><h2 id="mfp-apercu-titre">Aperçu</h2><button class="close-btn" onclick="closeModal('modal-apercu-paie')">✕</button></div>
+    <div class="modal-body" id="mfp-apercu-corps"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-apercu-paie')">Fermer</button>
+      <button class="btn btn-primary" id="mfp-apercu-pdf-btn">⬇️ Télécharger le PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ASSIGNATION EQUIPE -->
+<div class="modal-overlay" id="modal-assign-equipe">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><h2>Assigner l'équipe</h2><button class="close-btn" onclick="closeModal('modal-assign-equipe')">✕</button></div>
+    <div class="modal-body">
+      <div id="assign-equipe-liste" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-assign-equipe')">Annuler</button>
+      <button class="btn btn-primary" onclick="enregistrerAssignationEquipeGDF()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SUIVI CHANTIER -->
+<div class="modal-overlay" id="modal-suivi-chantier">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header"><h2 id="suivi-gdf-title">Suivi chantier</h2><button class="close-btn" onclick="closeModal('modal-suivi-chantier')">✕</button></div>
+    <div class="modal-body">
+      <div class="fg" style="margin-bottom:14px">
+        <label>Rapport / compte-rendu</label>
+        <textarea id="suivi-gdf-rapport" style="min-height:80px" placeholder="Avancement, remarques, points à suivre..."></textarea>
+        <button type="button" class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="enregistrerRapportGDF()">💾 Enregistrer le rapport</button>
+      </div>
+      <div class="fg" style="margin-bottom:14px">
+        <label>Matériel utilisé / commandé</label>
+        <textarea id="suivi-gdf-materiel" style="min-height:60px" placeholder="Ex : 3 sacs de ciment, 10m de câble 2.5mm², carrelage commandé (livraison prévue le...)"></textarea>
+        <button type="button" class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="enregistrerMaterielGDF()">💾 Enregistrer le matériel</button>
+      </div>
+      <div class="fg">
+        <label>Heures travaillées par employé / jour</label>
+        <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px;flex-wrap:wrap">
+          <div style="flex:1;min-width:130px"><label style="font-size:11px">Employé</label><select id="suivi-gdf-employe" style="width:100%"></select></div>
+          <div style="min-width:130px"><label style="font-size:11px">Date</label><input type="date" id="suivi-gdf-date"></div>
+          <div style="width:90px"><label style="font-size:11px">Heures</label><input type="number" step="0.25" min="0" max="24" id="suivi-gdf-heures" placeholder="7.5"></div>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="ajouterPointageGDF()">+ Ajouter</button>
+        </div>
+        <div id="suivi-gdf-pointages"></div>
+      </div>
+    </div>
+    <div class="modal-footer" style="flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="closeModal('modal-suivi-chantier')">Fermer</button>
+      <button class="btn btn-ghost" onclick="openEventModal(suiviGdfEvId,null);closeModal('modal-suivi-chantier')">✏️ Modifier l'événement</button>
+      <button class="btn btn-primary" onclick="genererRapportChantierGDF(suiviGdfEvId)">📄 Convertir en rapport</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL APERCU RAPPORT CHANTIER -->
+<div class="modal-overlay" id="modal-rapport-chantier">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header"><h2>Aperçu du rapport</h2><button class="close-btn" onclick="closeModal('modal-rapport-chantier')">✕</button></div>
+    <div class="modal-body" id="rapport-gdf-apercu" style="background:#fff;color:#111;font-size:12.5px;line-height:1.5"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-rapport-chantier')">Fermer</button>
+      <button class="btn btn-primary" onclick="telechargerRapportChantierPDF()">⬇️ Télécharger le PDF</button>
     </div>
   </div>
 </div>
@@ -2370,6 +2677,7 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
         </div>
         <div id="c-siret-check-result" style="font-size:11.5px;margin-top:4px"></div>
       </div>
+      <div class="fg s2"><label>Notes internes (visibles uniquement par vous)</label><textarea id="c-notes" style="min-height:55px" placeholder="Ex : ne pas appeler après 18h, code portail 1234, préfère les devis par SMS..."></textarea></div>
     </div></div>
     <div id="mc-portal-wrap" style="display:none;margin:0 20px 16px;padding:12px 14px;background:#F8FAFC;border:1px solid var(--border);border-radius:8px">
       <div style="font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:6px">🔑 Accès portail client</div>
@@ -2609,6 +2917,19 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
         </div>
         <input type="hidden" id="ev-type" value="chantier">
       </div>
+      <div class="g2" style="margin-top:12px">
+        <div class="fg"><label>Statut chantier</label>
+          <select id="ev-statut">
+            <option value="a-faire">⏳ À faire</option>
+            <option value="en-cours">🔧 En cours</option>
+            <option value="termine">✅ Terminé</option>
+          </select>
+        </div>
+        <div class="fg"><label>Équipe assignée</label>
+          <div id="ev-equipe-liste" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Gérer la liste depuis l'onglet <strong>Équipe &amp; Chantiers</strong>.</div>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-event')">Annuler</button>
@@ -2618,7 +2939,144 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
   </div>
 </div>
 
-<!-- MODAL QR -->
+<!-- MODAL CONTRAT D'ENTRETIEN -->
+<div class="modal-overlay" id="modal-contrat">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header"><h2 id="ct-title">Nouveau contrat d'entretien</h2><button class="close-btn" onclick="closeModal('modal-contrat')">✕</button></div>
+    <div class="modal-body">
+      <div class="g2">
+        <div class="fg s2"><label>Client *</label><select id="ct-client"><option value="">-- Choisir --</option></select></div>
+        <div class="fg s2"><label>Objet du contrat *</label><input id="ct-objet" placeholder="Entretien chaudière, contrôle annuel..."></div>
+        <div class="fg"><label>Montant par visite HT (€)</label><input type="number" step="0.01" id="ct-montant" placeholder="0.00"></div>
+        <div class="fg"><label>Date de début</label><input type="date" id="ct-debut"></div>
+        <div class="fg"><label>Heure début</label><input type="time" id="ct-hstart" value="09:00"></div>
+        <div class="fg"><label>Heure fin</label><input type="time" id="ct-hend" value="10:00"></div>
+        <div class="fg s2"><label>Lieu / Adresse intervention</label><input id="ct-lieu" placeholder="Reprend l'adresse du client si vide"></div>
+        <div class="fg s2"><label>Notes / conditions</label><textarea id="ct-notes" style="min-height:55px"></textarea></div>
+      </div>
+
+      <div class="fg" style="margin-top:12px"><label>Fréquence des visites</label>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <div class="ev-col-opt sel" id="ct-mode-fixe" data-mode="fixe" onclick="selCtMode(this)">🔁 Fréquence fixe</div>
+          <div class="ev-col-opt" id="ct-mode-perso" data-mode="perso" onclick="selCtMode(this)">🗓 Dates personnalisées</div>
+        </div>
+        <input type="hidden" id="ct-mode" value="fixe">
+      </div>
+
+      <div id="ct-bloc-fixe" style="margin-top:12px">
+        <div class="fg"><label>Périodicité</label>
+          <select id="ct-frequence">
+            <option value="1">Mensuelle</option>
+            <option value="3">Trimestrielle</option>
+            <option value="6">Semestrielle</option>
+            <option value="12">Annuelle</option>
+          </select>
+        </div>
+        <div class="fg" style="margin-top:8px"><label>Nombre de visites à générer</label><input type="number" id="ct-nbvisites" value="4" min="1" max="36"></div>
+      </div>
+
+      <div id="ct-bloc-perso" style="display:none;margin-top:12px">
+        <label>Dates des visites</label>
+        <div id="ct-dates-liste" style="display:flex;flex-direction:column;gap:6px;margin-top:6px"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="ajouterDateContratPerso()">+ Ajouter une date</button>
+      </div>
+
+      <div class="fg" style="margin-top:12px"><label>Statut du contrat</label>
+        <select id="ct-statut">
+          <option value="actif">✅ Actif</option>
+          <option value="suspendu">⏸ Suspendu</option>
+          <option value="termine">🔚 Terminé</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-contrat')">Annuler</button>
+      <button id="ct-del-btn" class="btn btn-danger" style="display:none" onclick="deleteContrat()">🗑 Supprimer</button>
+      <button class="btn btn-primary" onclick="saveContrat()">💾 Enregistrer et planifier</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL LITIGE / RECLAMATION : dossier par client, avec chronologie des echanges et
+     generation automatique d'un dossier PDF (utile en cas de recours). -->
+<div class="modal-overlay" id="modal-litige">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header"><h2 id="lit-title">Nouveau dossier</h2><button class="close-btn" onclick="closeModal('modal-litige')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="lit-edit-id">
+      <div class="fg"><label>Client *</label><select id="lit-client"></select></div>
+      <div class="fg"><label>Objet du litige *</label><input id="lit-objet" placeholder="Malfaçon, désaccord sur devis, retard de chantier..."></div>
+      <div class="fg"><label>Document lié (optionnel)</label><select id="lit-document"><option value="">— Aucun —</option></select></div>
+      <div class="fg"><label>Description initiale</label><textarea id="lit-description" rows="3" placeholder="Détail de la réclamation, date des faits, demande du client..."></textarea></div>
+      <div class="fg"><label>Statut</label>
+        <select id="lit-statut">
+          <option value="ouvert">🔴 Ouvert</option>
+          <option value="en_cours">🟠 En cours de traitement</option>
+          <option value="resolu">✅ Résolu</option>
+        </select>
+      </div>
+      <div class="fg" id="lit-historique-zone" style="display:none">
+        <label>Chronologie des échanges</label>
+        <div id="lit-historique-liste" style="font-size:12.5px;margin-bottom:8px"></div>
+        <div style="display:flex;gap:8px">
+          <input id="lit-nouvelle-note" placeholder="Ajouter un événement : appel client, réparation effectuée, courrier envoyé..." style="flex:1">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="ajouterNoteLitige()">+ Ajouter</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-litige')">Annuler</button>
+      <button id="lit-del-btn" class="btn btn-danger" style="display:none" onclick="deleteLitige()">🗑 Supprimer</button>
+      <button id="lit-pdf-btn" class="btn btn-ghost" style="display:none" onclick="genererDossierLitigePDF()">📄 Générer le dossier PDF</button>
+      <button class="btn btn-primary" onclick="saveLitige()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ATTESTATION : genere une attestation PDF (TVA non applicable ou fin de travaux)
+     pour un client donne, a partir des infos entreprise deja renseignees dans Parametres. -->
+<div class="modal-overlay" id="modal-attestation">
+  <div class="modal">
+    <div class="modal-header"><h2>📄 Générer une attestation</h2><button class="close-btn" onclick="closeModal('modal-attestation')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="att-client-id">
+      <div class="fg"><label>Type d'attestation</label>
+        <select id="att-type" onchange="majChampsAttestation()">
+          <option value="tva">TVA non applicable (art. 293 B du CGI)</option>
+          <option value="fin_travaux">Fin de travaux</option>
+        </select>
+      </div>
+      <div id="att-champs-fin-travaux" style="display:none">
+        <div class="fg"><label>Document lié (devis/facture)</label><select id="att-document"><option value="">— Aucun —</option></select></div>
+        <div class="fg"><label>Description des travaux</label><input id="att-objet-travaux" placeholder="Rénovation salle de bain, remplacement chaudière..."></div>
+        <div class="fg"><label>Date de fin des travaux</label><input type="date" id="att-date-fin"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-attestation')">Annuler</button>
+      <button class="btn btn-primary" onclick="genererAttestationPDF()">📄 Générer le PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MISE EN DEMEURE : courrier de relance formel pour une facture impayee, avec
+     delai de paiement et mention des penalites legales (interet + indemnite forfaitaire). -->
+<div class="modal-overlay" id="modal-mise-en-demeure">
+  <div class="modal">
+    <div class="modal-header"><h2>✉️ Générer une mise en demeure</h2><button class="close-btn" onclick="closeModal('modal-mise-en-demeure')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="mad-doc-id">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Ce courrier a une valeur formelle : il constitue la mise en demeure officielle avant recours (injonction de payer, contentieux). À n'utiliser qu'après une ou plusieurs relances simples restées sans effet.</p>
+      <div class="fg"><label>Délai accordé pour régulariser (jours)</label><input type="number" id="mad-delai" value="8" min="1"></div>
+      <div class="fg"><label>Relances déjà effectuées (optionnel, une par ligne)</label><textarea id="mad-relances" rows="3" placeholder="Ex : Relance par email le 12/03/2026&#10;Appel téléphonique le 20/03/2026"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-mise-en-demeure')">Annuler</button>
+      <button class="btn btn-primary" onclick="genererMiseEnDemeurePDF()">📄 Générer le PDF</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-qr">
   <div class="modal" style="max-width:380px">
     <div class="modal-header"><h2>📱 QR Code</h2><button class="close-btn" onclick="closeModal('modal-qr')">✕</button></div>
@@ -2728,6 +3186,13 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
 // documents depuis gestion-devis-factures.html. Sans ces regles, consultation.html affiche
 // une erreur "Missing or insufficient permissions" et reste bloquee sur l'ecran de saisie.
 //
+// Note : la fiche clientsPublics contient aussi emailRecherche/telRecherche (email en
+// minuscules, telephone en chiffres uniquement) utilises par le bouton "Code d'acces
+// oublie ?" de consultation.html. Aucune regle supplementaire n'est necessaire (meme
+// document, deja en lecture publique) — mais si vous aviez des clients crees AVANT cette
+// mise a jour, cliquez une fois sur "🔄 Republier les fiches clients" (page Clients) pour
+// que ces champs soient aussi publies pour eux.
+//
 // ⚠️ POUR LA PAGE PUBLIQUE D'AVIS CLIENTS (avis.html) :
 // Dans Firestore Database > Regles, ajoutez ce bloc pour autoriser l'ecriture publique
 // UNIQUEMENT sur la collection avisClients (le reste de vos donnees reste protege) :
@@ -2760,6 +3225,51 @@ body.mobile-view .cal-dn{font-size:9px;padding:5px 0;}
 //
 // Note : les requetes sur messagesClients trient les resultats cote JavaScript (et non via
 // orderBy() Firestore), afin de ne necessiter aucun index composite a creer manuellement.
+//
+// ⚠️ POUR LE SIGNALEMENT D'INCIDENT DEPUIS AGENDA-CHANTIER.HTML (bouton "⚠️ Signaler un
+// probleme") : ajoutez ce bloc de regles pour la nouvelle collection incidentsChantier.
+// Contrairement a messagesClients, cette collection n'est utilisee que par des utilisateurs
+// connectes (salaries/administrateur), donc pas besoin d'ouvrir l'ecriture au public :
+//
+//   match /incidentsChantier/{id} {
+//     allow read, write: if request.auth != null;
+//   }
+//
+// ⚠️ POUR LES CONTRATS D'ENTRETIEN VISIBLES SUR CONSULTATION.HTML : ajoutez ce bloc pour
+// la collection contratsPublics (meme principe que clientsPublics : lecture publique,
+// ecriture reservee a vous connecte) :
+//
+//   match /contratsPublics/{id} {
+//     allow read: if true;
+//     allow write: if request.auth != null;
+//   }
+//
+// ⚠️ POUR LE PORTAIL APPLICATIONS (portail.html + panneau "🔗 Portail applications" du
+// dashboard) : lecture publique (affiche sur les postes de l'entreprise sans connexion),
+// ecriture reservee a vous connecte :
+//
+//   match /portailBoutons/{id} {
+//     allow read: if true;
+//     allow write: if request.auth != null;
+//   }
+//
+// ⚠️⚠️ IMPORTANT — A MODIFIER (pas a ajouter) : POUR LA PREMIERE CONNEXION (modal qui
+// demande prenom/nom) : votre regle actuelle sur la collection userProfiles restreint
+// l'ECRITURE aux administrateurs uniquement. Un nouveau compte (pas encore admin) ne
+// pourra donc PAS enregistrer sa propre fiche au premier login (erreur "permission denied"
+// silencieuse). Remplacez votre bloc userProfiles existant par celui-ci, qui autorise
+// en plus qu'un utilisateur cree/modifie SA PROPRE fiche (mais pas celle des autres) :
+//
+//   match /userProfiles/{uid} {
+//     allow read: if request.auth != null;
+//     allow create, update: if request.auth != null && (
+//       request.auth.uid == uid
+//       || exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+//     );
+//     allow delete: if request.auth != null &&
+//       exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+//   }
+//
 //
 // ⚠️ POUR LE FORMULAIRE DE CONTACT ET LES DEMANDES DE DEVIS (vitrine.html) :
 // Dans Firestore Database > Regles, ajoutez aussi ces deux blocs pour autoriser l'ecriture
@@ -2916,7 +3426,7 @@ function traceEvent(type,detail){
 var db = {
   params:{nom:'',siret:'',adresse:'',ville:'',tel:'',email:'',iban:'',paiement:'Paiement a reception de facture.',logo:'',signature:'',
     emailjsActif:false,emailjsServiceId:'',emailjsTemplateId:'',emailjsTemplateIdRappel:'',emailjsPublicKey:'',consultationUrl:'',gmailClientId:''},
-  clients:[],produits:[],documents:[],events:[],counters:{devis:1,facture:1,client:1},interventions:[],scans:[],depenses:[]
+  clients:[],produits:[],documents:[],events:[],counters:{devis:1,facture:1,client:1},interventions:[],scans:[],depenses:[],equipeTerrain:[]
 };
 
 function lDB(){try{var s=localStorage.getItem(LOCALSTORAGE_DB_KEY);if(s)db=JSON.parse(s);}catch(e){}}
@@ -3314,10 +3824,13 @@ function checkAuthStatus(){
       listenDocumentLocks();
       chargerJoursBloquesGestion();
       chargerNomsComptes();
+      afficherWelcomeModalSiPremiereFoisGDF();
+      verifierPremiereConnexionIdentite();
     }else{
       console.log('Pas de session active');
       showAuthScreen();
       isAdmin=false;
+      userRole='employe';
       adminDeverrouille=false;
       updateAdminNavVisibility();
       masquerBanniereGlobale();
@@ -3365,18 +3878,31 @@ function masquerBanniereGlobale(){
 // les regles de securite Firestore elles-memes (voir la documentation pres de FIREBASE_CONFIG),
 // qui doivent verifier independamment l'appartenance a "admins" avant d'autoriser la lecture.
 var isAdmin=false;
+// ═══ ROLES (compta / employe-artisan) ═══════════════════════════════════════
+// En plus de la collection "admins" (statut admin classique), un document optionnel
+// dans "userRoles/{uid}" peut porter un champ role: 'compta'. Un compte admin a
+// automatiquement aussi le role compta (acces app compta). Un compte ni admin ni
+// present dans userRoles avec role='compta' est traite comme "employe/artisan" :
+// c'est le comportement d'un compte normal actuel (menu metier complet, sans
+// Administration/Parametres) — aucun changement necessaire pour ce cas.
+var userRole='employe'; // 'admin' | 'compta' | 'employe'
 function verifierStatutAdmin(){
-  if(!FIREBASE_ENABLED||!fbUser||!fbDb){isAdmin=false;updateAdminNavVisibility();return;}
-  fbDb.collection('admins').doc(fbUser.uid).get()
-    .then(function(doc){
-      isAdmin=doc.exists;
-      updateAdminNavVisibility();
-    })
-    .catch(function(e){
-      console.error('Erreur verification statut admin:',e);
-      isAdmin=false;
-      updateAdminNavVisibility();
-    });
+  if(!FIREBASE_ENABLED||!fbUser||!fbDb){isAdmin=false;userRole='employe';updateAdminNavVisibility();return;}
+  Promise.all([
+    fbDb.collection('admins').doc(fbUser.uid).get(),
+    fbDb.collection('userRoles').doc(fbUser.uid).get().catch(function(){return {exists:false};})
+  ]).then(function(res){
+    var docAdmin=res[0],docRole=res[1];
+    isAdmin=docAdmin.exists;
+    if(isAdmin)userRole='admin';
+    else if(docRole&&docRole.exists&&(docRole.data()||{}).role==='compta')userRole='compta';
+    else userRole='employe';
+    updateAdminNavVisibility();
+  }).catch(function(e){
+    console.error('Erreur verification statut admin:',e);
+    isAdmin=false;userRole='employe';
+    updateAdminNavVisibility();
+  });
 }
 
 // Un compte administrateur ne voit RIEN (ni menu metier, ni onglet Administration) tant
@@ -3420,6 +3946,12 @@ function updateAdminNavVisibility(){
   });
   var dashMenu=document.querySelector('.topmenu-btn[data-page="dashboard"]');
   if(dashMenu)dashMenu.closest('.topmenu').style.display=afficherMetier?'':'none';
+
+  // Role "compta" (y compris un admin, qui a toujours aussi ce role) : lecture seule sur
+  // devis/factures/clients dans cette appli. On masque les boutons d'ecriture usuels ;
+  // la protection reelle contre l'ecriture se fait dans les fonctions save*/delete* elles-memes
+  // via bloquerSiLectureSeule(), pas seulement par du CSS/masquage.
+  document.body.classList.toggle('mode-lecture-seule-compta',userRole==='compta');
 
   if(isAdmin&&!adminDeverrouille){
     // Rien n'est accessible : on masque toute page active et on n'affiche que l'ecran de connexion/vide.
@@ -3573,6 +4105,16 @@ function enregistrerActionAdmin(action,detail){
 // session). Toute tentative, reussie ou echouee, est journalisee dans adminLog/traceGlobale
 // via enregistrerActionAdmin/traceEvent. A appeler en toute premiere ligne des fonctions
 // concernees : if(!verifierCode1012('Nom de l\'action'))return;
+// Protection reelle du role "compta" : lecture seule sur devis/factures/clients. A appeler
+// en toute premiere ligne des fonctions de creation/modification/suppression concernees.
+function bloquerSiLectureSeule(){
+  if(userRole==='compta'){
+    alert('Accès en lecture seule pour ce compte (rôle comptabilité).');
+    return true;
+  }
+  return false;
+}
+
 var CODE_SECURITE_ACTIONS='1012';
 function verifierCode1012(nomAction){
   var saisie=prompt('Action protegee : '+(nomAction||'modification')+'.\n\nEntrez le code de securite pour continuer :');
@@ -3620,6 +4162,7 @@ function chargerJournalAdmin(){
 
 // ── Mode maintenance (bloque vitrine.html et consultation.html) ──
 function activerMaintenance(){
+  if(!verifierCode1012('Activer le mode maintenance (site)'))return;
   if(!confirm('Activer le mode maintenance ? Votre site vitrine et l\'espace client seront immédiatement inaccessibles pour vos visiteurs.'))return;
   var message=document.getElementById('adm-maintenance-message').value.trim();
   var dureeHeures=parseInt(document.getElementById('adm-maintenance-duree').value);
@@ -3641,6 +4184,7 @@ function activerMaintenance(){
 }
 
 function desactiverMaintenance(){
+  if(!verifierCode1012('Désactiver le mode maintenance (site)'))return;
   fbDb.collection('siteConfig').doc('main').set({modeMaintenance:false},{merge:true}).then(function(){
     afficherStatutMaintenance(false);
     enregistrerActionAdmin('Maintenance désactivée','');
@@ -3683,6 +4227,7 @@ function chargerStatutMaintenance(){
 // connexion). Stocke sur le meme document que le mode maintenance general, dans des
 // champs distincts (maintenanceApp*) pour ne pas interferer avec celui-ci. ──
 function activerMaintenanceApp(){
+  if(!verifierCode1012('Activer le mode maintenance (application)'))return;
   var message=document.getElementById('adm-maintenance-app-message').value.trim();
   var code=document.getElementById('adm-maintenance-app-code').value.trim();
   if(!code){alert('Merci de définir un code de déblocage avant d\'activer : sans lui, vous ne pourrez plus revenir sur l\'écran de connexion.');return;}
@@ -3711,6 +4256,7 @@ function activerMaintenanceApp(){
 }
 
 function desactiverMaintenanceApp(){
+  if(!verifierCode1012('Désactiver le mode maintenance (application)'))return;
   fbDb.collection('siteConfig').doc('main').set({maintenanceAppActive:false},{merge:true}).then(function(){
     afficherStatutMaintenanceApp(false);
     enregistrerActionAdmin('Maintenance de l\'application désactivée','');
@@ -4000,6 +4546,7 @@ function initAdminPage(){
 // Ne necessite pas le SDK Admin : sendPasswordResetEmail fonctionne cote client
 // et envoie un email officiel Firebase contenant un lien securise a usage unique.
 function admEnvoyerResetMdp(){
+  if(!verifierCode1012('Réinitialiser le mot de passe d\'un compte'))return;
   var email=document.getElementById('adm-reset-email').value.trim();
   if(!email){alert('Entrez un email.');return;}
   if(!FIREBASE_ENABLED||!fbAuth){alert('Firebase non disponible.');return;}
@@ -4094,6 +4641,7 @@ function admChargerDocsDuCompte(){
 
 // ── 1. Verrouillage d'un compte utilisateur ─────────────────────────────
 function admVerrouillerUtilisateur(){
+  if(!verifierCode1012('Verrouiller un compte utilisateur'))return;
   var uid=document.getElementById('adm-lock-uid').value.trim();
   var raison=document.getElementById('adm-lock-raison').value.trim();
   if(!uid){alert('Sélectionnez un compte à verrouiller.');return;}
@@ -4118,6 +4666,7 @@ function admVerrouillerUtilisateur(){
 }
 
 function admDeverrouillerUtilisateur(uid){
+  if(!verifierCode1012('Déverrouiller un compte utilisateur'))return;
   if(!confirm('Déverrouiller ce compte ?'))return;
   fbDb.collection('userLocks').doc(uid).delete().then(function(){
     enregistrerActionAdmin('Compte déverrouillé',uid);
@@ -4178,6 +4727,7 @@ function verifierVerrouillageCompteActuel(){
 // pour eviter qu'un devis "DEV-2025-0001" d'un compte n'entre en collision avec le meme
 // numero utilise par un autre compte (chaque compte a sa propre numerotation).
 function admVerrouillerDocument(){
+  if(!verifierCode1012('Verrouiller un document'))return;
   var compteUid=document.getElementById('adm-lock-doc-compte-select').value;
   var numero=document.getElementById('adm-lock-doc-num-select').value;
   var raison=document.getElementById('adm-lock-doc-raison').value.trim();
@@ -4205,6 +4755,7 @@ function admVerrouillerDocument(){
 }
 
 function admDeverrouillerDocument(lockId){
+  if(!verifierCode1012('Déverrouiller un document'))return;
   if(!confirm('Déverrouiller ce document ?'))return;
   fbDb.collection('documentLocks').doc(lockId).delete().then(function(){
     enregistrerActionAdmin('Document déverrouillé',lockId);
@@ -4325,6 +4876,7 @@ function chargerGroupesPartage(){
 }
 
 function admCreerGroupePartage(){
+  if(!verifierCode1012('Créer un groupe de partage'))return;
   var nom=prompt('Nom du groupe (ex: "Nico + associé") :');
   if(!nom)return;
   if(!FIREBASE_ENABLED||!fbDb){alert('Firebase non disponible.');return;}
@@ -4345,6 +4897,7 @@ function admCreerGroupePartage(){
 }
 
 function admToggleGroupePartage(groupId,nouvelEtat){
+  if(!verifierCode1012('Activer/désactiver un groupe de partage'))return;
   var msg=nouvelEtat?
     'Activer le partage ? Les comptes membres de ce groupe verront et modifieront désormais la même base de données (clients, devis, factures communs).':
     'Désactiver le partage ? Chaque compte membre reviendra à sa propre base de données isolée.';
@@ -4360,6 +4913,7 @@ function admToggleGroupePartage(groupId,nouvelEtat){
 }
 
 function admSupprimerGroupePartage(groupId){
+  if(!verifierCode1012('Supprimer un groupe de partage'))return;
   if(!confirm('Supprimer définitivement ce groupe ? Les comptes membres reviendront chacun à leur propre base isolée. Cette action ne supprime aucune donnée client/devis/facture.'))return;
   fbDb.collection('dataGroups').doc(groupId).delete().then(function(){
     enregistrerActionAdmin('Groupe de partage supprimé',groupId);
@@ -4372,6 +4926,7 @@ function admSupprimerGroupePartage(groupId){
 }
 
 function admAjouterMembreGroupe(){
+  if(!verifierCode1012('Ajouter un membre à un groupe de partage'))return;
   var uid=document.getElementById('adm-ws-invite-uid').value.trim();
   if(!uid){alert('Sélectionnez un compte à ajouter.');return;}
   fbDb.collection('dataGroups').get().then(function(snap){
@@ -4674,6 +5229,7 @@ function admRenderTickets(){
 }
 
 function admCreerTicket(){
+  if(!verifierCode1012('Créer un ticket admin'))return;
   var numero=document.getElementById('adm-ticket-numero').value.trim();
   var titre=document.getElementById('adm-ticket-titre').value.trim();
   var desc=document.getElementById('adm-ticket-desc').value.trim();
@@ -4715,6 +5271,7 @@ function admCreerTicket(){
 }
 
 function admChangerStatutTicket(ticketId,nouveauStatut){
+  if(!verifierCode1012('Changer le statut d\'un ticket'))return;
   fbDb.collection('tickets').doc(ticketId).update({
     statut:nouveauStatut,
     dateMaj:firebase.firestore.FieldValue.serverTimestamp()
@@ -4732,6 +5289,7 @@ function admChangerStatutTicket(ticketId,nouveauStatut){
 }
 
 function admToggleBlocageTicket(ticketId,bloquer){
+  if(!verifierCode1012('Bloquer/débloquer un ticket'))return;
   var t=_admTicketsCache.find(function(x){return x._id===ticketId;});
   if(!t||!t.docFirestoreId)return;
   fbDb.collection('tickets').doc(ticketId).update({bloqueDocument:bloquer}).then(function(){
@@ -4742,6 +5300,7 @@ function admToggleBlocageTicket(ticketId,bloquer){
 }
 
 function admAppliquerBlocageDocument(docFirestoreId,bloquer,raison){
+  if(!verifierCode1012('Bloquer/débloquer un document'))return;
   fbDb.collection('documentsPublics').doc(docFirestoreId).update({
     bloque:bloquer,
     raisonBlocage:raison||''
@@ -4749,6 +5308,7 @@ function admAppliquerBlocageDocument(docFirestoreId,bloquer,raison){
 }
 
 function admSupprimerTicket(ticketId){
+  if(!verifierCode1012('Supprimer un ticket'))return;
   var t=_admTicketsCache.find(function(x){return x._id===ticketId;});
   if(!confirm('Supprimer ce ticket ?'+(t&&t.bloqueDocument?' Le document associé sera automatiquement débloqué.':'')))return;
   if(t&&t.bloqueDocument&&t.docFirestoreId){
@@ -4803,6 +5363,7 @@ function adminVoirDocumentFirestore(){
 }
 
 function adminDeconnexionForcee(){
+  if(!verifierCode1012('Déconnexion forcée d\'un compte'))return;
   if(!confirm('Se déconnecter maintenant ?'))return;
   if(FIREBASE_ENABLED&&fbAuth)fbAuth.signOut();
 }
@@ -5032,7 +5593,14 @@ function showPage(name){
   else if(name==='factures')renderFactures();
   else if(name==='clients')renderClients();
   else if(name==='produits')renderProduits();
+  else if(name==='contrats'){if(!db.contrats)db.contrats=[];renderContrats();}
+  else if(name==='brouillons'){if(!db.brouillonsDevis)db.brouillonsDevis=[];renderBrouillonsGDF();}
+  else if(name==='litiges'){if(!db.litiges)db.litiges=[];renderLitiges();}
+  else if(name==='materiel'){if(!db.materiel)db.materiel=[];renderMateriel();}
+  else if(name==='historique-materiel'){if(!db.materiel)db.materiel=[];var selO=document.getElementById('hm-filtre-outil');if(selO)delete selO.dataset.rempli;renderHistoriqueMateriel();}
   else if(name==='planning'){if(!db.events)db.events=[];renderCal();}
+  else if(name==='equipe-chantiers'){if(!db.events)db.events=[];if(!db.equipeTerrain)db.equipeTerrain=[];renderEquipeRosterGDF();renderListeChantiers();}
+  else if(name==='mes-fiches-paie'){chargerMesFichesPaie();}
   else if(name==='sauvegarde')loadSauvegarde();
   else if(name==='interventions'){if(!db.interventions)db.interventions=[];renderBI();}
   else if(name==='relances'){renderRelances();renderRelancesCopayeurs();}
@@ -5258,7 +5826,7 @@ function initSig(id){
 function clearSig(id){var p=pads[id];if(!p)return;p.ctx.clearRect(0,0,p.c.width,p.c.height);document.getElementById('sig-hint-'+id).style.display='block';}
 function getSig(id){var p=pads[id];if(!p)return null;var d=p.c.toDataURL('image/png'),t=document.createElement('canvas');t.width=p.c.width;t.height=p.c.height;return d===t.toDataURL()?null:d;}
 function setSig(id,data){var p=pads[id];if(!p||!data)return;var img=new Image();img.onload=function(){p.ctx.clearRect(0,0,p.c.width,p.c.height);p.ctx.drawImage(img,0,0,p.c.width,p.c.height);document.getElementById('sig-hint-'+id).style.display='none';};img.src=data;}
-function saveSig(){if(!verifierCode1012('Modifier la signature'))return;var d=getSig('params');if(!d){alert('Dessinez votre signature.');return;}db.params.signature=d;sDB();document.getElementById('sig-status').innerHTML='<span style="color:var(--accent);font-weight:700">✓ Signature enregistree</span>';}
+function saveSig(){var d=getSig('params');if(!d){alert('Dessinez votre signature.');return;}db.params.signature=d;sDB();document.getElementById('sig-status').innerHTML='<span style="color:var(--accent);font-weight:700">✓ Signature enregistree</span>';}
 function useStoredSig(id){if(db.params.signature)setSig(id,db.params.signature);else alert('Aucune signature. Allez dans "Mon entreprise" pour en creer une.');}
 
 // Fait signer le client directement sur l'appli (tablette/telephone en main), sans passer
@@ -5336,7 +5904,6 @@ function loadTemplatesEmail(){
 // Enregistre les textes personnalises. Un champ laisse vide supprime la personnalisation
 // (donc le texte par defaut sera utilise a nouveau par getTemplateEmail()).
 function saveTemplatesEmail(){
-  if(!verifierCode1012('Modifier les modèles d\'emails'))return;
   if(!db.params.templatesEmail)db.params.templatesEmail={};
   Object.keys(TEMPLATES_EMAIL_DEFAUT).forEach(function(cle){
     var sujetEl=document.getElementById('tpl-'+cle+'-sujet');
@@ -5364,7 +5931,6 @@ function loadLogo(e){var f=e.target.files[0];if(!f)return;var r=new FileReader()
 // consultationUrl est le meme champ deja utilise ailleurs (liens envoyes par email au client) :
 // on le met a jour ici aussi pour n'avoir qu'une seule source de verite.
 function saveLiensExternes(){
-  if(!verifierCode1012('Modifier les liens externes'))return;
   db.params.urlVitrine=document.getElementById('p-url-vitrine').value.trim();
   db.params.consultationUrl=document.getElementById('p-url-consultation').value.trim();
   sDB();
@@ -5560,7 +6126,6 @@ function creerFactureDepuisDevisSigne(doc,pubData){
   });
 }
 function saveParamAcompteDefaut(){
-  if(!verifierCode1012('Modifier l\'acompte par défaut'))return;
   var v=parseFloat(document.getElementById('param-acompte-defaut').value);
   if(!v||v<1||v>100){alert('Indiquez un pourcentage valide (entre 1 et 100).');return;}
   db.params.acompteDefautPct=v;
@@ -5571,7 +6136,6 @@ function saveParamAcompteDefaut(){
 }
 
 function saveEmailJSParams(){
-  if(!verifierCode1012('Modifier les paramètres EmailJS'))return;
   db.params.emailjsActif=document.getElementById('ej-actif').value==='oui';
   db.params.emailjsPublicKey=document.getElementById('ej-public-key').value.trim();
   db.params.emailjsServiceId=document.getElementById('ej-service-id').value.trim();
@@ -5636,7 +6200,6 @@ var gmailAccessToken=null;
 var gmailEmailsCache=[];
 
 function saveGmailParams(){
-  if(!verifierCode1012('Modifier les paramètres Gmail'))return;
   var el=document.getElementById('gmail-client-id');
   db.params.gmailClientId=el?el.value.trim():'';
   sDB();
@@ -5909,7 +6472,7 @@ var editCId=null;
 function openClientModal(id){
   editCId=id||null;
   document.getElementById('mc-title').textContent=editCId?'Modifier le client':'Nouveau client';
-  var f=['nom','contact','email','tel','adresse','cp','ville','siret'];
+  var f=['nom','contact','email','tel','adresse','cp','ville','siret','notes'];
   var portalWrap=document.getElementById('mc-portal-wrap');
   if(editCId){
     var c=db.clients.find(function(x){return x.id===editCId;});
@@ -6015,9 +6578,9 @@ function assurerNumerosClients(){
   if(changed)sDB();
 }
 function saveClient(){
-  if(!verifierCode1012('Créer/modifier un client'))return;
+  if(bloquerSiLectureSeule())return;
   var nom=document.getElementById('c-nom').value.trim();if(!nom){alert('Nom obligatoire.');return;}
-  var obj={nom:nom,typeClient:document.getElementById('c-type').value||'particulier',contact:document.getElementById('c-contact').value,email:document.getElementById('c-email').value,tel:document.getElementById('c-tel').value,adresse:document.getElementById('c-adresse').value,cp:document.getElementById('c-cp').value,ville:document.getElementById('c-ville').value,siret:document.getElementById('c-siret').value};
+  var obj={nom:nom,typeClient:document.getElementById('c-type').value||'particulier',contact:document.getElementById('c-contact').value,email:document.getElementById('c-email').value,tel:document.getElementById('c-tel').value,adresse:document.getElementById('c-adresse').value,cp:document.getElementById('c-cp').value,ville:document.getElementById('c-ville').value,siret:document.getElementById('c-siret').value,notes:document.getElementById('c-notes').value};
   var isNew=!editCId;
   var savedClient;
   if(editCId){var i=db.clients.findIndex(function(x){return x.id===editCId;});db.clients[i]=Object.assign({},db.clients[i],obj);savedClient=db.clients[i];publierClientPublic(savedClient);}
@@ -6121,7 +6684,7 @@ function renvoyerEmailAccesClient(id){
   envoyerEmailAccesClient(c);
 }
 function deleteClient(id){
-  if(!verifierCode1012('Supprimer un client'))return;
+  if(bloquerSiLectureSeule())return;
   if(!confirm('Supprimer ce client ?\n\nSes devis/factures resteront dans l\'historique mais ne seront plus rattaches a un client visible.'))return;
   var docsDuClient=db.documents.filter(function(x){return x.clientId===id;});
   var clientSupprime=db.clients.find(function(x){return x.id===id;});
@@ -6166,7 +6729,9 @@ function renderClients(){
     var typeBadge=isPro
       ?'<span class="badge" style="background:#EDE9FE;color:#6D28D9">🏢 Pro</span>'
       :'<span class="badge" style="background:#F1F5F9;color:#475569">👤 Particulier</span>';
-    return '<tr><td><strong>'+esc(c.nom)+'</strong><br><span style="font-size:11px;color:var(--muted)">'+esc(c.numeroClient||'')+'</span></td><td>'+typeBadge+'</td><td>'+esc(c.contact)+'</td><td>'+esc(c.email)+'</td><td>'+esc(c.tel)+'</td><td>'+esc((c.cp+' '+c.ville).trim())+'</td><td style="display:flex;gap:4px"><button class="btn btn-ghost btn-sm" title="Historique des emails" onclick="openHistoriqueEmailsModal('+c.id+')">📜'+((c.emailsHistorique&&c.emailsHistorique.length)?'<span style="background:var(--primary);color:#fff;border-radius:8px;font-size:9px;padding:1px 5px;margin-left:3px">'+c.emailsHistorique.length+'</span>':'')+'</button><button class="btn btn-ghost btn-sm" title="Envoyer un email" onclick="openEmailClientModal('+c.id+')">✉️</button><button class="btn btn-ghost btn-sm" onclick="openClientModal('+c.id+')">✏️</button><button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteClient('+c.id+')">🗑</button></td></tr>';
+    var telLink=c.tel?('<a href="tel:'+esc(c.tel.replace(/\s/g,''))+'" style="color:var(--primary);text-decoration:none" title="Appeler '+esc(c.tel)+'">📞 '+esc(c.tel)+'</a>'):'';
+    var noteBadge=c.notes?' <span title="'+esc(c.notes)+'" style="cursor:help">⚠️</span>':'';
+    return '<tr><td><strong>'+esc(c.nom)+'</strong>'+noteBadge+'<br><span style="font-size:11px;color:var(--muted)">'+esc(c.numeroClient||'')+'</span></td><td>'+typeBadge+'</td><td>'+esc(c.contact)+'</td><td>'+esc(c.email)+'</td><td>'+telLink+'</td><td>'+esc((c.cp+' '+c.ville).trim())+'</td><td style="display:flex;gap:4px"><button class="btn btn-ghost btn-sm" title="Historique des emails" onclick="openHistoriqueEmailsModal('+c.id+')">📜'+((c.emailsHistorique&&c.emailsHistorique.length)?'<span style="background:var(--primary);color:#fff;border-radius:8px;font-size:9px;padding:1px 5px;margin-left:3px">'+c.emailsHistorique.length+'</span>':'')+'</button><button class="btn btn-ghost btn-sm" title="Envoyer un email" onclick="openEmailClientModal('+c.id+')">✉️</button><button class="btn btn-ghost btn-sm" title="Créer un contrat d\'entretien" onclick="creerContratDepuisClient('+c.id+')">📝</button><button class="btn btn-ghost btn-sm" title="Générer une attestation" onclick="openAttestationModal('+c.id+')">📄</button><button class="btn btn-ghost btn-sm" onclick="openClientModal('+c.id+')">✏️</button><button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteClient('+c.id+')">🗑</button></td></tr>';
   }).join('');
 }
 
@@ -6244,7 +6809,6 @@ function openProduitModal(id){
   openModal('modal-produit');
 }
 function saveProduit(){
-  if(!verifierCode1012('Créer/modifier un produit'))return;
   var nom=document.getElementById('pr-nom').value.trim();if(!nom){alert('Designation obligatoire.');return;}
   var obj={nom:nom,ref:document.getElementById('pr-ref').value,desc:document.getElementById('pr-desc').value,prix:parseFloat(document.getElementById('pr-prix').value)||0,unite:document.getElementById('pr-unite').value};
   var isNew=!editPId;
@@ -6256,7 +6820,6 @@ function saveProduit(){
   }
 }
 function deleteProduit(id){
-  if(!verifierCode1012('Supprimer un produit'))return;
   if(!confirm('Supprimer ?'))return;
   var p=db.produits.find(function(x){return x.id===id;});
   db.produits=db.produits.filter(function(x){return x.id!==id;});
@@ -6459,7 +7022,7 @@ function fermerModalDocSansEnregistrer(){
 }
 
 function saveDoc(){
-  if(!verifierCode1012('Créer/modifier un devis ou une facture'))return;
+  if(bloquerSiLectureSeule())return;
   var cId=parseInt(document.getElementById('doc-client').value);
   if(!cId){alert('Selectionnez un client.');return;}
   if(!docLines.length){alert('Ajoutez au moins une ligne.');return;}
@@ -6549,11 +7112,28 @@ function finaliserSaveDoc(cId,numero,docAvant){
   // est de toute facon republie sur l'espace client (consultation.html) s'il y a acces, pour que
   // le client y retrouve toujours la derniere version, meme sans notification par email.
   var sendEmailChk=document.getElementById('doc-send-email');
-  var wantsSend=!!db.params.emailjsActif&&sendEmailChk&&sendEmailChk.checked;
+  var wantsSend=!!db.params.emailjsActif&&sendEmailChk&&sendEmailChk.checked&&!_brouillonEnConversion;
   if(wantsSend){
     envoyerEmailDocAuto(docFinal); // publie sur documentsPublics puis envoie l'email
   }else if(clientAConsultation(docFinal.clientId)){
     publierDocumentPublic(docFinal); // pas d'email, mais quand meme visible cote client
+  }
+
+  // Si ce devis a ete cree depuis un "Brouillon de devis" (note prise sur le terrain
+  // depuis agenda-chantier.html), il doit rester MASQUE du client meme si publierDocumentPublic
+  // vient de le publier — le brouillon devient un vrai devis, mais reste invisible tant que
+  // vous ne le publiez pas explicitement (case a cocher "Visible" dans sa fiche document).
+  if(_brouillonEnConversion){
+    var prefixBr=DOC_ACTIF.substring(0,6).toUpperCase();
+    var docIdPubBr=prefixBr+'_'+docFinal.id;
+    setTimeout(function(){
+      if(FIREBASE_ENABLED&&fbDb)fbDb.collection('documentsPublics').doc(docIdPubBr).set({visibleClient:false},{merge:true}).catch(function(e){console.error('Erreur masquage devis issu de brouillon:',e);});
+    },1000);
+    db.brouillonsDevis=(db.brouillonsDevis||[]).filter(function(b){return b.id!==_brouillonEnConversion;});
+    _brouillonEnConversion=null;
+    sDB();
+    majBadgeBrouillonsGDF();
+    setTimeout(function(){alert('✅ Devis créé, mais gardé MASQUÉ du client (comme pour tout brouillon transformé). Ouvrez sa fiche et cochez "Visible" quand vous serez prêt à le publier.');},50);
   }
 
   closeModal('modal-doc');
@@ -6575,7 +7155,7 @@ function finaliserSaveDoc(cId,numero,docAvant){
   }
 }
 function deleteDoc(id){
-  if(!verifierCode1012('Supprimer un devis ou une facture'))return;
+  if(bloquerSiLectureSeule())return;
   if(!confirm('Supprimer ce document ?'))return;
   var doc=db.documents.find(function(x){return x.id===id;});
   db.documents=db.documents.filter(function(x){return x.id!==id;});
@@ -6847,6 +7427,7 @@ function renderFactures(){
       '<button class="btn btn-ghost btn-sm" onclick="showPv('+d.id+')">👁</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="openDocModal(\'facture\','+d.id+')">✏️</button>'+
       (!paid?'<button class="btn btn-accent btn-sm" onclick="openReceiptModal('+d.id+')">💰</button>':'<button class="btn btn-ghost btn-sm" onclick="downloadReceiptPDF('+d.id+')" title="Recu">🧾</button>')+
+      (!paid&&d.statut!=='annulee'?'<button class="btn btn-ghost btn-sm" style="color:#B91C1C" onclick="ouvrirMiseEnDemeure('+d.id+')" title="Générer une mise en demeure">✉️</button>':'')+
       ((d.paiements&&d.paiements.length)?'<button class="btn btn-ghost btn-sm" style="color:#B45309" onclick="openRefundModal('+d.id+')" title="Rembourser">↩️</button>':'')+
       avisBtn+histBtn+consultBtn+
       '<button class="btn btn-primary btn-sm" onclick="downloadPDF('+d.id+',true)">⬇ Moi</button>'+
@@ -6857,6 +7438,7 @@ function renderFactures(){
 }
 function renderDash(){
   renderUrssafAlerte();
+  majBadgeControleMateriel();
   document.getElementById('stat-devis').textContent=db.documents.filter(function(d){return d.type==='devis'&&d.statut==='en-cours';}).length;
   document.getElementById('stat-factures').textContent=db.documents.filter(function(d){return d.type==='facture';}).length;
   document.getElementById('stat-ca').textContent=fmt(db.documents.filter(function(d){return d.type==='facture';}).reduce(function(s,d){return s+d.totalHT;},0))+' €';
@@ -6875,6 +7457,25 @@ function renderDash(){
 var pvId=null;
 function refreshPv(){if(pvId!==null)showPv(pvId);}
 function calcEch(date,d2){if(!date||!d2)return'—';var d=new Date(date);d.setDate(d.getDate()+parseInt(d2));return fmtDate(d.toISOString().split('T')[0]);}
+
+// ═══ MODE PRESENTATION CLIENT : plein ecran, sans le reste de l'interface, pour montrer
+// le devis/facture directement au client sur place (tablette/telephone). Ne fonctionne
+// que si un document est deja affiche dans l'apercu (bouton 👁). ═══
+function activerModePresentation(){
+  var panelDevis=document.getElementById('pv-devis');
+  var panelFactures=document.getElementById('pv-factures');
+  var aUnApercu=(panelDevis&&panelDevis.querySelector('.pv'))||(panelFactures&&panelFactures.querySelector('.pv'));
+  if(!aUnApercu){alert('Cliquez d\'abord sur 👁 sur un devis ou une facture pour l\'afficher dans l\'aperçu, avant de passer en mode présentation.');return;}
+  document.body.classList.add('mode-presentation');
+  document.getElementById('btn-quitter-presentation').style.display='block';
+  if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(function(){});
+}
+
+function quitterModePresentation(){
+  document.body.classList.remove('mode-presentation');
+  document.getElementById('btn-quitter-presentation').style.display='none';
+  if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen().catch(function(){});
+}
 
 function showPv(id){
   pvId=id;
@@ -7102,7 +7703,7 @@ function selectionnerPayeurRemboursement(){
 }
 
 function saveRefund(){
-  if(!verifierCode1012('Enregistrer un remboursement'))return;
+  if(bloquerSiLectureSeule())return;
   var doc=db.documents.find(function(x){return x.id===refundDocId;});
   var payeurs=payeursDeDocument(doc).filter(function(p){return montantDejaPayeParClient(doc,p.clientId)>0.01;});
   var multiPayeurs=document.getElementById('refund-payeur-select-wrap').style.display==='block';
@@ -7185,7 +7786,7 @@ function downloadRefundPDF(id,clientId,remboursement){
 }
 
 function saveReceipt(){
-  if(!verifierCode1012('Enregistrer un encaissement'))return;
+  if(bloquerSiLectureSeule())return;
   var doc=db.documents.find(function(x){return x.id===recDocId;});
   var sig=getSig('receipt');
   var payeurs=payeursDeDocument(doc);
@@ -7366,12 +7967,34 @@ function publierClientPublic(client){
     numeroClient:client.numeroClient,
     codeClient:client.codeClient,
     nom:client.nom||'',
+    // Champs normalises (minuscules / chiffres uniquement) utilises UNIQUEMENT pour la
+    // recherche cote consultation.html (bouton "Code d'acces oublie ?"), sans exposer
+    // l'email/telephone en clair dans un champ evident a deviner.
+    emailRecherche:(client.email||'').trim().toLowerCase(),
+    telRecherche:(client.tel||'').replace(/\D/g,''),
     updatedAt:firebase.firestore.FieldValue.serverTimestamp()
   };
   var docId=prefix+'_'+client.id;
   return fbDb.collection('clientsPublics').doc(docId).set(payload)
     .then(function(){return {docId:docId,numeroClient:client.numeroClient,codeClient:client.codeClient};})
     .catch(function(e){console.error('Erreur publication fiche client publique:',e);return null;});
+}
+
+// Republie la fiche publique de TOUS les clients existants (bouton "🔄 Republier les
+// fiches clients" sur la page Clients). Utile une seule fois apres l'ajout des champs
+// emailRecherche/telRecherche, pour que le "code d'acces oublie" fonctionne aussi pour les
+// clients crees avant cette mise a jour (ceux crees/modifies apres sont deja a jour).
+function republierTousLesClientsPublics(){
+  if(bloquerSiLectureSeule())return;
+  var liste=(db.clients||[]).filter(function(c){return c.numeroClient&&c.codeClient;});
+  if(!liste.length){alert('Aucun client avec un acces au portail pour le moment.');return;}
+  if(!confirm('Republier la fiche publique de '+liste.length+' client(s), ainsi que leurs contrats d\'entretien actifs ? (necessaire une seule fois apres la mise a jour du code d\'acces oublie / des contrats visibles en ligne)'))return;
+  Promise.all(liste.map(function(c){return publierClientPublic(c);}))
+    .then(function(){
+      liste.forEach(function(c){publierContratsPublicsPourClient(c.id);});
+      alert('✅ '+liste.length+' fiche(s) client republiee(s), contrats inclus.');
+    })
+    .catch(function(e){console.error(e);alert('⚠️ Une erreur est survenue pendant la republication.');});
 }
 
 // Envoie par email le numero client + code d'acces permanent, avec le lien vers consultation.html.
@@ -7596,7 +8219,6 @@ function showCodeModal(code){
   openModal('modal-avis-code');
 }
 function creerCodeAvisLibre(){
-  if(!verifierCode1012('Créer un code avis libre'))return;
   if(!db.codesAvisLibres)db.codesAvisLibres=[];
   var nom=document.getElementById('ca-nom').value.trim();
   var code=generateAvisCode();
@@ -7608,7 +8230,6 @@ function creerCodeAvisLibre(){
 }
 
 function supprimerCodeAvisLibre(code){
-  if(!verifierCode1012('Supprimer un code avis libre'))return;
   if(!confirm('Supprimer ce code ? Il ne pourra plus être utilisé pour laisser un avis.'))return;
   db.codesAvisLibres=(db.codesAvisLibres||[]).filter(function(c){return c.code!==code;});
   sDB();
@@ -7694,7 +8315,6 @@ function updateAvisBadge(){
 }
 
 function saveAvisPageUrl(){
-  if(!verifierCode1012('Modifier l\'URL de la page avis'))return;
   db.params.avisPageUrl=document.getElementById('avis-page-url').value.trim();
   sDB();
   updateAvisUrlDisplay();
@@ -8015,7 +8635,7 @@ function renderDemandesRdv(){
         '<div style="font-size:12.5px;color:var(--muted);margin-top:2px">'+typeTxt+'</div></div>'+
         statutBadge+
       '</div>'+
-      '<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">📞 '+esc(r.tel||'')+(r.email?' · ✉️ '+esc(r.email):'')+'</div>'+
+      '<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">'+(r.tel?'<a href="tel:'+esc(r.tel.replace(/\s/g,''))+'" style="color:var(--primary);text-decoration:none">📞 '+esc(r.tel)+'</a>':'')+(r.email?' · ✉️ '+esc(r.email):'')+'</div>'+
       (r.message?'<div style="font-size:13px;background:#F8FAFC;border-radius:8px;padding:10px 12px;margin-bottom:10px">'+esc(r.message)+'</div>':'')+
       (r.statut==='en_attente'?
         '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
@@ -8102,7 +8722,6 @@ function confirmerAutreCreneauRdv(){
 }
 
 function supprimerRdv(id){
-  if(!verifierCode1012('Supprimer un rendez-vous'))return;
   if(!confirm('Supprimer cette demande de rendez-vous ?'))return;
   fbDb.collection('demandesRdv').doc(id).delete().catch(function(e){console.error(e);});
 }
@@ -8161,14 +8780,12 @@ function marquerDemandeTraitee(type,id,traite){
 }
 
 function supprimerDemande(type,id){
-  if(!verifierCode1012('Supprimer une demande'))return;
   if(!confirm('Supprimer cette demande ?'))return;
   var col=type==='devis'?'demandesDevis':'contacts';
   fbDb.collection(col).doc(id).delete().catch(function(e){console.error(e);});
 }
 
 function creerClientDepuisDemande(id){
-  if(!verifierCode1012('Créer un client depuis une demande'))return;
   var d=((db.demandesDevis&&db.demandesDevis.liste)||[]).find(function(x){return x._id===id;});
   if(!d)return;
   openClientModal(null);
@@ -8183,7 +8800,6 @@ function creerClientDepuisDemande(id){
 // nom/coordonnees en objet+notes, description en objet, et une ligne de reduction visible
 // si un code promo valide a ete utilise lors de la demande (vitrine.html).
 function creerDevisDepuisDemande(id){
-  if(!verifierCode1012('Créer un devis depuis une demande'))return;
   var d=((db.demandesDevis&&db.demandesDevis.liste)||[]).find(function(x){return x._id===id;});
   if(!d)return;
   var nomComplet=((d.prenom||'')+' '+(d.nom||'')).trim();
@@ -8326,7 +8942,6 @@ function marquerMessagesLus(docId){
 
 // Supprime tous les messages d'une conversation (liee a un document precis)
 function supprimerConversationMessages(docId){
-  if(!verifierCode1012('Supprimer une conversation'))return;
   if(!confirm('Supprimer toute cette conversation ? Cette action est irreversible.'))return;
   var aSupprimer=((db.messagesClients&&db.messagesClients.liste)||[]).filter(function(m){return m.documentId===docId;});
   aSupprimer.forEach(function(m){
@@ -8363,7 +8978,7 @@ function renderDemandes(){
           '<div style="font-size:11px;color:var(--muted);margin-top:2px">'+fmtDateHeure(d.date)+'</div></div>'+
         '</div>'+
         '<div style="font-size:12.5px;color:var(--text);margin-bottom:6px;display:flex;flex-wrap:wrap;gap:12px">'+
-          (d.tel?'<span>📞 '+esc(d.tel)+'</span>':'')+
+          (d.tel?'<span><a href="tel:'+esc(d.tel.replace(/\s/g,''))+'" style="color:var(--primary);text-decoration:none">📞 '+esc(d.tel)+'</a></span>':'')+
           (d.email?'<span>✉️ '+esc(d.email)+'</span>':'')+
           (d.adresse?'<span>📍 '+esc(d.adresse)+'</span>':'')+
         '</div>'+
@@ -8430,13 +9045,11 @@ function renderServicesEditeur(){
 }
 
 function ajouterServiceEditeur(){
-  if(!verifierCode1012('Ajouter un service (site vitrine)'))return;
   servicesEditeur.push({icone:'🔧',titre:'',description:''});
   renderServicesEditeur();
 }
 
 function supprimerServiceEditeur(i){
-  if(!verifierCode1012('Supprimer un service (site vitrine)'))return;
   servicesEditeur.splice(i,1);
   renderServicesEditeur();
 }
@@ -8469,7 +9082,6 @@ function initSiteVitrinePage(){
 }
 
 function saveSiteVitrine(){
-  if(!verifierCode1012('Modifier le site vitrine'))return;
   if(!FIREBASE_ENABLED||!fbUser){alert('Connexion requise pour publier les changements.');return;}
   var data={};
   SV_FIELDS.forEach(function(k){
@@ -8508,7 +9120,6 @@ function startPromosListener(){
 }
 
 function creerPromo(){
-  if(!verifierCode1012('Créer une promotion'))return;
   var code=document.getElementById('promo-code').value.trim().toUpperCase();
   var pourcentage=parseInt(document.getElementById('promo-pourcentage').value);
   var dateFin=document.getElementById('promo-fin').value;
@@ -8567,7 +9178,6 @@ function togglePromo(id,nouvelEtat){
 }
 
 function supprimerPromo(id){
-  if(!verifierCode1012('Supprimer une promotion'))return;
   if(!confirm('Supprimer définitivement cette promotion ?'))return;
   fbDb.collection('promos').doc(id).delete().then(function(){
     if(typeof enregistrerActionAdmin==='function')enregistrerActionAdmin('Promotion supprimée',id);
@@ -8590,7 +9200,6 @@ function startGalerieAdminListener(){
 }
 
 function ajouterPhotoGalerie(){
-  if(!verifierCode1012('Ajouter une photo (galerie site vitrine)'))return;
   var url=document.getElementById('ph-url').value.trim();
   var cat=document.getElementById('ph-categorie').value;
   if(!url){alert('Veuillez coller une URL de photo.');return;}
@@ -8608,7 +9217,6 @@ function ajouterPhotoGalerie(){
 }
 
 function supprimerPhotoGalerie(id,storagePath){
-  if(!verifierCode1012('Supprimer une photo (galerie site vitrine)'))return;
   if(!confirm('Supprimer cette photo de la galerie ?'))return;
   var p=Promise.resolve();
   if(storagePath)p=fbStorage?fbStorage.ref(storagePath).delete().catch(function(){}):Promise.resolve();
@@ -8756,6 +9364,8 @@ function openEventModal(id,prefill){
     document.getElementById('ev-hend').value=ev.hend||'17:00';
     document.getElementById('ev-lieu').value=ev.lieu||'';
     document.getElementById('ev-notes').value=ev.notes||'';
+    document.getElementById('ev-statut').value=ev.statut||'a-faire';
+    renderEquipeCheckboxesEvenement(ev.equipe||[]);
     selEvType=ev.type||'chantier';
   }else{
     ['ev-titre','ev-lieu','ev-notes'].forEach(function(f){document.getElementById(f).value='';});
@@ -8764,6 +9374,8 @@ function openEventModal(id,prefill){
     document.getElementById('ev-end').value=prefill||'';
     document.getElementById('ev-hstart').value='08:00';
     document.getElementById('ev-hend').value='17:00';
+    document.getElementById('ev-statut').value='a-faire';
+    renderEquipeCheckboxesEvenement([]);
     selEvType='chantier';
   }
   document.getElementById('ev-type').value=selEvType;
@@ -8777,16 +9389,1649 @@ function selEvType(el){
   el.classList.add('sel');
 }
 function saveEvent(){
-  if(!verifierCode1012('Créer/modifier un événement planning'))return;
   var titre=document.getElementById('ev-titre').value.trim();if(!titre){alert('Titre obligatoire.');return;}
   if(!db.events)db.events=[];
-  var obj={titre:titre,clientId:document.getElementById('ev-client').value,start:document.getElementById('ev-start').value,end:document.getElementById('ev-end').value||document.getElementById('ev-start').value,hstart:document.getElementById('ev-hstart').value,hend:document.getElementById('ev-hend').value,lieu:document.getElementById('ev-lieu').value,notes:document.getElementById('ev-notes').value,type:selEvType};
+  var obj={titre:titre,clientId:document.getElementById('ev-client').value,start:document.getElementById('ev-start').value,end:document.getElementById('ev-end').value||document.getElementById('ev-start').value,hstart:document.getElementById('ev-hstart').value,hend:document.getElementById('ev-hend').value,lieu:document.getElementById('ev-lieu').value,notes:document.getElementById('ev-notes').value,type:selEvType,statut:document.getElementById('ev-statut').value,equipe:recupererEquipeSelectionneeFormulaire()};
   if(editEvId){var i=db.events.findIndex(function(x){return x.id===editEvId;});db.events[i]=Object.assign({},db.events[i],obj);}
   else{obj.id=Date.now();db.events.push(obj);}
-  sDB();closeModal('modal-event');renderCal();
+  sDB();closeModal('modal-event');renderCal();if(document.getElementById('page-equipe-chantiers')&&document.getElementById('page-equipe-chantiers').classList.contains('active'))renderListeChantiers();
 }
 function deleteEvent(){if(!confirm('Supprimer cet evenement ?'))return;delEvById(editEvId);}
-function delEvById(id){db.events=(db.events||[]).filter(function(x){return x.id!==id;});sDB();closeModal('modal-event');renderCal();}
+function delEvById(id){db.events=(db.events||[]).filter(function(x){return x.id!==id;});sDB();closeModal('modal-event');renderCal();if(typeof renderListeChantiers==='function')renderListeChantiers();}
+
+// ═══ CONTRATS D'ENTRETIEN ════════════════════════════════════
+var editCtId=null;
+var ctModePersoDates=[];
+var _brouillonEnConversion=null;
+
+function renderContrats(){
+  var tb=document.getElementById('contrats-list');if(!tb)return;
+  var list=(db.contrats||[]).slice().sort(function(a,b){return (a.prochaineDate||'9999')<(b.prochaineDate||'9999')?-1:1;});
+  if(!list.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Aucun contrat d\'entretien pour le moment.</td></tr>';return;}
+  tb.innerHTML=list.map(function(c){
+    var client=db.clients.find(function(x){return x.id===c.clientId;});
+    var freqLabel=c.mode==='perso'?'Dates personnalisées':({1:'Mensuelle',3:'Trimestrielle',6:'Semestrielle',12:'Annuelle'}[c.frequence]||'—');
+    var statutBadge={actif:'<span class="badge" style="background:#DCFCE7;color:#15803D">✅ Actif</span>',suspendu:'<span class="badge" style="background:#FEF3C7;color:#92400E">⏸ Suspendu</span>',termine:'<span class="badge" style="background:#F1F5F9;color:#475569">🔚 Terminé</span>'}[c.statut]||'';
+    var prochaine=calcProchaineVisiteContrat(c);
+    return '<tr><td><strong>'+esc(client?client.nom:'—')+'</strong></td><td>'+esc(c.objet||'')+'</td><td>'+freqLabel+'</td><td>'+(prochaine?fmtDate(prochaine):'—')+'</td><td>'+statutBadge+'</td>'+
+      '<td style="display:flex;gap:4px">'+
+      '<button class="btn btn-ghost btn-sm" title="Modifier" onclick="openContratModal('+c.id+')">✏️</button>'+
+      '<button class="btn btn-ghost btn-sm" title="Télécharger le contrat PDF" onclick="downloadContratPDF('+c.id+')">📄</button>'+
+      '<button class="btn btn-ghost btn-sm" title="Voir les visites planifiées" onclick="showPage(\'planning\')">📅</button>'+
+      '</td></tr>';
+  }).join('');
+}
+
+function calcProchaineVisiteContrat(c){
+  var today=new Date().toISOString().split('T')[0];
+  var dates=(c.datesVisites||[]).map(function(v){return v.date;}).filter(function(d){return d>=today;}).sort();
+  return dates.length?dates[0]:null;
+}
+
+function creerContratDepuisClient(clientId){
+  showPage('contrats');
+  openContratModal(null);
+  document.getElementById('ct-client').value=clientId;
+}
+function openContratModal(id){
+  editCtId=id||null;
+  document.getElementById('ct-title').textContent=editCtId?"Modifier le contrat":'Nouveau contrat d\'entretien';
+  document.getElementById('ct-del-btn').style.display=editCtId?'inline-flex':'none';
+  var sel=document.getElementById('ct-client');
+  sel.innerHTML='<option value="">-- Choisir --</option>'+db.clients.map(function(c){return'<option value="'+c.id+'">'+esc(c.nom)+'</option>';}).join('');
+  if(editCtId){
+    var c=(db.contrats||[]).find(function(x){return x.id===editCtId;});
+    document.getElementById('ct-client').value=c.clientId||'';
+    document.getElementById('ct-objet').value=c.objet||'';
+    document.getElementById('ct-montant').value=c.montant||'';
+    document.getElementById('ct-debut').value=c.debut||'';
+    document.getElementById('ct-hstart').value=c.hstart||'09:00';
+    document.getElementById('ct-hend').value=c.hend||'10:00';
+    document.getElementById('ct-lieu').value=c.lieu||'';
+    document.getElementById('ct-notes').value=c.notes||'';
+    document.getElementById('ct-statut').value=c.statut||'actif';
+    document.getElementById('ct-frequence').value=c.frequence||1;
+    document.getElementById('ct-nbvisites').value=c.nbVisites||4;
+    ctModePersoDates=(c.datesVisites||[]).map(function(v){return v.date;});
+    selCtMode(document.getElementById(c.mode==='perso'?'ct-mode-perso':'ct-mode-fixe'));
+  }else{
+    ['ct-objet','ct-lieu','ct-notes'].forEach(function(f){document.getElementById(f).value='';});
+    document.getElementById('ct-client').value='';
+    document.getElementById('ct-montant').value='';
+    document.getElementById('ct-debut').value=new Date().toISOString().split('T')[0];
+    document.getElementById('ct-hstart').value='09:00';
+    document.getElementById('ct-hend').value='10:00';
+    document.getElementById('ct-statut').value='actif';
+    document.getElementById('ct-frequence').value=1;
+    document.getElementById('ct-nbvisites').value=4;
+    ctModePersoDates=[];
+    selCtMode(document.getElementById('ct-mode-fixe'));
+  }
+  renderDatesContratPerso();
+  openModal('modal-contrat');
+}
+
+function selCtMode(el){
+  document.querySelectorAll('#modal-contrat .ev-col-opt').forEach(function(e){e.classList.remove('sel');});
+  el.classList.add('sel');
+  var mode=el.getAttribute('data-mode');
+  document.getElementById('ct-mode').value=mode;
+  document.getElementById('ct-bloc-fixe').style.display=mode==='fixe'?'block':'none';
+  document.getElementById('ct-bloc-perso').style.display=mode==='perso'?'block':'none';
+}
+
+function renderDatesContratPerso(){
+  var el=document.getElementById('ct-dates-liste');
+  if(!ctModePersoDates.length)ctModePersoDates=[new Date().toISOString().split('T')[0]];
+  el.innerHTML=ctModePersoDates.map(function(d,i){
+    return '<div style="display:flex;gap:6px;align-items:center"><input type="date" value="'+d+'" onchange="ctModePersoDates['+i+']=this.value" style="flex:1"><button class="btn btn-ghost btn-sm" onclick="supprimerDateContratPerso('+i+')">🗑</button></div>';
+  }).join('');
+}
+function ajouterDateContratPerso(){ctModePersoDates.push(new Date().toISOString().split('T')[0]);renderDatesContratPerso();}
+function supprimerDateContratPerso(i){if(ctModePersoDates.length<=1)return;ctModePersoDates.splice(i,1);renderDatesContratPerso();}
+
+function genererDatesVisitesContrat(){
+  var mode=document.getElementById('ct-mode').value;
+  if(mode==='perso'){
+    return ctModePersoDates.slice().sort().map(function(d){return{date:d};});
+  }
+  var debut=document.getElementById('ct-debut').value||new Date().toISOString().split('T')[0];
+  var freqMois=parseInt(document.getElementById('ct-frequence').value,10)||1;
+  var nb=parseInt(document.getElementById('ct-nbvisites').value,10)||1;
+  var dates=[];
+  var d=new Date(debut+'T00:00:00');
+  for(var i=0;i<nb;i++){
+    dates.push({date:d.toISOString().split('T')[0]});
+    d.setMonth(d.getMonth()+freqMois);
+  }
+  return dates;
+}
+
+function saveContrat(){
+  var clientId=document.getElementById('ct-client').value;if(!clientId){alert('Client obligatoire.');return;}
+  var objet=document.getElementById('ct-objet').value.trim();if(!objet){alert('Objet du contrat obligatoire.');return;}
+  var client=db.clients.find(function(x){return x.id==clientId;});
+  var lieu=document.getElementById('ct-lieu').value.trim()||(client?[client.adresse,((client.cp||'')+' '+(client.ville||'')).trim()].filter(Boolean).join(', '):'');
+  var datesVisites=genererDatesVisitesContrat();
+  if(!datesVisites.length){alert('Au moins une date de visite est nécessaire.');return;}
+
+  var obj={
+    clientId:clientId,objet:objet,montant:parseFloat(document.getElementById('ct-montant').value)||0,
+    debut:document.getElementById('ct-debut').value,hstart:document.getElementById('ct-hstart').value,hend:document.getElementById('ct-hend').value,
+    lieu:lieu,notes:document.getElementById('ct-notes').value,statut:document.getElementById('ct-statut').value,
+    mode:document.getElementById('ct-mode').value,frequence:parseInt(document.getElementById('ct-frequence').value,10),
+    nbVisites:parseInt(document.getElementById('ct-nbvisites').value,10),datesVisites:datesVisites
+  };
+
+  if(!db.contrats)db.contrats=[];
+  if(!db.events)db.events=[];
+
+  var contratId;
+  if(editCtId){
+    contratId=editCtId;
+    var i=db.contrats.findIndex(function(x){return x.id===editCtId;});
+    // Retire les anciens events planning générés par ce contrat avant d'en recréer de nouveaux
+    db.events=db.events.filter(function(ev){return ev.contratId!==editCtId;});
+    db.contrats[i]=Object.assign({},db.contrats[i],obj);
+  }else{
+    contratId=Date.now();
+    obj.id=contratId;
+    db.contrats.push(obj);
+  }
+
+  // Génère les events planning correspondant aux dates de visite (uniquement si contrat actif)
+  if(obj.statut==='actif'){
+    datesVisites.forEach(function(v){
+      db.events.push({
+        id:Date.now()+Math.floor(Math.random()*10000),
+        titre:'Entretien — '+objet+' ('+(client?client.nom:'')+')',
+        clientId:clientId,start:v.date,end:v.date,hstart:obj.hstart,hend:obj.hend,
+        lieu:lieu,notes:'Visite d\'entretien planifiée automatiquement.'+(obj.notes?(' '+obj.notes):''),
+        type:'chantier',statut:'a-faire',equipe:[],contratId:contratId
+      });
+    });
+  }
+
+  sDB();closeModal('modal-contrat');renderContrats();
+  if(typeof renderCal==='function')renderCal();
+  publierContratsPublicsPourClient(clientId);
+  alert('Contrat enregistré — '+datesVisites.length+' visite(s) ajoutée(s) au planning.');
+}
+
+function deleteContrat(){
+  if(!confirm('Supprimer ce contrat ? Les visites déjà planifiées seront retirées du planning.'))return;
+  var contrat=(db.contrats||[]).find(function(x){return x.id===editCtId;});
+  db.contrats=(db.contrats||[]).filter(function(x){return x.id!==editCtId;});
+  db.events=(db.events||[]).filter(function(ev){return ev.contratId!==editCtId;});
+  sDB();closeModal('modal-contrat');renderContrats();if(typeof renderCal==='function')renderCal();
+  if(contrat)publierContratsPublicsPourClient(contrat.clientId);
+}
+
+// Publie les contrats d'entretien ACTIFS d'un client dans une collection publique
+// (contratsPublics), pour que consultation.html puisse les afficher au client sans avoir
+// acces au reste de la base. Un seul document par client (docId = prefix_clientId), mis a
+// jour a chaque creation/modification/suppression de contrat.
+function publierContratsPublicsPourClient(clientId){
+  var client=(db.clients||[]).find(function(x){return x.id==clientId;});
+  if(!client||!client.numeroClient)return;
+  var prefix=DOC_ACTIF.substring(0,6).toUpperCase();
+  var docId=prefix+'_'+client.id;
+  var contratsActifs=(db.contrats||[]).filter(function(c){return c.clientId==clientId&&c.statut==='actif';});
+  if(!contratsActifs.length){
+    fbDb.collection('contratsPublics').doc(docId).delete().catch(function(){});
+    return;
+  }
+  var payload={
+    comptePrefixe:prefix,
+    numeroClient:client.numeroClient,
+    contrats:contratsActifs.map(function(c){
+      return {
+        objet:c.objet,montant:c.montant||0,frequence:c.frequence||null,
+        nbVisites:c.nbVisites||(c.datesVisites||[]).length,
+        prochaineVisite:calcProchaineVisiteContrat(c),
+        lieu:c.lieu||''
+      };
+    }),
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  };
+  fbDb.collection('contratsPublics').doc(docId).set(payload)
+    .catch(function(e){console.error('Erreur publication contrat public:',e);});
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// BROUILLONS DE DEVIS : notes prises depuis agenda-chantier.html (bouton "📝 Noter un
+// devis à faire"), stockees dans db.brouillonsDevis[] — jamais publiees, jamais visibles
+// du client. "Transformer en devis" pre-remplit le formulaire habituel de devis ; une fois
+// enregistre, le devis reel cree reste MASQUE du client (voir finaliserSaveDoc) tant que
+// vous ne le publiez pas explicitement depuis sa fiche document.
+// ═══════════════════════════════════════════════════════════════════════
+function renderBrouillonsGDF(){
+  var tb=document.getElementById('brouillons-list');if(!tb)return;
+  majBadgeBrouillonsGDF();
+  var liste=(db.brouillonsDevis||[]).slice().sort(function(a,b){return (b.dateCreation||'').localeCompare(a.dateCreation||'');});
+  if(!liste.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Aucun brouillon pour le moment. Les notes prises depuis Agenda Chantier apparaîtront ici.</td></tr>';return;}
+  tb.innerHTML=liste.map(function(b){
+    var c=b.clientId?db.clients.find(function(x){return x.id===b.clientId;}):null;
+    return '<tr><td>'+fmtDate(b.dateCreation)+'</td><td>'+esc(c?c.nom:'—')+'</td><td>'+esc(b.objet||'—')+'</td>'+
+      '<td style="max-width:300px;white-space:pre-wrap;font-size:12px;color:var(--muted)">'+esc(b.notes||'')+'</td>'+
+      '<td style="display:flex;gap:4px">'+
+        '<button class="btn btn-primary btn-sm" onclick="transformerBrouillonEnDevis('+b.id+')">📋 Transformer en devis</button>'+
+        '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="supprimerBrouillonGDF('+b.id+')">🗑</button>'+
+      '</td></tr>';
+  }).join('');
+}
+
+function majBadgeBrouillonsGDF(){
+  var badge=document.getElementById('nav-brouillons-badge');
+  if(!badge)return;
+  var nb=(db.brouillonsDevis||[]).length;
+  if(nb){badge.style.display='inline-block';badge.textContent=nb;}
+  else badge.style.display='none';
+}
+
+function supprimerBrouillonGDF(id){
+  if(!confirm('Supprimer ce brouillon ? Cette action ne supprime aucun devis, seulement la note.'))return;
+  db.brouillonsDevis=(db.brouillonsDevis||[]).filter(function(x){return x.id!==id;});
+  sDB();renderBrouillonsGDF();
+}
+
+function transformerBrouillonEnDevis(id){
+  var b=(db.brouillonsDevis||[]).find(function(x){return x.id===id;});
+  if(!b)return;
+  _brouillonEnConversion=id;
+  openDocModal('devis');
+  if(b.clientId)document.getElementById('doc-client').value=b.clientId;
+  document.getElementById('doc-objet').value=b.objet||'';
+  document.getElementById('doc-notes').value=(b.notes?('Note du terrain :\n'+b.notes+'\n\n'):'');
+  // Masque la case "envoyer par email" pendant la conversion : le devis restera masque du
+  // client de toute facon, inutile de proposer un envoi qui n'aurait aucun effet visible.
+  var emailOptWrap=document.getElementById('doc-email-opt-wrap');
+  if(emailOptWrap)emailOptWrap.style.display='none';
+  alert('📋 Formulaire pré-rempli à partir du brouillon. Ajoutez vos lignes chiffrées puis enregistrez — le devis restera masqué du client jusqu\'à ce que vous le publiiez vous-même.');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// LITIGES & RECLAMATIONS : dossier par client avec chronologie des echanges et
+// generation automatique d'un dossier PDF recapitulatif (utile en cas de recours).
+// Stocke dans db.litiges[], separe des documents/devis normaux.
+// ═══════════════════════════════════════════════════════════════════════
+var editLitId=null;
+function todayISOGlobal(){return new Date().toISOString().split('T')[0];}
+
+function renderLitiges(){
+  var tb=document.getElementById('litiges-list');if(!tb)return;
+  majBadgeLitiges();
+  var liste=(db.litiges||[]).slice().sort(function(a,b){return (b.dateCreation||'').localeCompare(a.dateCreation||'');});
+  if(!liste.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Aucun litige ou réclamation en cours. Tant mieux !</td></tr>';return;}
+  var statutLabel={'ouvert':'<span class="badge" style="background:#FEE2E2;color:#B91C1C">🔴 Ouvert</span>','en_cours':'<span class="badge" style="background:#FEF3C7;color:#92400E">🟠 En cours</span>','resolu':'<span class="badge" style="background:#DCFCE7;color:#15803D">✅ Résolu</span>'};
+  tb.innerHTML=liste.map(function(l){
+    var c=(db.clients||[]).find(function(x){return x.id===l.clientId;});
+    var d=l.documentId?(db.documents||[]).find(function(x){return x.id===l.documentId;}):null;
+    return '<tr><td>'+fmtDate(l.dateCreation)+'</td><td>'+esc(c?c.nom:'—')+'</td><td>'+esc(l.objet||'—')+'</td><td>'+esc(d?d.numero:'—')+'</td><td>'+(statutLabel[l.statut]||l.statut)+'</td>'+
+      '<td><button class="btn btn-ghost btn-sm" onclick="openLitigeModal('+l.id+')">✏️ Ouvrir</button></td></tr>';
+  }).join('');
+}
+
+function majBadgeLitiges(){
+  var badge=document.getElementById('nav-litiges-badge');
+  if(!badge)return;
+  var nb=(db.litiges||[]).filter(function(l){return l.statut!=='resolu';}).length;
+  if(nb){badge.style.display='inline-block';badge.textContent=nb;}
+  else badge.style.display='none';
+}
+
+function openLitigeModal(id){
+  editLitId=id;
+  var selC=document.getElementById('lit-client');
+  selC.innerHTML=(db.clients||[]).map(function(c){return '<option value="'+c.id+'">'+esc(c.nom)+'</option>';}).join('');
+  var selD=document.getElementById('lit-document');
+  selD.innerHTML='<option value="">— Aucun —</option>'+(db.documents||[]).slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,100).map(function(d){return '<option value="'+d.id+'">'+esc(d.numero)+' — '+esc(d.objet||'')+'</option>';}).join('');
+
+  if(id){
+    var l=(db.litiges||[]).find(function(x){return x.id===id;});
+    document.getElementById('lit-title').textContent='Dossier — '+(l.objet||'');
+    document.getElementById('lit-edit-id').value=id;
+    selC.value=l.clientId||'';
+    document.getElementById('lit-objet').value=l.objet||'';
+    selD.value=l.documentId||'';
+    document.getElementById('lit-description').value=l.description||'';
+    document.getElementById('lit-statut').value=l.statut||'ouvert';
+    document.getElementById('lit-historique-zone').style.display='block';
+    document.getElementById('lit-del-btn').style.display='inline-flex';
+    document.getElementById('lit-pdf-btn').style.display='inline-flex';
+    renderHistoriqueLitige(l);
+  }else{
+    document.getElementById('lit-title').textContent='Nouveau dossier';
+    document.getElementById('lit-edit-id').value='';
+    document.getElementById('lit-objet').value='';
+    document.getElementById('lit-description').value='';
+    document.getElementById('lit-statut').value='ouvert';
+    document.getElementById('lit-historique-zone').style.display='none';
+    document.getElementById('lit-del-btn').style.display='none';
+    document.getElementById('lit-pdf-btn').style.display='none';
+  }
+  openModal('modal-litige');
+}
+
+function renderHistoriqueLitige(l){
+  var el=document.getElementById('lit-historique-liste');
+  var hist=(l.historique||[]).slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  if(!hist.length){el.innerHTML='<div style="color:var(--muted)">Aucun événement noté pour le moment.</div>';return;}
+  el.innerHTML=hist.map(function(h){return '<div style="padding:4px 0;border-bottom:1px solid var(--border)"><strong>'+fmtDate(h.date)+'</strong> — '+esc(h.texte)+'</div>';}).join('');
+}
+
+function ajouterNoteLitige(){
+  if(!editLitId){alert('Enregistrez d\'abord le dossier avant d\'ajouter un événement.');return;}
+  var texte=document.getElementById('lit-nouvelle-note').value.trim();
+  if(!texte)return;
+  var l=(db.litiges||[]).find(function(x){return x.id===editLitId;});
+  if(!l)return;
+  if(!l.historique)l.historique=[];
+  l.historique.push({date:todayISOGlobal(),texte:texte});
+  sDB();
+  document.getElementById('lit-nouvelle-note').value='';
+  renderHistoriqueLitige(l);
+}
+
+function saveLitige(){
+  var clientId=document.getElementById('lit-client').value;
+  var objet=document.getElementById('lit-objet').value.trim();
+  if(!clientId||!objet){alert('Le client et l\'objet du litige sont obligatoires.');return;}
+  var obj={
+    clientId:parseInt(clientId,10)||clientId,
+    objet:objet,
+    documentId:document.getElementById('lit-document').value?(parseInt(document.getElementById('lit-document').value,10)||document.getElementById('lit-document').value):null,
+    description:document.getElementById('lit-description').value.trim(),
+    statut:document.getElementById('lit-statut').value
+  };
+  if(!db.litiges)db.litiges=[];
+  if(editLitId){
+    var i=db.litiges.findIndex(function(x){return x.id===editLitId;});
+    db.litiges[i]=Object.assign({},db.litiges[i],obj);
+  }else{
+    obj.id=Date.now();
+    obj.dateCreation=todayISOGlobal();
+    obj.historique=[{date:todayISOGlobal(),texte:'Dossier ouvert.'}];
+    db.litiges.push(obj);
+    editLitId=obj.id;
+  }
+  sDB();
+  closeModal('modal-litige');
+  renderLitiges();
+}
+
+function deleteLitige(){
+  if(!confirm('Supprimer ce dossier de litige ? Cette action est définitive.'))return;
+  db.litiges=(db.litiges||[]).filter(function(x){return x.id!==editLitId;});
+  sDB();
+  closeModal('modal-litige');
+  renderLitiges();
+}
+
+// Genere un dossier PDF recapitulatif du litige : coordonnees entreprise/client, document
+// lie, description initiale, et chronologie complete des echanges — utile a conserver ou a
+// transmettre en cas de recours (assurance, mediateur, tribunal de proximite...).
+function genererDossierLitigePDF(){
+  if(!editLitId)return;
+  var l=(db.litiges||[]).find(function(x){return x.id===editLitId;});
+  if(!l)return;
+  var c=(db.clients||[]).find(function(x){return x.id===l.clientId;});
+  var d=l.documentId?(db.documents||[]).find(function(x){return x.id===l.documentId;}):null;
+  var p=db.params||{};
+  var pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+  var y=16;
+  pdf.setFontSize(14);pdf.setFont(undefined,'bold');pdf.text('Dossier de litige / réclamation',14,y);y+=8;
+  pdf.setFontSize(9);pdf.setFont(undefined,'normal');pdf.setTextColor(110);
+  pdf.text('Généré le '+new Date().toLocaleDateString('fr-FR'),14,y);y+=8;
+  pdf.setTextColor(20);pdf.setFontSize(10);
+
+  pdf.setFont(undefined,'bold');pdf.text('Entreprise',14,y);pdf.setFont(undefined,'normal');y+=5;
+  [p.nom,p.adresse,p.ville,p.siret?'SIRET : '+p.siret:''].filter(Boolean).forEach(function(l2){pdf.text(l2,14,y);y+=4.5;});
+  y+=4;
+
+  pdf.setFont(undefined,'bold');pdf.text('Client concerné',14,y);pdf.setFont(undefined,'normal');y+=5;
+  pdf.text(c?c.nom:'—',14,y);y+=4.5;
+  if(c&&c.adresse){pdf.text(c.adresse,14,y);y+=4.5;}
+  y+=4;
+
+  pdf.setFont(undefined,'bold');pdf.text('Objet du litige',14,y);pdf.setFont(undefined,'normal');y+=5;
+  var objetLines=pdf.splitTextToSize(l.objet||'—',180);pdf.text(objetLines,14,y);y+=objetLines.length*4.5+4;
+
+  if(d){pdf.setFont(undefined,'bold');pdf.text('Document concerné : ',14,y);pdf.setFont(undefined,'normal');pdf.text(d.numero+' du '+fmtDate(d.date),52,y);y+=8;}
+
+  pdf.setFont(undefined,'bold');pdf.text('Description initiale',14,y);pdf.setFont(undefined,'normal');y+=5;
+  var descLines=pdf.splitTextToSize(l.description||'—',180);pdf.text(descLines,14,y);y+=descLines.length*4.5+6;
+
+  if(y>250){pdf.addPage();y=18;}
+  pdf.setFont(undefined,'bold');pdf.setFontSize(11);pdf.text('Chronologie des échanges',14,y);y+=6;
+  pdf.setFont(undefined,'normal');pdf.setFontSize(9.5);
+  var hist=(l.historique||[]).slice().sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
+  if(!hist.length){pdf.text('Aucun événement enregistré.',14,y);y+=6;}
+  else{
+    hist.forEach(function(h){
+      if(y>280){pdf.addPage();y=18;}
+      var lignes=pdf.splitTextToSize(fmtDate(h.date)+' — '+h.texte,175);
+      pdf.setFont(undefined,'bold');pdf.text(fmtDate(h.date),14,y);
+      pdf.setFont(undefined,'normal');pdf.text(pdf.splitTextToSize(h.texte,150),40,y);
+      y+=Math.max(5,pdf.splitTextToSize(h.texte,150).length*4.5)+2;
+    });
+  }
+
+  pdf.save('Litige_'+(c?c.nom:'client').replace(/[^a-z0-9]+/gi,'_')+'_'+l.dateCreation+'.pdf');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ATTESTATIONS : genere en 1 clic une attestation PDF (TVA non applicable, ou fin de
+// travaux) a partir des infos entreprise deja renseignees dans Parametres et de la fiche
+// client. Ne cree ni ne modifie aucun document/devis — un simple PDF telecharge.
+// ═══════════════════════════════════════════════════════════════════════
+function openAttestationModal(clientId){
+  document.getElementById('att-client-id').value=clientId;
+  document.getElementById('att-type').value='tva';
+  var selD=document.getElementById('att-document');
+  selD.innerHTML='<option value="">— Aucun —</option>'+(db.documents||[]).filter(function(d){return d.clientId===clientId;}).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).map(function(d){return '<option value="'+d.id+'">'+esc(d.numero)+' — '+esc(d.objet||'')+'</option>';}).join('');
+  document.getElementById('att-objet-travaux').value='';
+  document.getElementById('att-date-fin').value=new Date().toISOString().split('T')[0];
+  majChampsAttestation();
+  openModal('modal-attestation');
+}
+
+function majChampsAttestation(){
+  document.getElementById('att-champs-fin-travaux').style.display=document.getElementById('att-type').value==='fin_travaux'?'block':'none';
+}
+
+function genererAttestationPDF(){
+  var clientId=parseInt(document.getElementById('att-client-id').value,10)||document.getElementById('att-client-id').value;
+  var c=(db.clients||[]).find(function(x){return x.id===clientId;});
+  if(!c){alert('Client introuvable.');return;}
+  var p=db.params||{};
+  var type=document.getElementById('att-type').value;
+  var pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+  var ML=20,MR=190,y=25;
+
+  // En-tete entreprise
+  pdf.setFontSize(11);pdf.setFont(undefined,'bold');pdf.text(p.nom||'Mon Entreprise',ML,y);y+=5;
+  pdf.setFontSize(9);pdf.setFont(undefined,'normal');pdf.setTextColor(80);
+  [p.adresse,p.ville,p.siret?'SIRET : '+p.siret:'',p.tel,p.email].filter(Boolean).forEach(function(l){pdf.text(l,ML,y);y+=4.5;});
+  pdf.setTextColor(20);
+  y+=10;
+  pdf.setFont(undefined,'normal');pdf.setFontSize(10);
+  pdf.text('Fait à '+(p.ville||'')+', le '+new Date().toLocaleDateString('fr-FR'),MR,25,{align:'right'});
+
+  pdf.setFontSize(15);pdf.setFont(undefined,'bold');
+  pdf.text(type==='tva'?'ATTESTATION DE NON-ASSUJETTISSEMENT À LA TVA':'ATTESTATION DE FIN DE TRAVAUX',105,y,{align:'center'});
+  y+=14;
+
+  pdf.setFontSize(11);pdf.setFont(undefined,'normal');
+  var texte;
+  if(type==='tva'){
+    texte='Je soussigné(e), '+(p.nom||'Mon Entreprise')+(p.siret?(', SIRET n° '+p.siret):'')+
+      ', atteste sur l\'honneur être soumis(e) au régime de la franchise en base de TVA, conformément à l\'article 293 B du Code Général des Impôts.\n\n'+
+      'À ce titre, la TVA n\'est pas applicable sur les prestations et ventes réalisées par mon entreprise, conformément à cet article.\n\n'+
+      'Cette attestation est délivrée à '+(c.nom||'')+' pour valoir ce que de droit.';
+  }else{
+    var d=document.getElementById('att-document').value?(db.documents||[]).find(function(x){return x.id===(parseInt(document.getElementById('att-document').value,10)||document.getElementById('att-document').value);}):null;
+    var objetTravaux=document.getElementById('att-objet-travaux').value.trim();
+    var dateFin=document.getElementById('att-date-fin').value;
+    texte='Je soussigné(e), '+(p.nom||'Mon Entreprise')+(p.siret?(', SIRET n° '+p.siret):'')+
+      ', atteste que les travaux'+(objetTravaux?(' de « '+objetTravaux+' »'):'')+
+      ' réalisés pour le compte de '+(c.nom||'')+(c.adresse?(', domicilié(e) au '+c.adresse+(c.ville?(', '+c.ville):'')):'')+
+      (d?(', conformément au document n° '+d.numero+' du '+fmtDate(d.date)):'')+
+      ', ont été achevés le '+fmtDate(dateFin)+'.\n\n'+
+      'Cette attestation est délivrée à l\'intéressé(e) pour valoir ce que de droit.';
+  }
+  var lignes=pdf.splitTextToSize(texte,MR-ML);
+  pdf.text(lignes,ML,y,{lineHeightFactor:1.6});
+  y+=lignes.length*6+20;
+
+  pdf.setFont(undefined,'bold');pdf.text('Signature :',ML,y);
+
+  pdf.save((type==='tva'?'Attestation_TVA_':'Attestation_fin_travaux_')+(c.nom||'client').replace(/[^a-z0-9]+/gi,'_')+'.pdf');
+  closeModal('modal-attestation');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MISE EN DEMEURE : courrier de relance formelle pour une facture impayee, mentionnant le
+// delai accorde et les penalites legales standards (Code de commerce). Ceci est un modele
+// generique — pas un conseil juridique personnalise ; en cas de litige important, un
+// professionnel du droit reste recommande.
+// ═══════════════════════════════════════════════════════════════════════
+function ouvrirMiseEnDemeure(docId){
+  document.getElementById('mad-doc-id').value=docId;
+  document.getElementById('mad-delai').value=8;
+  document.getElementById('mad-relances').value='';
+  openModal('modal-mise-en-demeure');
+}
+
+function genererMiseEnDemeurePDF(){
+  var docId=parseInt(document.getElementById('mad-doc-id').value,10)||document.getElementById('mad-doc-id').value;
+  var d=(db.documents||[]).find(function(x){return x.id===docId;});
+  if(!d){alert('Facture introuvable.');return;}
+  var c=(db.clients||[]).find(function(x){return x.id===d.clientId;});
+  var p=db.params||{};
+  var delai=parseInt(document.getElementById('mad-delai').value,10)||8;
+  var relancesTxt=document.getElementById('mad-relances').value.trim();
+  var montantRestant=d.totalHT-((d.paiements||[]).reduce(function(s,pmt){return s+(pmt.montant||0);},0));
+
+  var pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+  var ML=20,MR=190,y=25;
+
+  pdf.setFontSize(11);pdf.setFont(undefined,'bold');pdf.text(p.nom||'Mon Entreprise',ML,y);y+=5;
+  pdf.setFontSize(9);pdf.setFont(undefined,'normal');pdf.setTextColor(80);
+  [p.adresse,p.ville,p.siret?'SIRET : '+p.siret:'',p.tel,p.email].filter(Boolean).forEach(function(l){pdf.text(l,ML,y);y+=4.5;});
+  pdf.setTextColor(20);
+
+  var yDest=y+8;
+  pdf.setFont(undefined,'normal');pdf.setFontSize(10);
+  pdf.text(c?c.nom:'',MR,yDest,{align:'right'});yDest+=4.5;
+  if(c&&c.adresse){pdf.text(c.adresse,MR,yDest,{align:'right'});yDest+=4.5;}
+  if(c&&c.ville){pdf.text(c.ville,MR,yDest,{align:'right'});yDest+=4.5;}
+
+  y=Math.max(y,yDest)+14;
+  pdf.text((p.ville||'')+', le '+new Date().toLocaleDateString('fr-FR'),ML,y);y+=10;
+
+  pdf.setFontSize(13);pdf.setFont(undefined,'bold');
+  pdf.text('LETTRE DE MISE EN DEMEURE',105,y,{align:'center'});y+=6;
+  pdf.setFontSize(9.5);pdf.setFont(undefined,'normal');pdf.setTextColor(90);
+  pdf.text('Envoi recommandé avec accusé de réception conseillé',105,y,{align:'center'});pdf.setTextColor(20);y+=12;
+
+  pdf.setFontSize(10.5);pdf.setFont(undefined,'bold');
+  pdf.text('Objet : Mise en demeure de payer la facture n° '+d.numero,ML,y);y+=9;
+
+  pdf.setFont(undefined,'normal');
+  var corps='Madame, Monsieur,\n\n'+
+    'Malgré '+(relancesTxt?'nos relances précédentes':'les échéances convenues')+', je constate à ce jour que la facture n° '+d.numero+
+    ' du '+fmtDate(d.date)+', d\'un montant de '+fmt(montantRestant)+' € TTC, demeure impayée.\n\n'+
+    (relancesTxt?('Pour rappel, les relances suivantes ont déjà été effectuées :\n'+relancesTxt.split('\n').map(function(l){return '- '+l;}).join('\n')+'\n\n'):'')+
+    'Par la présente, je vous mets en demeure de régulariser cette situation dans un délai de '+delai+' jours à compter de la réception de ce courrier, par le règlement intégral de la somme due, soit '+fmt(montantRestant)+' € TTC.\n\n'+
+    'À défaut de paiement dans ce délai, je me réserve le droit d\'engager toute procédure de recouvrement, y compris judiciaire, sans autre préavis.\n\n'+
+    'Je vous rappelle qu\'en cas de retard de paiement, conformément à l\'article L441-10 du Code de commerce, des pénalités de retard sont exigibles de plein droit, ainsi qu\'une indemnité forfaitaire pour frais de recouvrement de 40 €, conformément à l\'article D441-5 du même code.\n\n'+
+    'Je reste néanmoins à votre disposition pour tout échange permettant de régulariser cette situation à l\'amiable.\n\n'+
+    'Veuillez agréer, Madame, Monsieur, l\'expression de mes salutations distinguées.';
+  var lignes=pdf.splitTextToSize(corps,MR-ML);
+  pdf.text(lignes,ML,y,{lineHeightFactor:1.5});
+  y+=lignes.length*5.2+14;
+
+  if(y>260)y=260;
+  pdf.setFont(undefined,'bold');pdf.text(p.nom||'',MR,y,{align:'right'});
+
+  pdf.save('Mise_en_demeure_'+d.numero.replace(/[^a-z0-9]+/gi,'_')+'.pdf');
+  closeModal('modal-mise-en-demeure');
+}
+
+function downloadContratPDF(id){
+  var c=(db.contrats||[]).find(function(x){return x.id===id;});if(!c)return;
+  var client=db.clients.find(function(x){return x.id===c.clientId;});
+  var p=db.params;
+  var pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+  var W=210,ML=14,MR=196,CW=MR-ML;
+  var noir=[20,20,20],gris=[100,100,100],gc=[210,210,210];
+  var bleu=[26,86,219],fb=[240,253,244],vb=[74,222,128];
+  var Y=12;
+
+  var LSIZE=32,txtX=ML;
+  if(p.logo){try{pdf.addImage(p.logo,'AUTO',ML,Y,LSIZE,LSIZE,'','FAST');txtX=ML+LSIZE+6;}catch(e){}}
+  pdf.setFontSize(12.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);pdf.text(p.nom||'Mon Entreprise',txtX,Y+7);
+  pdf.setFontSize(7.8);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);
+  var iy=Y+13;
+  [p.adresse,p.ville,p.tel?'Tel. : '+p.tel:'',p.email||'',p.siret?'SIRET : '+p.siret:''].filter(Boolean).forEach(function(l){pdf.text(l,txtX,iy);iy+=4;});
+  pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,bleu);pdf.text('TVA non applicable, art. 293 B du CGI',txtX,iy);
+
+  var bW=60,bH=28,bX=MR-bW;
+  pdf.setFillColor.apply(pdf,fb);pdf.setDrawColor.apply(pdf,vb);pdf.setLineWidth(1.5);pdf.roundedRect(bX,Y,bW,bH,3,3,'FD');
+  pdf.setFontSize(13);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,bleu);pdf.text('CONTRAT',bX+bW/2,Y+11,{align:'center'});
+  pdf.setFontSize(9);pdf.text("D'ENTRETIEN",bX+bW/2,Y+18,{align:'center'});
+  pdf.setFontSize(7.5);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text(fmtDate(c.debut),bX+bW/2,Y+24,{align:'center'});
+
+  Y=Math.max(iy+4,Y+bH+6);
+
+  pdf.setFontSize(8);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);pdf.text('Client',ML,Y);
+  pdf.setDrawColor.apply(pdf,gc);pdf.setLineWidth(0.3);pdf.line(ML,Y+2,MR,Y+2);Y+=7;
+  pdf.setFontSize(9);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);pdf.text(client?client.nom:'',ML,Y);Y+=5;
+  pdf.setFont('helvetica','normal');pdf.setFontSize(8.5);pdf.setTextColor.apply(pdf,gris);
+  [client&&client.contact,client&&client.adresse,client&&((client.cp||'')+' '+(client.ville||'')).trim(),client&&client.email].filter(Boolean).forEach(function(l){pdf.text(l,ML,Y);Y+=4.2;});
+  Y+=4;
+
+  pdf.setFontSize(8);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);pdf.text('Objet du contrat',ML,Y);
+  pdf.setDrawColor.apply(pdf,gc);pdf.line(ML,Y+2,MR,Y+2);Y+=7;
+  pdf.setFontSize(9.5);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,noir);
+  pdf.text(pdf.splitTextToSize(c.objet,CW),ML,Y);Y+=10;
+
+  if(c.lieu){pdf.setFontSize(8);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,bleu);pdf.text('Lieu d\'intervention :',ML,Y);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text(c.lieu,ML+38,Y);Y+=8;}
+
+  var freqLabel=c.mode==='perso'?'Dates personnalisées':({1:'Mensuelle',3:'Trimestrielle',6:'Semestrielle',12:'Annuelle'}[c.frequence]||'—');
+  pdf.setFontSize(8);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);pdf.text('Fréquence des visites : ',ML,Y);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,noir);pdf.text(freqLabel,ML+42,Y);Y+=6;
+  if(c.montant){pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);pdf.text('Montant par visite HT : ',ML,Y);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,noir);pdf.text(fmt(c.montant)+' €',ML+42,Y);Y+=6;}
+  Y+=2;
+
+  var rows=(c.datesVisites||[]).map(function(v,i){return[String(i+1),fmtDate(v.date),c.montant?(fmt(c.montant)+' €'):'—'];});
+  pdf.autoTable({startY:Y,head:[['#','Date de visite','Montant HT']],body:rows,margin:{left:ML,right:W-MR},styles:{fontSize:8.5,cellPadding:{top:4,bottom:4,left:4,right:4},textColor:noir,lineColor:[230,230,230],lineWidth:0.2},headStyles:{fillColor:[245,245,245],textColor:noir,fontStyle:'bold',fontSize:8.5,lineColor:[200,200,200],lineWidth:0.3},alternateRowStyles:{fillColor:[252,252,253]},columnStyles:{0:{cellWidth:14,halign:'center'},1:{cellWidth:'auto'},2:{cellWidth:36,halign:'right'}}});
+  Y=pdf.lastAutoTable.finalY+10;
+
+  if(c.notes){pdf.setFontSize(8);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);pdf.text('Conditions particulières',ML,Y);Y+=5;pdf.setFont('helvetica','normal');pdf.setFontSize(8.5);pdf.setTextColor.apply(pdf,noir);pdf.text(pdf.splitTextToSize(c.notes,CW),ML,Y);Y+=14;}
+
+  var sY=Math.min(Y+6,250);
+  pdf.setFontSize(7.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);pdf.text('Signature '+(p.nom||'emetteur')+' :',ML,sY);
+  pdf.setDrawColor.apply(pdf,gc);pdf.setLineWidth(0.3);pdf.rect(ML,sY+3,70,22,'S');
+  pdf.text('Bon pour accord — Signature client :',ML+CW/2+5,sY);
+  pdf.rect(ML+CW/2+5,sY+3,70,22,'S');
+
+  var fY=272;
+  pdf.setDrawColor(210,215,220);pdf.setLineWidth(0.3);pdf.line(ML,fY,MR,fY);
+  pdf.setFontSize(6.5);pdf.setFont('helvetica','normal');pdf.setTextColor(150,150,150);
+  var fLines=[(p.nom||'')+(p.siret?' · SIRET : '+p.siret:'')+(p.adresse?' · '+p.adresse:''),'Micro-entreprise · TVA non applicable, article 293B du CGI'+(p.email?' · '+p.email:'')+(p.tel?' · Tel : '+p.tel:'')];
+  fLines.forEach(function(t,i){pdf.text(t,W/2,fY+5+i*4.5,{align:'center'});});
+
+  pdf.save('Contrat-entretien-'+(client?client.nom.replace(/[^a-z0-9]/gi,'_'):id)+'.pdf');
+}
+
+// ═══ MATERIEL & OUTILLAGE ════════════════════════════════════
+var editMtId=null;
+var editMtRetourId=null;
+var html5QrScannerMateriel=null;
+
+function renderMateriel(){
+  var tb=document.getElementById('materiel-list');if(!tb)return;
+  majBadgeControleMateriel();
+  var recherche=((document.getElementById('mt-recherche')||{}).value||'').toLowerCase().trim();
+  var list=(db.materiel||[]).slice().sort(function(a,b){return (a.nom||'').localeCompare(b.nom||'');});
+  if(recherche){
+    list=list.filter(function(m){
+      return (m.nom&&m.nom.toLowerCase().indexOf(recherche)!==-1)||(m.ref&&m.ref.toLowerCase().indexOf(recherche)!==-1)||(m.serie&&m.serie.toLowerCase().indexOf(recherche)!==-1);
+    });
+  }
+  if(!list.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">'+(recherche?'Aucun outil ne correspond à cette recherche.':'Aucun outil enregistré pour le moment.')+'</td></tr>';return;}
+  tb.innerHTML=list.map(function(m){
+    var statutBadge=m.detenuPar?'<span class="badge" style="background:#FEF3C7;color:#92400E">🔧 En cours d\'utilisation</span>':'<span class="badge" style="background:#DCFCE7;color:#15803D">✅ Disponible</span>';
+    var dernierMvt=m.dernierMouvement?(fmtDate(m.dernierMouvement.date)+(m.dernierMouvement.chantier?' — '+esc(m.dernierMouvement.chantier):'')):'—';
+    var noteBadge=m.notes?' <span title="'+esc(m.notes)+'" style="cursor:help">⚠️</span>':'';
+    var controleBadge='';
+    if(m.prochainControle){
+      var jours=Math.round((new Date(m.prochainControle)-new Date(new Date().toISOString().split('T')[0]))/86400000);
+      if(jours<0)controleBadge=' <span class="badge" style="background:#FEE2E2;color:#B91C1C" title="Contrôle dépassé depuis le '+fmtDate(m.prochainControle)+'">🔴 Contrôle dépassé</span>';
+      else if(jours<=30)controleBadge=' <span class="badge" style="background:#FEF3C7;color:#92400E" title="Contrôle prévu le '+fmtDate(m.prochainControle)+'">🟠 Contrôle dans '+jours+' j</span>';
+    }
+    var retourBadge='';
+    if(m.detenuPar&&m.dateRetourPrevue&&m.dateRetourPrevue<new Date().toISOString().split('T')[0]){
+      retourBadge=' <span class="badge" style="background:#FEE2E2;color:#B91C1C" title="Retour prévu le '+fmtDate(m.dateRetourPrevue)+'">⏰ Retour en retard</span>';
+    }
+    return '<tr><td><input type="checkbox" class="mt-select" value="'+m.id+'"></td><td><strong style="color:var(--primary)">'+esc(m.ref||'—')+'</strong></td><td>'+esc(m.nom)+noteBadge+controleBadge+'</td><td>'+esc(m.serie||'—')+'</td><td>'+statutBadge+'</td><td>'+esc(m.detenuPar||'—')+retourBadge+'</td><td style="font-size:11px;color:var(--muted)">'+dernierMvt+'</td>'+
+      '<td style="display:flex;gap:4px">'+
+      '<button class="btn btn-ghost btn-sm" title="Modifier" onclick="openMaterielModal('+m.id+')">✏️</button>'+
+      (m.detenuPar?'<button class="btn btn-ghost btn-sm" title="Marquer comme rendu" onclick="ouvrirModalRetourMateriel('+m.id+')">↩️</button>':'')+
+      '</td></tr>';
+  }).join('');
+}
+
+function majBadgeControleMateriel(){
+  var badge=document.getElementById('nav-mat-controle-badge');
+  var today=new Date().toISOString().split('T')[0];
+  var concernes=(db.materiel||[]).filter(function(m){
+    if(!m.prochainControle)return false;
+    var jours=Math.round((new Date(m.prochainControle)-new Date(today))/86400000);
+    return jours<=30;
+  });
+  var enRetourRetard=(db.materiel||[]).filter(function(m){
+    return m.detenuPar&&m.dateRetourPrevue&&m.dateRetourPrevue<today;
+  });
+  if(badge){
+    var totalBadge=concernes.length+enRetourRetard.length;
+    if(totalBadge>0){badge.style.display='inline-block';badge.textContent=totalBadge;}
+    else{badge.style.display='none';}
+  }
+  var elRetour=document.getElementById('materiel-retour-alert-dashboard');
+  if(elRetour){
+    if(!enRetourRetard.length){elRetour.innerHTML='';}
+    else{
+      enRetourRetard.sort(function(a,b){return (a.dateRetourPrevue||'').localeCompare(b.dateRetourPrevue||'');});
+      var listeRetour=enRetourRetard.map(function(m){
+        var jours=Math.round((new Date(today)-new Date(m.dateRetourPrevue))/86400000);
+        return esc(m.nom)+' (pris par '+esc(m.detenuPar)+', en retard de '+jours+' j)';
+      }).join(' · ');
+      elRetour.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:13px 16px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:10px;margin-bottom:18px">'+
+        '<span style="font-size:13px;color:#DC2626">⏰🧰 '+enRetourRetard.length+' outil(s) non rendu(s) à temps : '+listeRetour+'</span>'+
+        '<button class="btn btn-ghost btn-sm" onclick="showPage(\'materiel\')">Voir le matériel</button>'+
+      '</div>';
+    }
+  }
+  var el=document.getElementById('materiel-controle-alert-dashboard');
+  if(!el)return;
+  if(!concernes.length){el.innerHTML='';return;}
+  concernes.sort(function(a,b){return (a.prochainControle||'').localeCompare(b.prochainControle||'');});
+  var enRetardNb=concernes.filter(function(m){return new Date(m.prochainControle)<new Date(today);}).length;
+  var couleur=enRetardNb>0?'#DC2626':'#EA580C';
+  var fond=enRetardNb>0?'#FEF2F2':'#FFF7ED';
+  var bordure=enRetardNb>0?'#FCA5A5':'#FED7AA';
+  var liste=concernes.map(function(m){
+    var jours=Math.round((new Date(m.prochainControle)-new Date(today))/86400000);
+    var statutTxt=jours<0?('en retard de '+Math.abs(jours)+' j'):('dans '+jours+' j');
+    return esc(m.nom)+' ('+statutTxt+', le '+fmtDate(m.prochainControle)+')';
+  }).join(' · ');
+  el.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:13px 16px;background:'+fond+';border:1px solid '+bordure+';border-radius:10px;margin-bottom:18px">'+
+    '<span style="font-size:13px;color:'+couleur+'">🔧⏰ '+concernes.length+' outil(s) à contrôler : '+liste+'</span>'+
+    '<button class="btn btn-ghost btn-sm" onclick="showPage(\'materiel\')">Voir le matériel</button>'+
+  '</div>';
+  majAlerteChantiersRetardGDF();
+}
+
+// Meme principe que pour le materiel : signale les chantiers dont la date de fin prevue
+// est depassee sans que le statut soit passe a "termine" (coherent avec l'alerte
+// equivalente dans agenda-chantier.html et dashboard.html).
+function majAlerteChantiersRetardGDF(){
+  var el=document.getElementById('chantiers-retard-alert-dashboard');
+  if(!el)return;
+  var today=new Date().toISOString().split('T')[0];
+  var liste=(db.events||[]).filter(function(e){
+    return e.type==='chantier'&&e.statut!=='termine'&&(e.end||e.start)<today;
+  }).sort(function(a,b){return (a.end||a.start||'').localeCompare(b.end||b.start||'');});
+  if(!liste.length){el.innerHTML='';return;}
+  var lignes=liste.map(function(e){
+    var jours=Math.round((new Date(today)-new Date(e.end||e.start))/86400000);
+    return esc(e.titre||'')+' (en retard de '+jours+' j)';
+  }).join(' · ');
+  el.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:13px 16px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:10px;margin-bottom:18px">'+
+    '<span style="font-size:13px;color:#DC2626">🔨⏰ '+liste.length+' chantier(s) en retard : '+lignes+'</span>'+
+  '</div>';
+}
+
+function ouvrirModalRetourMateriel(id){
+  var m=(db.materiel||[]).find(function(x){return x.id===id;});if(!m)return;
+  editMtRetourId=id;
+  document.getElementById('mtr-nom').textContent=(m.ref?m.ref+' — ':'')+m.nom;
+  document.getElementById('mtr-etat').value='bon';
+  document.getElementById('mtr-commentaire').value='';
+  openModal('modal-retour-materiel');
+}
+
+function confirmerRetourMateriel(){
+  if(!editMtRetourId)return;
+  var etat=document.getElementById('mtr-etat').value;
+  var commentaire=document.getElementById('mtr-commentaire').value.trim();
+  rendreMateriel(editMtRetourId,etat,commentaire);
+  closeModal('modal-retour-materiel');
+  editMtRetourId=null;
+  showPage('materiel');
+}
+
+function toggleToutMateriel(cb){
+  document.querySelectorAll('.mt-select').forEach(function(c){c.checked=cb.checked;});
+}
+
+function chargerImageQRDataURL(text){
+  return new Promise(function(resolve){
+    var img=new Image();img.crossOrigin='anonymous';
+    var canvas=document.createElement('canvas');canvas.width=200;canvas.height=200;
+    img.onload=function(){
+      var ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,200,200);ctx.drawImage(img,5,5,190,190);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror=function(){resolve(null);};
+    img.src='https://api.qrserver.com/v1/create-qr-code/?size=190x190&data='+encodeURIComponent(text);
+  });
+}
+
+function imprimerPlancheEtiquettes(mode){
+  var liste;
+  if(mode==='tous'){
+    liste=(db.materiel||[]).slice();
+  }else{
+    var ids=Array.prototype.map.call(document.querySelectorAll('.mt-select:checked'),function(c){return parseInt(c.value,10);});
+    if(!ids.length){alert('Sélectionnez au moins un outil (case à cocher) avant d\'imprimer la sélection.');return;}
+    liste=(db.materiel||[]).filter(function(m){return ids.indexOf(m.id)!==-1;});
+  }
+  if(!liste.length){alert('Aucun outil à imprimer.');return;}
+  liste.sort(function(a,b){return (a.ref||'').localeCompare(b.ref||'');});
+
+  var format=(document.getElementById('mt-print-format')||{}).value||'normal';
+
+  Promise.all(liste.map(function(m){return chargerImageQRDataURL('NICO-MATERIEL:'+m.id).then(function(img){return{m:m,img:img};});}))
+    .then(function(items){
+      var pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+      if(format==='etroit'){
+        genererPlancheEtroite(pdf,items);
+      }else{
+        genererPlancheNormale(pdf,items);
+      }
+      pdf.save('Etiquettes-materiel-'+(format==='etroit'?'etroit-':'')+(mode==='tous'?'toutes':'selection')+'.pdf');
+    });
+}
+
+function genererPlancheNormale(pdf,items){
+  var W=210,H=297,ML=10,MT=10;
+  var cols=3,rows=4;
+  var cellW=(W-ML*2)/cols,cellH=(H-MT*2)/rows;
+  var qrSize=cellW*0.62;
+
+  items.forEach(function(it,i){
+    var perPage=cols*rows;
+    var posInPage=i%perPage;
+    if(i>0&&posInPage===0)pdf.addPage();
+    var col=posInPage%cols,row=Math.floor(posInPage/cols);
+    var x=ML+col*cellW,y=MT+row*cellH;
+
+    pdf.setDrawColor(200,200,200);pdf.setLineDashPattern([1,1],0);pdf.rect(x+2,y+2,cellW-4,cellH-4,'S');pdf.setLineDashPattern([],0);
+
+    if(it.img){
+      pdf.addImage(it.img,'PNG',x+(cellW-qrSize)/2,y+4,qrSize,qrSize);
+    }
+    var textY=y+4+qrSize+5;
+    pdf.setFont('helvetica','bold');pdf.setFontSize(10);pdf.setTextColor(20,20,20);
+    pdf.text(it.m.ref||'',x+cellW/2,textY,{align:'center'});
+    pdf.setFont('helvetica','normal');pdf.setFontSize(7.5);pdf.setTextColor(80,80,80);
+    var nomTxt=pdf.splitTextToSize(it.m.nom||'',cellW-6);
+    pdf.text(nomTxt,x+cellW/2,textY+5,{align:'center'});
+    pdf.setFontSize(6.5);pdf.setTextColor(150,150,150);
+    pdf.text('NICO MULTISERVICES',x+cellW/2,y+cellH-4,{align:'center'});
+  });
+}
+
+// Format etroit : bandes rectangulaires fines (QR a gauche + reference a droite),
+// adaptees aux manches d'outils fins (tournevis, ciseaux, limes...).
+function genererPlancheEtroite(pdf,items){
+  var W=210,H=297,ML=8,MT=10;
+  var bandeW=W-ML*2,bandeH=13,gapY=2.5;
+  var perPage=Math.floor((H-MT*2)/(bandeH+gapY));
+  var qrSize=bandeH-3;
+
+  items.forEach(function(it,i){
+    var posInPage=i%perPage;
+    if(i>0&&posInPage===0)pdf.addPage();
+    var y=MT+posInPage*(bandeH+gapY);
+
+    pdf.setDrawColor(190,190,190);pdf.setLineDashPattern([1,1],0);pdf.rect(ML,y,bandeW,bandeH,'S');pdf.setLineDashPattern([],0);
+
+    if(it.img){
+      pdf.addImage(it.img,'PNG',ML+1.5,y+1.5,qrSize,qrSize);
+    }
+    var textX=ML+qrSize+6;
+    pdf.setFont('helvetica','bold');pdf.setFontSize(11);pdf.setTextColor(20,20,20);
+    pdf.text(it.m.ref||'',textX,y+6);
+    pdf.setFont('helvetica','normal');pdf.setFontSize(7.5);pdf.setTextColor(90,90,90);
+    var nomTxt=pdf.splitTextToSize(it.m.nom||'',bandeW-qrSize-10);
+    pdf.text(nomTxt[0]||'',textX,y+10.5);
+    pdf.setFontSize(6);pdf.setTextColor(160,160,160);
+    pdf.text('NICO MULTISERVICES',W-ML-2,y+bandeH-2,{align:'right'});
+  });
+}
+
+
+function genererProchaineRefMateriel(){
+  var max=0;
+  (db.materiel||[]).forEach(function(m){
+    var match=/^MAT-(\d+)$/.exec(m.ref||'');
+    if(match){var n=parseInt(match[1],10);if(n>max)max=n;}
+  });
+  return 'MAT-'+String(max+1).padStart(3,'0');
+}
+
+function openMaterielModal(id){
+  editMtId=id||null;
+  document.getElementById('mt-title').textContent=editMtId?'Modifier l\'outil':'Nouvel outil';
+  document.getElementById('mt-del-btn').style.display=editMtId?'inline-flex':'none';
+  document.getElementById('mt-qr-zone').style.display=editMtId?'block':'none';
+  if(editMtId){
+    var m=(db.materiel||[]).find(function(x){return x.id===editMtId;});
+    document.getElementById('mt-ref').value=m.ref||'—';
+    document.getElementById('mt-nom').value=m.nom||'';
+    document.getElementById('mt-serie').value=m.serie||'';
+    document.getElementById('mt-notes').value=m.notes||'';
+    document.getElementById('mt-prochain-controle').value=m.prochainControle||'';
+    document.getElementById('mt-controle-frequence').value=m.controleFrequenceMois||'';
+    setTimeout(function(){genererQRMateriel(editMtId);},50);
+  }else{
+    document.getElementById('mt-ref').value=genererProchaineRefMateriel()+' (attribué à l\'enregistrement)';
+    document.getElementById('mt-nom').value='';
+    document.getElementById('mt-serie').value='';
+    document.getElementById('mt-notes').value='';
+    document.getElementById('mt-prochain-controle').value='';
+    document.getElementById('mt-controle-frequence').value='';
+  }
+  openModal('modal-materiel');
+}
+
+function genererQRMateriel(id){
+  var canvas=document.getElementById('mt-qr-canvas');
+  var ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,180,180);
+  var text='NICO-MATERIEL:'+id;
+  var img=new Image();img.crossOrigin='anonymous';
+  img.onload=function(){ctx.drawImage(img,5,5,170,170);};
+  img.onerror=function(){ctx.fillStyle='#1A202C';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.fillText('QR indisponible',90,90);};
+  img.src='https://api.qrserver.com/v1/create-qr-code/?size=170x170&data='+encodeURIComponent(text);
+}
+
+function imprimerEtiquetteMateriel(){
+  var m=(db.materiel||[]).find(function(x){return x.id===editMtId;});if(!m)return;
+  var canvas=document.getElementById('mt-qr-canvas');
+  var qrData=canvas.toDataURL('image/png');
+  var w=window.open('','_blank');
+  w.document.write('<html><head><title>Étiquette — '+esc(m.nom)+'</title><style>'+
+    'body{font-family:Arial,sans-serif;text-align:center;padding:20px}'+
+    '.etq{display:inline-block;border:2px dashed #999;border-radius:10px;padding:14px 18px;margin:8px}'+
+    '.etq img{width:130px;height:130px}'+
+    '.etq .nom{font-weight:700;font-size:14px;margin-top:6px}'+
+    '.etq .serie{font-size:11px;color:#666}'+
+    '@media print{body{padding:0}}'+
+    '</style></head><body>'+
+    '<div class="etq"><img src="'+qrData+'"><div class="nom">'+esc(m.ref||'')+' — '+esc(m.nom)+'</div>'+(m.serie?'<div class="serie">N° série : '+esc(m.serie)+'</div>':'')+(m.prochainControle?'<div class="serie" style="color:#B45309;font-weight:700">⏰ Contrôle : '+esc(fmtDate(m.prochainControle))+'</div>':'')+'<div class="serie">NICO MULTISERVICES</div></div>'+
+    '<script>window.onload=function(){window.print();}<\/script>'+
+    '</body></html>');
+  w.document.close();
+}
+
+function calculerProchaineDateControle(){
+  var freq=parseInt(document.getElementById('mt-controle-frequence').value,10);
+  if(!freq)return;
+  var base=new Date();
+  base.setMonth(base.getMonth()+freq);
+  document.getElementById('mt-prochain-controle').value=base.toISOString().split('T')[0];
+}
+
+function saveMateriel(){
+  var nom=document.getElementById('mt-nom').value.trim();if(!nom){alert('Le nom de l\'outil est obligatoire.');return;}
+  var obj={
+    nom:nom,
+    serie:document.getElementById('mt-serie').value.trim(),
+    notes:document.getElementById('mt-notes').value.trim(),
+    prochainControle:document.getElementById('mt-prochain-controle').value||'',
+    controleFrequenceMois:document.getElementById('mt-controle-frequence').value||''
+  };
+  if(!db.materiel)db.materiel=[];
+  if(editMtId){
+    var i=db.materiel.findIndex(function(x){return x.id===editMtId;});
+    db.materiel[i]=Object.assign({},db.materiel[i],obj);
+    sDB();closeModal('modal-materiel');renderMateriel();
+  }else{
+    obj.id=Date.now();obj.ref=genererProchaineRefMateriel();obj.detenuPar=null;obj.dernierMouvement=null;obj.historique=[];
+    db.materiel.push(obj);
+    sDB();closeModal('modal-materiel');renderMateriel();
+    // Ouvre directement la fiche pour générer et imprimer le QR du nouvel outil
+    openMaterielModal(obj.id);
+  }
+}
+
+function deleteMateriel(){
+  var m=(db.materiel||[]).find(function(x){return x.id===editMtId;});
+  var msg=(m&&m.detenuPar)?('⚠️ Cet outil est actuellement pris par '+m.detenuPar+'. Supprimer sa fiche fera perdre cette trace. Continuer ?'):'Supprimer cet outil ?';
+  if(!confirm(msg))return;
+  db.materiel=(db.materiel||[]).filter(function(x){return x.id!==editMtId;});
+  sDB();closeModal('modal-materiel');renderMateriel();
+}
+
+function rendreMateriel(id,etat,commentaire){
+  var m=(db.materiel||[]).find(function(x){return x.id===id;});if(!m)return;
+  if(!m.historique)m.historique=[];
+  // Complete le dernier mouvement "prise" en cours avec sa date de rendu
+  for(var i=m.historique.length-1;i>=0;i--){
+    if(m.historique[i].type==='prise'&&!m.historique[i].dateRendu){
+      m.historique[i].dateRendu=new Date().toISOString().split('T')[0];
+      m.historique[i].etatRetour=etat||'';
+      m.historique[i].commentaireRetour=commentaire||'';
+      break;
+    }
+  }
+  m.detenuPar=null;
+  m.dateRetourPrevue='';
+  m.dernierEtat=etat||'';
+  sDB();renderMateriel();
+  if(etat==='a_reparer'||etat==='perdu'){
+    traceEvent('materiel_'+(etat==='perdu'?'perdu':'a_reparer'),(m.ref?m.ref+' — ':'')+m.nom+(commentaire?' : '+commentaire:''));
+  }
+}
+
+// Attribution d'un outil a une personne + chantier (utilise par le scanner ci-dessous,
+// et reutilisable depuis le suivi chantier si besoin plus tard)
+function prendreMateriel(id,personne,chantier,dateRetourPrevue){
+  var m=(db.materiel||[]).find(function(x){return x.id===id;});if(!m)return false;
+  m.detenuPar=personne;
+  m.dateRetourPrevue=dateRetourPrevue||'';
+  var mvt={type:'prise',date:new Date().toISOString().split('T')[0],chantier:chantier||'',personne:personne,dateRendu:null,dateRetourPrevue:dateRetourPrevue||''};
+  m.dernierMouvement=mvt;
+  if(!m.historique)m.historique=[];
+  m.historique.push(mvt);
+  sDB();renderMateriel();
+  traceEvent('materiel_pris',personne+' a pris '+(m.ref?m.ref+' — ':'')+m.nom+(chantier?' pour '+chantier:'')+(dateRetourPrevue?' (retour prévu le '+fmtDate(dateRetourPrevue)+')':''));
+  return true;
+}
+
+function ouvrirScannerMateriel(){
+  openModal('modal-scan-materiel');
+  document.getElementById('mt-scan-resultat').innerHTML='';
+  document.getElementById('mt-code-saisie').value='';
+  basculerModeSaisieMateriel('scan');
+}
+
+function basculerModeSaisieMateriel(mode){
+  document.getElementById('mt-tab-scan').classList.toggle('btn-primary',mode==='scan');
+  document.getElementById('mt-tab-code').classList.toggle('btn-primary',mode==='code');
+  document.getElementById('mt-scan-reader').style.display=mode==='scan'?'block':'none';
+  document.getElementById('mt-code-zone').style.display=mode==='code'?'block':'none';
+  document.getElementById('mt-scan-resultat').innerHTML='';
+  if(mode==='code'){
+    if(html5QrScannerMateriel){html5QrScannerMateriel.stop().catch(function(){});html5QrScannerMateriel=null;}
+    setTimeout(function(){document.getElementById('mt-code-saisie').focus();},50);
+  }else{
+    demarrerLectureCameraMateriel();
+  }
+}
+
+function demarrerLectureCameraMateriel(){
+  if(typeof Html5Qrcode==='undefined'){
+    document.getElementById('mt-scan-reader').innerHTML='<p style="color:var(--danger);font-size:13px">Le lecteur QR n\'a pas pu se charger (connexion internet requise).</p>';
+    return;
+  }
+  html5QrScannerMateriel=new Html5Qrcode('mt-scan-reader');
+  html5QrScannerMateriel.start(
+    {facingMode:'environment'},
+    {fps:10,qrbox:220},
+    function(decodedText){
+      html5QrScannerMateriel.stop().then(function(){
+        traiterScanMateriel(decodedText);
+      }).catch(function(){traiterScanMateriel(decodedText);});
+    },
+    function(){/* frame sans QR detecte, ignorer silencieusement */}
+  ).catch(function(err){
+    document.getElementById('mt-scan-reader').innerHTML='<p style="color:var(--danger);font-size:13px">Impossible d\'accéder à la caméra. Vérifiez les autorisations de votre navigateur, ou utilisez "Saisir un code".</p>';
+  });
+}
+
+function trouverMaterielParCode(saisie){
+  var saisieLC=(saisie||'').toLowerCase().trim();
+  if(!saisieLC)return null;
+  var m=(db.materiel||[]).find(function(x){
+    return (x.ref&&x.ref.toLowerCase()===saisieLC)||(x.serie&&x.serie.toLowerCase()===saisieLC)||(x.nom&&x.nom.toLowerCase()===saisieLC);
+  });
+  if(!m){
+    m=(db.materiel||[]).find(function(x){
+      return (x.ref&&x.ref.toLowerCase().indexOf(saisieLC)!==-1)||(x.serie&&x.serie.toLowerCase().indexOf(saisieLC)!==-1)||(x.nom&&x.nom.toLowerCase().indexOf(saisieLC)!==-1);
+    });
+  }
+  return m||null;
+}
+
+function validerCodeMateriel(){
+  var saisie=document.getElementById('mt-code-saisie').value.trim();
+  if(!saisie){alert('Entrez un nom, une référence ou un n° de série.');return;}
+  var m=trouverMaterielParCode(saisie);
+  if(!m){
+    document.getElementById('mt-scan-resultat').innerHTML='<p style="color:var(--danger);font-size:13px">Aucun outil trouvé pour "'+esc(saisie)+'".</p>';
+    return;
+  }
+  traiterScanMateriel('NICO-MATERIEL:'+m.id);
+}
+
+function fermerScannerMateriel(){
+  if(html5QrScannerMateriel){
+    html5QrScannerMateriel.stop().catch(function(){});
+    html5QrScannerMateriel=null;
+  }
+  closeModal('modal-scan-materiel');
+}
+
+function traiterScanMateriel(decodedText){
+  var match=/^NICO-MATERIEL:(\d+)$/.exec(decodedText||'');
+  var res=document.getElementById('mt-scan-resultat');
+  if(!match){
+    res.innerHTML='<p style="color:var(--danger);font-size:13px">Ce QR code ne correspond pas à un outil NICO MULTISERVICES.</p><button class="btn btn-ghost btn-sm" onclick="ouvrirScannerMateriel()">Réessayer</button>';
+    return;
+  }
+  var id=parseInt(match[1],10);
+  var m=(db.materiel||[]).find(function(x){return x.id===id;});
+  if(!m){
+    res.innerHTML='<p style="color:var(--danger);font-size:13px">Outil introuvable (peut-être supprimé).</p><button class="btn btn-ghost btn-sm" onclick="ouvrirScannerMateriel()">Réessayer</button>';
+    return;
+  }
+  var noteHtml=m.notes?'<div style="margin-top:6px;padding:6px 8px;background:#FEF3C7;border-radius:6px;font-size:12px;color:#92400E">⚠️ '+esc(m.notes)+'</div>':'';
+  if(m.detenuPar){
+    res.innerHTML='<div style="font-size:13.5px"><strong>'+esc(m.nom)+'</strong><br>Actuellement pris par : '+esc(m.detenuPar)+'</div>'+noteHtml+
+      '<button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="rendreMaterielDepuisScan('+id+')">↩️ Marquer comme rendu</button>';
+  }else{
+    var dansSeptJours=new Date();dansSeptJours.setDate(dansSeptJours.getDate()+7);
+    var eventsOptions=(db.events||[]).slice().sort(function(a,b){return (a.date||'').localeCompare(b.date||'');}).map(function(e){return '<option value="'+esc(e.titre||'')+'">'+esc(e.titre||'')+(e.date?' ('+fmtDate(e.date)+')':'')+'</option>';}).join('');
+    res.innerHTML='<div style="font-size:13.5px"><strong>'+esc(m.nom)+'</strong> est disponible.</div>'+noteHtml+
+      '<div class="fg" style="margin-top:8px"><label>Pris par *</label><select id="mt-scan-personne"><option value="">-- Sélectionner --</option>'+_salariesGDF.map(function(s){return '<option value="'+esc(s.nom)+'">'+esc(s.nom)+'</option>';}).join('')+'</select></div>'+
+      '<div class="fg" style="margin-top:6px"><label>Chantier</label><select id="mt-scan-chantier"><option value="">-- Aucun / autre --</option>'+eventsOptions+'</select></div>'+
+      '<div class="fg" style="margin-top:6px"><label>Retour prévu le</label><input type="date" id="mt-scan-date-retour" value="'+dansSeptJours.toISOString().split('T')[0]+'"></div>'+
+      '<button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="confirmerPriseMateriel('+id+')">✅ Confirmer la prise</button>';
+  }
+}
+
+function confirmerPriseMateriel(id){
+  var personne=document.getElementById('mt-scan-personne').value.trim();
+  if(!personne){alert('Indiquez qui prend cet outil.');return;}
+  var chantier=document.getElementById('mt-scan-chantier').value.trim();
+  var dateRetourPrevue=document.getElementById('mt-scan-date-retour').value||'';
+  prendreMateriel(id,personne,chantier,dateRetourPrevue);
+  fermerScannerMateriel();
+  showPage('materiel');
+}
+
+function rendreMaterielDepuisScan(id){
+  fermerScannerMateriel();
+  ouvrirModalRetourMateriel(id);
+}
+
+function renderHistoriqueMateriel(){
+  var selOutil=document.getElementById('hm-filtre-outil');
+  if(selOutil&&!selOutil.dataset.rempli){
+    selOutil.innerHTML='<option value="">Tous les outils</option>'+(db.materiel||[]).slice().sort(function(a,b){return (a.nom||'').localeCompare(b.nom||'');}).map(function(m){return '<option value="'+m.id+'">'+esc(m.nom)+'</option>';}).join('');
+    selOutil.dataset.rempli='1';
+  }
+  var filtreOutil=selOutil?selOutil.value:'';
+  var filtrePersonne=(document.getElementById('hm-filtre-personne').value||'').toLowerCase().trim();
+  var du=document.getElementById('hm-filtre-du').value;
+  var au=document.getElementById('hm-filtre-au').value;
+
+  var lignes=[];
+  (db.materiel||[]).forEach(function(m){
+    if(filtreOutil&&String(m.id)!==filtreOutil)return;
+    (m.historique||[]).forEach(function(mvt){
+      if(filtrePersonne&&(!mvt.personne||mvt.personne.toLowerCase().indexOf(filtrePersonne)===-1))return;
+      if(du&&mvt.date<du)return;
+      if(au&&mvt.date>au)return;
+      lignes.push({outil:m.nom,personne:mvt.personne,chantier:mvt.chantier,date:mvt.date,dateRendu:mvt.dateRendu});
+    });
+  });
+  lignes.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+
+  var tb=document.getElementById('historique-materiel-list');
+  if(!lignes.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Aucun mouvement trouvé.</td></tr>';return;}
+  tb.innerHTML=lignes.map(function(l){
+    var statut=l.dateRendu?'<span class="badge" style="background:#DCFCE7;color:#15803D">↩️ Rendu</span>':'<span class="badge" style="background:#FEF3C7;color:#92400E">🔧 En cours</span>';
+    return '<tr><td><strong>'+esc(l.outil)+'</strong></td><td>'+esc(l.personne||'')+'</td><td>'+esc(l.chantier||'—')+'</td><td>'+fmtDate(l.date)+'</td><td>'+(l.dateRendu?fmtDate(l.dateRendu):'—')+'</td><td>'+statut+'</td></tr>';
+  }).join('');
+}
+
+function reinitialiserFiltresHistoriqueMateriel(){
+  document.getElementById('hm-filtre-outil').value='';
+  document.getElementById('hm-filtre-personne').value='';
+  document.getElementById('hm-filtre-du').value='';
+  document.getElementById('hm-filtre-au').value='';
+  renderHistoriqueMateriel();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// EQUIPE — basee sur les vrais salaries (collection Firestore 'salaries',
+// partagee avec compta.html/dashboard.html), utilisee pour assigner une
+// equipe a un evenement/chantier depuis la modale evenement et l'onglet
+// "Équipe & Chantiers". Chargee une fois puis mise en cache dans _salariesGDF.
+// ═══════════════════════════════════════════════════════════════════════
+var _salariesGDF=[];
+function chargerSalariesGDF(callback){
+  fbDb.collection('salaries').orderBy('nom').get().then(function(snap){
+    _salariesGDF=[];
+    snap.forEach(function(doc){var d=doc.data();if(d.statut!=='inactif'&&d.statut!=='archive')_salariesGDF.push(Object.assign({_id:doc.id},d));});
+    if(callback)callback();
+  }).catch(function(e){console.error('Erreur chargement salariés:',e);if(callback)callback();});
+}
+function renderEquipeCheckboxesEvenement(equipeSelectionnee){
+  var el=document.getElementById('ev-equipe-liste');
+  if(!el)return;
+  var afficher=function(){
+    if(!_salariesGDF.length){el.innerHTML='<span style="font-size:11px;color:var(--muted)">Aucun salarié — créez un compte employé depuis le Dashboard (Sécurité &amp; comptes).</span>';return;}
+    el.innerHTML=_salariesGDF.map(function(s){
+      var checked=(equipeSelectionnee||[]).indexOf(s.nom)!==-1;
+      return '<label style="display:inline-flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:12px;cursor:pointer">'+
+        '<input type="checkbox" value="'+esc(s.nom)+'" '+(checked?'checked':'')+' class="ev-equipe-checkbox" style="width:auto"> '+esc(s.nom)+'</label>';
+    }).join('');
+  };
+  if(_salariesGDF.length)afficher();else chargerSalariesGDF(afficher);
+}
+function recupererEquipeSelectionneeFormulaire(){
+  return Array.from(document.querySelectorAll('.ev-equipe-checkbox:checked')).map(function(el){return el.value;});
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ONGLET "ÉQUIPE & CHANTIERS" — roster en lecture seule (les salaries se gerent
+// depuis le Dashboard) + vue/edition directe de tous les evenements (statut,
+// equipe assignee, suivi : rapport, pointages par employe, materiel).
+// ═══════════════════════════════════════════════════════════════════════
+function renderEquipeRosterGDF(){
+  var el=document.getElementById('eqc-liste-equipe');
+  if(!el)return;
+  var afficher=function(){
+    if(!_salariesGDF.length){el.innerHTML='<div style="font-size:12px;color:var(--muted)">Aucun salarié enregistré. Créez un compte employé depuis le Dashboard (Sécurité &amp; comptes).</div>';return;}
+    el.innerHTML=_salariesGDF.map(function(s){
+      var n=s.nom;
+      var nbChantiers=(db.events||[]).filter(function(e){return(e.equipe||[]).indexOf(n)!==-1&&e.statut!=='termine';}).length;
+      return '<div style="display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px 12px">'+
+        '<span style="font-weight:700;font-size:13px">👷 '+esc(n)+'</span>'+
+        (s.poste?'<span style="font-size:11px;color:var(--muted)">'+esc(s.poste)+'</span>':'')+
+        (nbChantiers?'<span class="badge bd" style="font-size:10px">'+nbChantiers+' en cours</span>':'')+
+        '</div>';
+    }).join('');
+  };
+  if(_salariesGDF.length)afficher();else chargerSalariesGDF(afficher);
+}
+
+var STATUT_CHANTIER_LABEL={'a-faire':'⏳ À faire','en-cours':'🔧 En cours','termine':'✅ Terminé'};
+var STATUT_CHANTIER_CLASS={'a-faire':'bd','en-cours':'ba','termine':'bp'};
+
+function renderListeChantiers(){
+  var elBody=document.getElementById('eqc-liste-chantiers');
+  if(!elBody)return;
+  // Peuple le filtre "équipe" une seule fois par rendu, en conservant la selection en cours
+  var selEquipe=document.getElementById('eqc-filtre-equipe');
+  var valEquipeAvant=selEquipe.value;
+  selEquipe.innerHTML='<option value="">Toute l\'équipe</option>'+(db.equipeTerrain||[]).map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
+  selEquipe.value=valEquipeAvant;
+
+  var filtreType=document.getElementById('eqc-filtre-type').value;
+  var filtreStatut=document.getElementById('eqc-filtre-statut').value;
+  var filtreEquipe=selEquipe.value;
+  var recherche=(document.getElementById('eqc-recherche').value||'').trim().toLowerCase();
+  var tl={chantier:'🔨 Chantier',devis:'📋 Devis/RDV',facture:'💶 Facture',autre:'📌 Autre'};
+
+  var evs=(db.events||[]).slice().sort(function(a,b){return (b.start||'').localeCompare(a.start||'');});
+  if(filtreType)evs=evs.filter(function(e){return e.type===filtreType;});
+  if(filtreStatut)evs=evs.filter(function(e){return(e.statut||'a-faire')===filtreStatut;});
+  if(filtreEquipe)evs=evs.filter(function(e){return(e.equipe||[]).indexOf(filtreEquipe)!==-1;});
+  if(recherche){
+    evs=evs.filter(function(e){
+      var c=db.clients.find(function(x){return x.id==e.clientId;});
+      return (e.titre||'').toLowerCase().indexOf(recherche)>-1||(e.lieu||'').toLowerCase().indexOf(recherche)>-1||(c&&(c.nom||'').toLowerCase().indexOf(recherche)>-1);
+    });
+  }
+
+  if(!evs.length){elBody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Aucun événement ne correspond.</td></tr>';return;}
+
+  elBody.innerHTML=evs.map(function(e){
+    var c=db.clients.find(function(x){return x.id==e.clientId;});
+    var statut=e.statut||'a-faire';
+    var equipe=e.equipe||[];
+    var suiviInfo=[];
+    if(e.rapport)suiviInfo.push('📝');
+    if(e.pointages&&e.pointages.length)suiviInfo.push('⏱ '+e.pointages.length);
+    return '<tr>'+
+      '<td>'+fmtDate(e.start)+(e.end&&e.end!==e.start?' → '+fmtDate(e.end):'')+'</td>'+
+      '<td><strong>'+esc(e.titre)+'</strong>'+(e.lieu?'<br><small style="color:var(--muted)">📍 '+esc(e.lieu)+'</small>':'')+'</td>'+
+      '<td>'+(c?esc(c.nom):'—')+'</td>'+
+      '<td><span class="cal-ev ev-'+e.type+'" style="display:inline-block">'+(tl[e.type]||e.type)+'</span></td>'+
+      '<td><select onchange=\'changerStatutChantierGDF('+e.id+',this.value)\' style="font-size:11.5px;padding:4px 6px;border:1.5px solid var(--border);border-radius:7px" class="badge-select">'+
+        Object.keys(STATUT_CHANTIER_LABEL).map(function(k){return '<option value="'+k+'" '+(k===statut?'selected':'')+'>'+STATUT_CHANTIER_LABEL[k]+'</option>';}).join('')+
+      '</select></td>'+
+      '<td style="max-width:180px">'+(equipe.length?equipe.map(function(n){return '<span class="badge" style="background:#EEF2FF;color:#3730A3;margin:1px">👷 '+esc(n)+'</span>';}).join(''):'<span style="font-size:11px;color:var(--muted)">Non assignée</span>')+
+        '<div><button type="button" class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:11px" onclick=\'ouvrirAssignationEquipeGDF('+e.id+')\'>✏️ Assigner</button></div></td>'+
+      '<td><button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:12px" onclick=\'openSuiviModalGDF('+e.id+')\' title="Rapport et pointages">🧰 '+suiviInfo.join(' ')+'</button></td>'+
+      '<td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="openEventModal('+e.id+',null)" title="Modifier">✏️</button> <button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="delEvById('+e.id+')" title="Supprimer">🗑</button></td>'+
+    '</tr>';
+  }).join('');
+}
+function changerStatutChantierGDF(id,statut){
+  var i=(db.events||[]).findIndex(function(x){return x.id===id;});
+  if(i===-1)return;
+  db.events[i].statut=statut;
+  sDB();
+  traceEvent('statut_chantier',db.events[i].titre+' — '+(STATUT_CHANTIER_LABEL[statut]||statut));
+  renderListeChantiers();
+}
+
+var assignGdfEvId=null;
+function ouvrirAssignationEquipeGDF(id){
+  assignGdfEvId=id;
+  var ev=(db.events||[]).find(function(x){return x.id===id;});
+  if(!ev)return;
+  var el=document.getElementById('assign-equipe-liste');
+  var afficher=function(){
+    var liste=_salariesGDF.map(function(s){return s.nom;});
+    if(!liste.length){
+      el.innerHTML='<div style="font-size:12.5px;color:var(--muted)">Aucun salarié enregistré. Créez un compte employé depuis le Dashboard (Sécurité &amp; comptes).</div>';
+    }else{
+      var equipeActuelle=ev.equipe||[];
+      el.innerHTML=liste.map(function(n){
+        var checked=equipeActuelle.indexOf(n)!==-1;
+        return '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;cursor:pointer">'+
+          '<input type="checkbox" value="'+esc(n)+'" '+(checked?'checked':'')+' class="assign-equipe-checkbox" style="width:auto"> 👷 '+esc(n)+'</label>';
+      }).join('');
+    }
+    openModal('modal-assign-equipe');
+  };
+  if(_salariesGDF.length)afficher();else chargerSalariesGDF(afficher);
+}
+function enregistrerAssignationEquipeGDF(){
+  if(!assignGdfEvId)return;
+  var i=(db.events||[]).findIndex(function(x){return x.id===assignGdfEvId;});
+  if(i===-1)return;
+  db.events[i].equipe=Array.from(document.querySelectorAll('.assign-equipe-checkbox:checked')).map(function(el){return el.value;});
+  sDB();
+  traceEvent('assignation_equipe',db.events[i].titre+' — '+db.events[i].equipe.join(', '));
+  closeModal('modal-assign-equipe');
+  renderListeChantiers();
+}
+
+// ═══ SUIVI CHANTIER : rapport + matériel + pointages d'heures par employé/jour ═══
+var suiviGdfEvId=null;
+function openSuiviModalGDF(id){
+  suiviGdfEvId=id;
+  var ev=(db.events||[]).find(function(x){return x.id===id;});
+  if(!ev)return;
+  document.getElementById('suivi-gdf-title').textContent='Suivi — '+ev.titre;
+  document.getElementById('suivi-gdf-rapport').value=ev.rapport||'';
+  document.getElementById('suivi-gdf-materiel').value=ev.materiel||'';
+  document.getElementById('suivi-gdf-date').value=new Date().toISOString().split('T')[0];
+  var remplirSelectEmployes=function(){
+    var sel=document.getElementById('suivi-gdf-employe');
+    var equipe=ev.equipe&&ev.equipe.length?ev.equipe:_salariesGDF.map(function(s){return s.nom;});
+    if(!equipe.length){sel.innerHTML='<option value="">Aucun salarié</option>';}
+    else{sel.innerHTML=equipe.map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');}
+  };
+  if(_salariesGDF.length)remplirSelectEmployes();else chargerSalariesGDF(remplirSelectEmployes);
+  renderPointagesGDF(ev);
+  openModal('modal-suivi-chantier');
+}
+function enregistrerRapportGDF(){
+  if(!suiviGdfEvId)return;
+  var i=(db.events||[]).findIndex(function(x){return x.id===suiviGdfEvId;});
+  if(i===-1)return;
+  db.events[i].rapport=document.getElementById('suivi-gdf-rapport').value;
+  sDB();
+  traceEvent('rapport_chantier',db.events[i].titre);
+  renderListeChantiers();
+}
+function enregistrerMaterielGDF(){
+  if(!suiviGdfEvId)return;
+  var i=(db.events||[]).findIndex(function(x){return x.id===suiviGdfEvId;});
+  if(i===-1)return;
+  db.events[i].materiel=document.getElementById('suivi-gdf-materiel').value;
+  sDB();
+  traceEvent('materiel_chantier',db.events[i].titre);
+  renderListeChantiers();
+}
+function renderPointagesGDF(ev){
+  var el=document.getElementById('suivi-gdf-pointages');
+  var liste=ev.pointagesHeures||ev.pointages||[];
+  if(!liste.length){el.innerHTML='<div style="font-size:11.5px;color:var(--muted)">Aucun pointage enregistré.</div>';return;}
+  var totalParEmploye={};
+  liste.forEach(function(p){
+    var h=parseFloat(p.heures)||0;
+    totalParEmploye[p.employe||'—']=(totalParEmploye[p.employe||'—']||0)+h;
+  });
+  var lignes=liste.map(function(p,i){
+    if(p.heures===undefined){
+      // retro-compat anciens pointages arrivee/depart
+      return '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">'+
+        '<span>'+esc(p.date||'')+' · Arrivée '+esc(p.arrivee||'—')+' → Départ '+esc(p.depart||'—')+'</span>'+
+        '<button type="button" class="btn btn-ghost btn-sm" onclick="supprimerPointageGDF('+i+')">✕</button></div>';
+    }
+    return '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">'+
+      '<span>👷 <strong>'+esc(p.employe||'—')+'</strong> · '+esc(p.date||'')+' · '+esc(String(p.heures))+' h</span>'+
+      '<button type="button" class="btn btn-ghost btn-sm" onclick="supprimerPointageGDF('+i+')">✕</button></div>';
+  }).join('');
+  var totaux=Object.keys(totalParEmploye).map(function(n){return '<span class="badge bd" style="font-size:10.5px;margin-right:4px">'+esc(n)+' : '+totalParEmploye[n]+' h</span>';}).join('');
+  el.innerHTML='<div style="margin-bottom:6px">'+totaux+'</div>'+lignes;
+}
+function ajouterPointageGDF(){
+  if(!suiviGdfEvId)return;
+  var employe=document.getElementById('suivi-gdf-employe').value;
+  var date=document.getElementById('suivi-gdf-date').value;
+  var heures=document.getElementById('suivi-gdf-heures').value;
+  if(!employe){alert('Sélectionnez un employé.');return;}
+  if(!date){alert('Indiquez une date.');return;}
+  if(!heures||parseFloat(heures)<=0){alert('Indiquez un nombre d\'heures valide.');return;}
+  var i=(db.events||[]).findIndex(function(x){return x.id===suiviGdfEvId;});
+  if(i===-1)return;
+  if(!db.events[i].pointagesHeures)db.events[i].pointagesHeures=[];
+  db.events[i].pointagesHeures.push({employe:employe,date:date,heures:parseFloat(heures)});
+  sDB();
+  traceEvent('pointage_chantier',db.events[i].titre+' — '+employe+' ('+heures+'h)');
+  document.getElementById('suivi-gdf-heures').value='';
+  renderPointagesGDF(db.events[i]);
+  renderListeChantiers();
+}
+function supprimerPointageGDF(idx){
+  var i=(db.events||[]).findIndex(function(x){return x.id===suiviGdfEvId;});
+  if(i===-1)return;
+  var liste=db.events[i].pointagesHeures||db.events[i].pointages;
+  liste.splice(idx,1);
+  sDB();
+  renderPointagesGDF(db.events[i]);
+  renderListeChantiers();
+}
+
+// ═══ RAPPORT CHANTIER — compile client/adresse/equipe/heures/materiel/rapport en un document ═══
+function genererRapportChantierGDF(id){
+  var ev=(db.events||[]).find(function(x){return x.id===id;});
+  if(!ev){alert('Événement introuvable.');return;}
+  var client=(db.clients||[]).find(function(c){return c.id===ev.clientId;});
+  var nomClient=client?(client.nom||client.raisonSociale||''):(ev.clientNom||'');
+  var adresseClient=client?[client.adresse,client.codePostal,client.ville].filter(Boolean).join(' '):(ev.adresse||'');
+  var pointages=ev.pointagesHeures||[];
+  var totalParEmploye={};
+  var totalGeneral=0;
+  pointages.forEach(function(p){
+    var h=parseFloat(p.heures)||0;
+    totalParEmploye[p.employe||'—']=(totalParEmploye[p.employe||'—']||0)+h;
+    totalGeneral+=h;
+  });
+  var pointagesParJour=pointages.slice().sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
+
+  var html='<div style="padding:4px">';
+  html+='<h2 style="margin:0 0 4px 0;font-size:17px">'+esc(ev.titre||'Chantier')+'</h2>';
+  html+='<p style="margin:0 0 14px 0;color:#666;font-size:11.5px">Rapport généré le '+new Date().toLocaleDateString('fr-FR')+'</p>';
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px">';
+  html+='<div><strong>Client</strong><br>'+esc(nomClient||'—')+'</div>';
+  html+='<div><strong>Adresse</strong><br>'+esc(adresseClient||'—')+'</div>';
+  html+='<div><strong>Date(s)</strong><br>'+esc(ev.dateDebut||ev.date||'—')+(ev.dateFin&&ev.dateFin!==ev.dateDebut?' → '+esc(ev.dateFin):'')+'</div>';
+  html+='<div><strong>Statut</strong><br>'+esc(ev.statut||'—')+'</div>';
+  html+='</div>';
+
+  html+='<h3 style="font-size:13.5px;margin:0 0 6px 0">👷 Heures travaillées par employé</h3>';
+  if(!pointages.length){
+    html+='<p style="color:#888;font-size:12px">Aucun pointage enregistré.</p>';
+  }else{
+    html+='<table style="width:100%;border-collapse:collapse;margin-bottom:6px;font-size:12px"><thead><tr style="background:#F1F5F9">'+
+      '<th style="text-align:left;padding:6px;border:1px solid #E2E8F0">Employé</th><th style="text-align:left;padding:6px;border:1px solid #E2E8F0">Date</th><th style="text-align:right;padding:6px;border:1px solid #E2E8F0">Heures</th></tr></thead><tbody>';
+    pointagesParJour.forEach(function(p){
+      html+='<tr><td style="padding:6px;border:1px solid #E2E8F0">'+esc(p.employe||'—')+'</td><td style="padding:6px;border:1px solid #E2E8F0">'+esc(p.date||'—')+'</td><td style="padding:6px;border:1px solid #E2E8F0;text-align:right">'+p.heures+' h</td></tr>';
+    });
+    html+='</tbody></table>';
+    html+='<div style="font-size:12px;margin-bottom:14px">';
+    Object.keys(totalParEmploye).forEach(function(n){html+='<div><strong>'+esc(n)+'</strong> : '+totalParEmploye[n]+' h</div>';});
+    html+='<div style="margin-top:4px;font-weight:700">Total général : '+totalGeneral+' h</div>';
+    html+='</div>';
+  }
+
+  html+='<h3 style="font-size:13.5px;margin:14px 0 6px 0">🧱 Matériel utilisé / commandé</h3>';
+  html+='<p style="font-size:12px;white-space:pre-wrap">'+esc(ev.materiel||'—')+'</p>';
+
+  html+='<h3 style="font-size:13.5px;margin:14px 0 6px 0">📝 Rapport / compte-rendu</h3>';
+  html+='<p style="font-size:12px;white-space:pre-wrap">'+esc(ev.rapport||'—')+'</p>';
+  html+='</div>';
+
+  document.getElementById('rapport-gdf-apercu').innerHTML=html;
+  openModal('modal-rapport-chantier');
+}
+function telechargerRapportChantierPDF(){
+  var id=suiviGdfEvId;
+  var ev=(db.events||[]).find(function(x){return x.id===id;});
+  if(!ev)return;
+  var client=(db.clients||[]).find(function(c){return c.id===ev.clientId;});
+  var nomClient=client?(client.nom||client.raisonSociale||''):(ev.clientNom||'');
+  var adresseClient=client?[client.adresse,client.codePostal,client.ville].filter(Boolean).join(' '):(ev.adresse||'');
+  var pointages=(ev.pointagesHeures||[]).slice().sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
+  var totalParEmploye={};var totalGeneral=0;
+  pointages.forEach(function(p){var h=parseFloat(p.heures)||0;totalParEmploye[p.employe||'—']=(totalParEmploye[p.employe||'—']||0)+h;totalGeneral+=h;});
+
+  var pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+  var y=18;
+  pdf.setFontSize(15);pdf.setFont(undefined,'bold');
+  pdf.text('Rapport chantier — '+(ev.titre||''),14,y);y+=6;
+  pdf.setFontSize(9.5);pdf.setFont(undefined,'normal');pdf.setTextColor(120);
+  pdf.text('Généré le '+new Date().toLocaleDateString('fr-FR'),14,y);y+=8;
+  pdf.setTextColor(20);pdf.setFontSize(10.5);
+  pdf.setFont(undefined,'bold');pdf.text('Client :',14,y);pdf.setFont(undefined,'normal');pdf.text(nomClient||'—',35,y);y+=6;
+  pdf.setFont(undefined,'bold');pdf.text('Adresse :',14,y);pdf.setFont(undefined,'normal');pdf.text(adresseClient||'—',35,y);y+=6;
+  pdf.setFont(undefined,'bold');pdf.text('Date(s) :',14,y);pdf.setFont(undefined,'normal');pdf.text((ev.dateDebut||ev.date||'—')+(ev.dateFin&&ev.dateFin!==ev.dateDebut?' → '+ev.dateFin:''),35,y);y+=10;
+
+  pdf.setFont(undefined,'bold');pdf.setFontSize(12);pdf.text('Heures travaillées par employé',14,y);y+=4;
+  if(pointages.length&&window.jspdf.jsPDF.API.autoTable){
+    pdf.autoTable({
+      startY:y,margin:{left:14,right:14},
+      head:[['Employé','Date','Heures']],
+      body:pointages.map(function(p){return [p.employe||'—',p.date||'—',(p.heures||0)+' h'];}),
+      styles:{fontSize:9.5},headStyles:{fillColor:[241,245,249],textColor:20}
+    });
+    y=pdf.lastAutoTable.finalY+6;
+    pdf.setFontSize(10);
+    Object.keys(totalParEmploye).forEach(function(n){pdf.setFont(undefined,'bold');pdf.text(n+' : '+totalParEmploye[n]+' h',14,y);y+=5;});
+    pdf.setFont(undefined,'bold');pdf.text('Total général : '+totalGeneral+' h',14,y);y+=8;
+  }else{
+    y+=6;pdf.setFont(undefined,'normal');pdf.setFontSize(10);pdf.text('Aucun pointage enregistré.',14,y);y+=8;
+  }
+
+  if(y>250){pdf.addPage();y=18;}
+  pdf.setFont(undefined,'bold');pdf.setFontSize(12);pdf.text('Matériel utilisé / commandé',14,y);y+=6;
+  pdf.setFont(undefined,'normal');pdf.setFontSize(10);
+  var materielLines=pdf.splitTextToSize(ev.materiel||'—',180);
+  pdf.text(materielLines,14,y);y+=materielLines.length*5+8;
+
+  if(y>250){pdf.addPage();y=18;}
+  pdf.setFont(undefined,'bold');pdf.setFontSize(12);pdf.text('Rapport / compte-rendu',14,y);y+=6;
+  pdf.setFont(undefined,'normal');pdf.setFontSize(10);
+  var rapportLines=pdf.splitTextToSize(ev.rapport||'—',180);
+  pdf.text(rapportLines,14,y);
+
+  pdf.save('Rapport_chantier_'+(ev.titre||'chantier').replace(/[^a-z0-9]+/gi,'_')+'.pdf');
+  traceEvent('rapport_chantier_pdf',ev.titre);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// "MES FICHES DE PAIE" — espace employe en lecture seule. Chaque utilisateur connecte
+// retrouve uniquement SES fiches, via son email (fbUser.email) associe a sa fiche
+// salarie (collection 'salaries', meme collection que compta.html). Donnees stockees
+// dans la collection top-niveau 'paie', independante du document partage db.
+// ═══════════════════════════════════════════════════════════════════════
+var _mesFichesPaie=[];
+function chargerMesFichesPaie(){
+  var el=document.getElementById('mfp-corps');
+  if(!fbUser||!fbUser.email){el.innerHTML='<div class="empty">Vous devez être connecté pour voir vos fiches de paie.</div>';return;}
+  el.innerHTML='<div class="empty">Chargement…</div>';
+  fbDb.collection('salaries').where('email','==',fbUser.email).limit(1).get().then(function(snapSal){
+    if(snapSal.empty){
+      el.innerHTML='<div class="empty">Aucune fiche salarié n\'est associée à votre email ('+esc(fbUser.email)+'). Contactez un administrateur si vous devriez avoir accès à des fiches de paie.</div>';
+      return;
+    }
+    var salarieId=snapSal.docs[0].id;
+    fbDb.collection('paie').where('salarieId','==',salarieId).get().then(function(snapPaie){
+      _mesFichesPaie=[];
+      snapPaie.forEach(function(doc){_mesFichesPaie.push(Object.assign({_id:doc.id},doc.data()));});
+      _mesFichesPaie.sort(function(a,b){return (b.periode||'').localeCompare(a.periode||'');});
+      renderMesFichesPaie();
+    }).catch(function(e){el.innerHTML='<div class="empty">Erreur lors du chargement : '+esc(e.message)+'</div>';});
+  }).catch(function(e){el.innerHTML='<div class="empty">Erreur lors du chargement : '+esc(e.message)+'</div>';});
+}
+function renderMesFichesPaie(){
+  var el=document.getElementById('mfp-corps');
+  if(!_mesFichesPaie.length){el.innerHTML='<div class="empty">Aucune fiche de paie enregistrée pour le moment.</div>';return;}
+  var fmtE=function(n){return fmt(n)+' €';};
+  el.innerHTML='<table><thead><tr><th>Période</th><th>Salaire brut</th><th>Net à payer</th><th></th></tr></thead><tbody>'+
+    _mesFichesPaie.map(function(d,i){
+      return '<tr><td><strong>'+esc(fmtPeriodePaieGDF(d.periode))+'</strong></td><td>'+fmtE(d.brut)+'</td><td><strong style="color:var(--accent)">'+fmtE(d.net)+'</strong></td>'+
+        '<td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" onclick="ouvrirApercuPaieGDF('+i+')">👁 Aperçu</button> '+
+        '<button class="btn btn-ghost btn-sm" onclick="genererPdfMaFichePaieGDF('+i+')">⬇️ PDF</button></td></tr>';
+    }).join('')+
+    '</tbody></table>';
+}
+function fmtPeriodePaieGDF(periode){
+  if(!periode)return'';
+  var parts=String(periode).split('-');
+  if(parts.length!==2)return periode;
+  var mois=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  var m=parseInt(parts[1],10);
+  return (mois[m-1]||parts[1])+' '+parts[0];
+}
+function ouvrirApercuPaieGDF(i){
+  var d=_mesFichesPaie[i];
+  if(!d)return;
+  document.getElementById('mfp-apercu-titre').textContent='Aperçu — '+fmtPeriodePaieGDF(d.periode);
+  document.getElementById('mfp-apercu-corps').innerHTML=construireApercuFichePaieHTMLGDF(d);
+  document.getElementById('mfp-apercu-pdf-btn').onclick=function(){genererPdfMaFichePaieGDF(i);};
+  openModal('modal-apercu-paie');
+}
+function construireApercuFichePaieHTMLGDF(d){
+  var fmtE=function(n){return fmt(n)+' €';};
+  var brut=parseFloat(d.brut)||0,chargesSal=parseFloat(d.chargesSalariales)||0,chargesPat=parseFloat(d.chargesPatronales)||0;
+  var netImposable=brut-chargesSal;
+  return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px">'+
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Période : '+esc(fmtPeriodePaieGDF(d.periode))+'</div>'+
+    '<table style="width:100%;font-size:13px;margin-bottom:12px">'+
+      '<tr><td style="padding:5px 0">Salaire brut</td><td style="text-align:right">'+fmtE(brut)+'</td></tr>'+
+      '<tr><td style="padding:5px 0">Cotisations salariales</td><td style="text-align:right">- '+fmtE(chargesSal)+'</td></tr>'+
+      '<tr style="font-weight:700;border-top:1px solid var(--border)"><td style="padding:5px 0">Net imposable</td><td style="text-align:right">'+fmtE(netImposable)+'</td></tr>'+
+    '</table>'+
+    '<div style="background:var(--accent);color:#fff;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:'+(chargesPat||d.notes?'10px':'0')+'">'+
+      '<span>NET À PAYER</span><span style="font-size:16px">'+fmtE(d.net!==undefined&&d.net!==null&&d.net!==''?d.net:netImposable)+'</span></div>'+
+    (chargesPat?'<div style="font-size:10.5px;color:var(--muted);padding-top:8px;border-top:1px solid var(--border);margin-bottom:'+(d.notes?'8px':'0')+'">Pour information — cotisations patronales : '+fmtE(chargesPat)+'</div>':'')+
+    (d.notes?'<div style="font-size:11.5px;font-style:italic;color:var(--muted)">Observations : '+esc(d.notes)+'</div>':'')+
+    '</div>';
+}
+function construirePdfFichePaieGDF(d){
+  var p=db.params||{};
+  var pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+  var W=210,H=297,ML=14,MR=196,CW=MR-ML;
+  var noir=[31,41,55],gris=[107,114,128],grisLeger=[156,163,175],gc=[221,214,203];
+  var accent=[13,159,110],accentDark=[10,125,87],accentBg=[236,253,247];
+  pdf.setFillColor.apply(pdf,accent);pdf.rect(0,0,W,3,'F');
+  var Y=14,LSIZE=26,txtX=ML;
+  if(p.logo){try{pdf.addImage(p.logo,'AUTO',ML,Y,LSIZE,LSIZE,'','FAST');txtX=ML+LSIZE+6;}catch(e){}}
+  pdf.setFontSize(12.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);
+  pdf.text(p.nom||'Mon Entreprise',txtX,Y+6);
+  pdf.setFontSize(8);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);
+  var iy=Y+12;
+  [p.adresse,p.ville,[p.tel?'Tél. '+p.tel:'',p.email||''].filter(Boolean).join(' · '),p.siret?'SIRET : '+p.siret:''].filter(Boolean).forEach(function(l){pdf.text(l,txtX,iy);iy+=4.2;});
+  var bW=64,bH=32,bX=MR-bW;
+  pdf.setFillColor.apply(pdf,accentBg);pdf.setDrawColor.apply(pdf,accent);pdf.setLineWidth(1.3);pdf.roundedRect(bX,Y,bW,bH,3,3,'FD');
+  pdf.setFontSize(13.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,accentDark);
+  pdf.text('BULLETIN DE PAIE',bX+bW/2,Y+9,{align:'center'});
+  pdf.setDrawColor.apply(pdf,accent);pdf.setLineWidth(0.4);pdf.line(bX+4,Y+13,bX+bW-4,Y+13);
+  pdf.setFontSize(7.5);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text('Période',bX+4,Y+19);
+  pdf.setFont('helvetica','bold');pdf.setFontSize(9.5);pdf.setTextColor.apply(pdf,noir);pdf.text(fmtPeriodePaieGDF(d.periode),bX+bW-4,Y+19,{align:'right'});
+  pdf.setFontSize(7.5);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text('Émis le',bX+4,Y+26);
+  pdf.setFont('helvetica','bold');pdf.setFontSize(8.5);pdf.setTextColor.apply(pdf,noir);pdf.text(new Date().toLocaleDateString('fr-FR'),bX+bW-4,Y+26,{align:'right'});
+  Y=Math.max(iy+6,Y+bH+8);
+  pdf.setFontSize(8);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);pdf.text('SALARIÉ',ML,Y);
+  pdf.setDrawColor.apply(pdf,gc);pdf.setLineWidth(0.3);pdf.line(ML,Y+2,MR,Y+2);
+  Y+=8;
+  pdf.setFontSize(11.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);pdf.text(esc(d.salarie||''),ML,Y);
+  Y+=10;
+  var brut=parseFloat(d.brut)||0,chargesSal=parseFloat(d.chargesSalariales)||0,chargesPat=parseFloat(d.chargesPatronales)||0;
+  var netImposable=brut-chargesSal;
+  var rows=[['Salaire brut',fmtE2(brut)],['Cotisations salariales',(chargesSal?'- ':'')+fmtE2(chargesSal)],['Net imposable',fmtE2(netImposable)]];
+  pdf.autoTable({
+    startY:Y,head:[['Élément de rémunération','Montant']],body:rows,
+    margin:{left:ML,right:W-MR},
+    styles:{fontSize:9,cellPadding:{top:4.5,bottom:4.5,left:5,right:5},textColor:noir,lineColor:[230,230,230],lineWidth:0.2},
+    headStyles:{fillColor:[245,245,245],textColor:noir,fontStyle:'bold',fontSize:8.5,lineColor:[200,200,200],lineWidth:0.3},
+    columnStyles:{0:{cellWidth:'auto'},1:{cellWidth:38,halign:'right'}},
+    didParseCell:function(data){if(data.section==='body'&&data.row.index===2){data.cell.styles.fontStyle='bold';data.cell.styles.fillColor=[249,250,251];}}
+  });
+  Y=pdf.lastAutoTable.finalY+6;
+  var netH=17;
+  pdf.setFillColor.apply(pdf,accent);pdf.roundedRect(ML,Y,CW,netH,2,2,'F');
+  pdf.setFontSize(12);pdf.setFont('helvetica','bold');pdf.setTextColor(255,255,255);
+  pdf.text('NET À PAYER',ML+6,Y+netH/2+1.3,{baseline:'middle'});
+  pdf.setFontSize(15);pdf.text(fmtE2(d.net!==undefined&&d.net!==null&&d.net!==''?d.net:netImposable),MR-6,Y+netH/2+1.3,{align:'right',baseline:'middle'});
+  Y+=netH+10;
+  if(d.notes){
+    pdf.setFontSize(8);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);pdf.text('OBSERVATIONS',ML,Y);Y+=5;
+    pdf.setFontSize(9);pdf.setFont('helvetica','italic');pdf.setTextColor.apply(pdf,noir);
+    var notesLines=pdf.splitTextToSize(esc(d.notes),CW);pdf.text(notesLines,ML,Y);Y+=notesLines.length*4.5+4;
+  }
+  pdf.setFontSize(7.5);pdf.setFont('helvetica','italic');pdf.setTextColor.apply(pdf,grisLeger);
+  pdf.text('Ce bulletin de paie est à conserver sans limitation de durée.',ML,Math.min(Y+2,H-24));
+  var fY=H-18;
+  pdf.setDrawColor(210,215,220);pdf.setLineWidth(0.3);pdf.line(ML,fY,MR,fY);
+  pdf.setFontSize(7);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);
+  var fLine=(p.nom||'')+(p.siret?' · SIRET : '+p.siret:'')+(p.adresse?' · '+p.adresse:'')+(p.ville?' · '+p.ville:'');
+  pdf.text(fLine,W/2,fY+5,{align:'center'});
+  return pdf;
+}
+function fmtE2(n){return (parseFloat(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
+function genererPdfMaFichePaieGDF(i){
+  var d=_mesFichesPaie[i];
+  if(!d)return;
+  var pdf=construirePdfFichePaieGDF(d);
+  pdf.save('bulletin-paie-'+(d.salarie||'').replace(/[^a-z0-9]/gi,'_')+'-'+(d.periode||'')+'.pdf');
+}
 
 // ═══ SAUVEGARDE & PARTAGE ═══════════════════════════════
 function exportJSON(){
@@ -9585,6 +11830,77 @@ function showHistoriqueModal(docId){
 
 // ═══ HELPERS ════════════════════════════════════════════
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ═══ MOBILE : labellise automatiquement les cellules de tableau avec leur en-tete ═══
+// (utilise par le CSS mobile ci-dessus pour afficher "Nom : valeur" en cartes empilees,
+// sans avoir a modifier chaque fonction render* individuellement).
+function labelliserTableauxMobile(){
+  document.querySelectorAll('.content table:not([style]), .card table:not([style])').forEach(function(table){
+    var headers=Array.prototype.map.call(table.querySelectorAll('thead th'),function(th){return th.textContent.trim();});
+    if(!headers.length)return;
+    table.querySelectorAll('tbody tr').forEach(function(tr){
+      Array.prototype.forEach.call(tr.children,function(td,i){
+        if(headers[i]!==undefined)td.setAttribute('data-label',headers[i]);
+      });
+    });
+  });
+}
+// Relance automatiquement apres tout changement de contenu (nouveaux tableaux rendus par showPage/render*)
+var _mobileLabelObserver=new MutationObserver(function(){
+  clearTimeout(window._mobileLabelTimeout);
+  window._mobileLabelTimeout=setTimeout(labelliserTableauxMobile,150);
+});
+document.addEventListener('DOMContentLoaded',function(){
+  var contentZone=document.querySelector('.main')||document.body;
+  _mobileLabelObserver.observe(contentZone,{childList:true,subtree:true});
+  labelliserTableauxMobile();
+});
+
+// ═══ POP-UP DE BIENVENUE (premiere connexion, une seule fois par navigateur) ═══
+var WELCOME_STORAGE_KEY_GDF='nico_welcome_vu_gdf';
+function afficherWelcomeModalSiPremiereFoisGDF(){
+  if(localStorage.getItem(WELCOME_STORAGE_KEY_GDF)==='1')return;
+  var m=document.getElementById('welcome-modal-gdf');
+  if(m)m.classList.add('open');
+}
+function fermerWelcomeModalGDF(){
+  localStorage.setItem(WELCOME_STORAGE_KEY_GDF,'1');
+  var m=document.getElementById('welcome-modal-gdf');
+  if(m)m.classList.remove('open');
+}
+
+// ═══ PREMIERE CONNEXION : verifie (cote serveur, pas juste localStorage) si ce compte a
+// deja renseigne son prenom/nom via la fiche userProfiles/{uid}. Si non, affiche un modal
+// non fermable tant qu'il n'a pas repondu. La fiche cree ici a role:'' — le dashboard
+// detectera cette fiche en attente et proposera a l'administrateur de lui attribuer un role
+// (voir verifierNouveauxUtilisateurs() dans dashboard.html). ═══
+function verifierPremiereConnexionIdentite(){
+  if(!fbUser)return;
+  fbDb.collection('userProfiles').doc(fbUser.uid).get().then(function(doc){
+    if(doc.exists&&doc.data().prenom)return; // deja renseigne
+    document.getElementById('modal-premiere-connexion').classList.add('open');
+  }).catch(function(e){console.error('Erreur vérification première connexion:',e);});
+}
+
+function enregistrerPremiereConnexion(){
+  var prenom=document.getElementById('pc-prenom').value.trim();
+  var nom=document.getElementById('pc-nom').value.trim();
+  if(!prenom||!nom){alert('Merci de renseigner votre prénom et votre nom.');return;}
+  fbDb.collection('userProfiles').doc(fbUser.uid).set({
+    prenom:prenom,nom:nom,nomComplet:prenom+' '+nom,email:fbUser.email,
+    role:'', // en attente d'attribution par l'administrateur depuis le dashboard
+    dateInscription:firebase.firestore.FieldValue.serverTimestamp()
+  },{merge:true}).then(function(){
+    document.getElementById('modal-premiere-connexion').classList.remove('open');
+  }).catch(function(e){
+    console.error('Erreur enregistrement identité:',e);
+    alert('⚠️ Erreur lors de l\'enregistrement. Vérifiez votre connexion et réessayez.');
+  });
+}
+
+// Serialise une valeur en JS (JSON.stringify) puis echappe les guillemets pour une insertion
+// sure dans un attribut HTML delimite par des doubles guillemets (onclick="...").
+function aj(v){return JSON.stringify(v).replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function fmt(n){
   var v=parseFloat(n)||0;
   var neg=v<0;v=Math.abs(v);
@@ -9769,7 +12085,6 @@ function motifJourBloqueGestion(ds){
 }
 
 function saveBI(){
-  if(!verifierCode1012('Créer/modifier un bon d\'intervention'))return;
   var cId=parseInt(document.getElementById('bi-client').value);
   if(!cId){alert('Selectionnez un client.');return;}
   if(biPhotosAvant.some(function(p){return p.statutCloud==='envoi';})||biPhotosApres.some(function(p){return p.statutCloud==='envoi';})){
@@ -9849,7 +12164,6 @@ function closeLightbox(e){
 
 function deleteBI(){if(!confirm('Supprimer ce bon?'))return;deleteBIById(editBIId);}
 function deleteBIById(id){
-  if(!verifierCode1012('Supprimer un bon d\'intervention'))return;
   var bi=(db.interventions||[]).find(function(x){return x.id===id;});
   db.interventions=(db.interventions||[]).filter(function(x){return x.id!==id;});
   sDB();closeModal('modal-bi');renderBI();
@@ -10739,7 +13053,6 @@ function openDepenseModal(id){
 }
 
 function saveDepense(){
-  if(!verifierCode1012('Enregistrer une dépense'))return;
   var libelle=document.getElementById('dep-libelle').value.trim();
   var montant=parseFloat(document.getElementById('dep-montant').value);
   var date=document.getElementById('dep-date').value;
@@ -10763,7 +13076,6 @@ function saveDepense(){
 }
 
 function deleteDepense(){
-  if(!verifierCode1012('Supprimer une dépense'))return;
   if(!confirm('Supprimer cette depense ?'))return;
   db.depenses=(db.depenses||[]).filter(function(x){return x.id!==editDepenseId;});
   sDB();closeModal('modal-depense');renderDepenses();
@@ -11428,7 +13740,6 @@ function toggleScanNumField(){
 }
 
 function saveScans(){
-  if(!verifierCode1012('Enregistrer des documents scannés'))return;
   if(!scanPendingFiles.length){alert('Ajoutez au moins un fichier.');return;}
   var type=document.getElementById('scan-type').value;
   var clientId=document.getElementById('scan-client').value;
@@ -11585,7 +13896,6 @@ function viewScan(id){
 }
 
 function deleteScanFromView(){
-  if(!verifierCode1012('Supprimer un document scanné'))return;
   if(!confirm('Supprimer cette fiche ? (le fichier reste dans votre Google Drive, il n\'est pas supprimé automatiquement — pensez à le faire vous-même si besoin)'))return;
   var idToDelete=currentScanViewId;
   db.scans=(db.scans||[]).filter(function(x){return x.id!==idToDelete;});
@@ -12281,5 +14591,132 @@ setTimeout(applyTableLabels,200);
 })();
 
 </script>
+<!-- MODAL OUTIL MATERIEL -->
+<div class="modal-overlay" id="modal-materiel">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><h2 id="mt-title">Nouvel outil</h2><button class="close-btn" onclick="closeModal('modal-materiel')">✕</button></div>
+    <div class="modal-body">
+      <div class="fg"><label>Nom de l'outil *</label><input id="mt-nom" placeholder="Perforateur SDS, niveau laser..."></div>
+      <div class="fg"><label>N° de référence</label><input id="mt-ref" readonly style="background:var(--bg,#F1F5F9);font-weight:700;color:var(--primary)"></div>
+      <div class="fg" style="margin-top:10px"><label>N° de série</label><input id="mt-serie" placeholder="Numéro de série (optionnel)"></div>
+      <div class="fg" style="margin-top:10px">
+        <label>Contrôle / révision périodique</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="date" id="mt-prochain-controle" style="flex:1">
+          <select id="mt-controle-frequence" style="width:150px" onchange="calculerProchaineDateControle()">
+            <option value="">Pas de rappel</option>
+            <option value="1">Tous les mois</option>
+            <option value="3">Tous les 3 mois</option>
+            <option value="6">Tous les 6 mois</option>
+            <option value="12">Tous les ans</option>
+          </select>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Pour les équipements soumis à vérification obligatoire (échafaudage, harnais, échelle, engins...). Une alerte apparaîtra sur le dashboard quand la date approche.</div>
+      </div>
+      <div class="fg" style="margin-top:10px"><label>Notes</label><textarea id="mt-notes" style="min-height:50px"></textarea></div>
+      <div id="mt-qr-zone" style="display:none;text-align:center;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+        <canvas id="mt-qr-canvas" width="180" height="180" style="border:1px solid var(--border);border-radius:8px;background:#fff"></canvas>
+        <div style="margin-top:8px"><button class="btn btn-ghost btn-sm" onclick="imprimerEtiquetteMateriel()">🖨 Imprimer l'étiquette</button></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-materiel')">Annuler</button>
+      <button id="mt-del-btn" class="btn btn-danger" style="display:none" onclick="deleteMateriel()">🗑 Supprimer</button>
+      <button class="btn btn-primary" onclick="saveMateriel()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SCANNER QR MATERIEL -->
+<div class="modal-overlay" id="modal-scan-materiel">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><h2>📷 Scanner un outil</h2><button class="close-btn" onclick="fermerScannerMateriel()">✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button type="button" class="btn btn-ghost btn-sm" id="mt-tab-scan" onclick="basculerModeSaisieMateriel('scan')" style="flex:1">📷 Scanner</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="mt-tab-code" onclick="basculerModeSaisieMateriel('code')" style="flex:1">⌨️ Saisir un code</button>
+      </div>
+      <div id="mt-scan-reader" style="width:100%"></div>
+      <div id="mt-code-zone" style="display:none">
+        <div class="fg"><label>Nom de l'outil ou n° de série</label><input id="mt-code-saisie" placeholder="Ex : Perforateur SDS ou n° série" onkeydown="if(event.key==='Enter')validerCodeMateriel()"></div>
+        <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="validerCodeMateriel()">Valider</button>
+      </div>
+      <div id="mt-scan-resultat" style="margin-top:12px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RETOUR MATERIEL (etat + commentaire) -->
+<div class="modal-overlay" id="modal-retour-materiel">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><h2>↩️ Retour d'outil</h2><button class="close-btn" onclick="closeModal('modal-retour-materiel')">✕</button></div>
+    <div class="modal-body">
+      <div style="font-weight:700;margin-bottom:12px" id="mtr-nom"></div>
+      <div class="fg">
+        <label>État de l'outil au retour</label>
+        <select id="mtr-etat">
+          <option value="bon">✅ Bon état</option>
+          <option value="a_reparer">🔧 À réparer</option>
+          <option value="perdu">❌ Perdu / manquant</option>
+        </select>
+      </div>
+      <div class="fg" style="margin-top:10px">
+        <label>Commentaire (optionnel)</label>
+        <textarea id="mtr-commentaire" style="min-height:60px" placeholder="Ex : lame émoussée, batterie à changer..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-retour-materiel')">Annuler</button>
+      <button class="btn btn-primary" onclick="confirmerRetourMateriel()">✅ Confirmer le retour</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BIENVENUE PREMIERE CONNEXION -->
+<div class="modal-overlay" id="welcome-modal-gdf">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header"><h2>👋 Bienvenue sur Gestion devis & factures</h2><button class="close-btn" onclick="fermerWelcomeModalGDF()">✕</button></div>
+    <div class="modal-body">
+      <div style="font-size:13.5px;line-height:1.6">
+        <p style="margin-bottom:12px">Cette application est le cœur de votre activité NICO MULTISERVICES. Voici ce que vous pouvez y faire :</p>
+        <div style="background:var(--bg,#F8FAFC);border:1px solid var(--border,#E2E8F0);border-radius:10px;padding:12px 14px;margin-bottom:10px">
+          <div style="font-weight:700;margin-bottom:4px">👥 Clients & Contrats</div>
+          <div style="color:var(--muted)">Fiche client complète, historique, contrats d'entretien avec visites planifiées automatiquement.</div>
+        </div>
+        <div style="background:var(--bg,#F8FAFC);border:1px solid var(--border,#E2E8F0);border-radius:10px;padding:12px 14px;margin-bottom:10px">
+          <div style="font-weight:700;margin-bottom:4px">📄 Devis & Factures</div>
+          <div style="color:var(--muted)">Création, envoi, suivi des signatures et paiements, conversion devis → facture.</div>
+        </div>
+        <div style="background:var(--bg,#F8FAFC);border:1px solid var(--border,#E2E8F0);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+          <div style="font-weight:700;margin-bottom:4px">🏗 Chantiers & équipe</div>
+          <div style="color:var(--muted)">Planning des interventions, pointage d'heures par salarié, matériel, rapports de chantier.</div>
+        </div>
+        <p style="font-size:12px;color:var(--muted)">Toutes les données saisies ici sont synchronisées avec l'agenda chantier et la comptabilité.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" style="width:100%" onclick="fermerWelcomeModalGDF()">J'ai compris, commencer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PREMIERE CONNEXION : demande le prenom/nom au tout premier login d'un compte, non
+     fermable sans repondre (pas de bouton "fermer"/croix), pour que ce soit enregistre pour
+     de bon (fiche salarie/paie, affichage du nom dans les listes, etc.) plutot que juste un
+     message de bienvenue local au navigateur. -->
+<div class="modal-overlay" id="modal-premiere-connexion">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><h2>👋 Bienvenue !</h2></div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Avant de commencer, merci de renseigner votre identité — elle sera utilisée pour les fiches de paie, le planning et partout où votre nom doit apparaître.</p>
+      <div class="fg"><label>Prénom *</label><input id="pc-prenom" placeholder="Jean"></div>
+      <div class="fg"><label>Nom *</label><input id="pc-nom" placeholder="Dupont"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" style="width:100%" onclick="enregistrerPremiereConnexion()">Valider</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
