@@ -8,6 +8,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
 :root{
   --bg:#0B1220; --panel:#111A2C; --panel2:#0E1626; --border:#22304A;
@@ -394,6 +395,23 @@ main{max-width:1150px; flex:1; min-width:0; margin:0; padding:20px;}
 .doceditor-ligne input{background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:6px 8px; color:var(--text); font-size:.74rem;}
 .doceditor-ligne button{background:var(--danger); border:none; color:#fff; border-radius:6px; padding:6px; font-size:.7rem; cursor:pointer;}
 .doceditor-total{text-align:right; font-weight:800; font-size:.9rem; margin-top:8px;}
+
+/* ═══ MOBILE ═══ */
+@media(max-width:680px){
+  body{padding:10px;}
+  .stats-grid{grid-template-columns:1fr 1fr;}
+
+  .doc-preview-table{border:none;}
+  .doc-preview-table thead{display:none;}
+  .doc-preview-table tbody{display:block;}
+  .doc-preview-table tr{display:block;background:var(--panel2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;padding:8px 10px;}
+  .doc-preview-table td{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0;border:none;border-bottom:1px solid var(--border);text-align:right;}
+  .doc-preview-table td:last-child{border-bottom:none;}
+  .doc-preview-table td:before{content:attr(data-label);font-weight:600;font-size:.62rem;color:var(--muted);text-align:left;margin-right:8px;white-space:nowrap;}
+
+  .doceditor-row2{grid-template-columns:1fr;}
+  .doceditor-ligne{grid-template-columns:1fr 60px 70px 30px;}
+}
 </style>
 </head>
 <body>
@@ -444,6 +462,8 @@ main{max-width:1150px; flex:1; min-width:0; margin:0; padding:20px;}
       <button class="sidebar-link" data-view="view-entreprise" onclick="changerVueDash('view-entreprise')">🏢 Entreprise & Vitrine</button>
       <button class="sidebar-link" data-view="view-annonces" onclick="changerVueDash('view-annonces')">📢 Annonce & tickets</button>
       <button class="sidebar-link" data-view="view-tracabilite" onclick="changerVueDash('view-tracabilite')">🔍 Traçabilité</button>
+      <button class="sidebar-link" data-view="view-materiel" onclick="changerVueDash('view-materiel')">🧰 Matériel</button>
+      <button class="sidebar-link" data-view="view-salaries-dash" onclick="changerVueDash('view-salaries-dash')">👷 Salariés</button>
     </div>
     <div class="sidebar-group">
       <div class="sidebar-group-title">Sécurité & comptes</div>
@@ -488,6 +508,11 @@ main{max-width:1150px; flex:1; min-width:0; margin:0; padding:20px;}
           <h2>⚠️ Alertes système <span class="cnt" id="alert-count">0</span></h2>
           <div id="alerts"><div class="feed-empty">Aucune alerte pour le moment.</div></div>
         </div>
+
+        <div class="panel" id="panel-paie-dash">
+          <h2>💰 Paie du mois</h2>
+          <div id="paie-dash-body"><div class="feed-empty">Chargement…</div></div>
+        </div>
         <div class="panel" id="panel-visites">
           <h2>📈 Visites vitrine — 7 derniers jours</h2>
           <div class="bars" id="bars"></div>
@@ -500,6 +525,14 @@ main{max-width:1150px; flex:1; min-width:0; margin:0; padding:20px;}
 
     <!-- ═══ VUE : GESTION DES SITES ═══ -->
     <div class="view-section" id="view-sites">
+        <!-- Panne generale : bascule TOUS les sites/apps en maintenance en une seule action,
+             sauf le dashboard lui-meme qui reste toujours accessible pour pouvoir tout reactiver. -->
+        <div class="panel" id="ctrl-panel-panne-generale" style="display:none;border-color:var(--danger)">
+          <h2>🚨 Panne générale (tous les sites)</h2>
+          <p style="font-size:.72rem;color:var(--muted);margin-bottom:12px">Bascule en une seule fois le site vitrine, l'espace client, l'application de gestion, l'agenda chantier et la comptabilité en maintenance. Le dashboard reste toujours accessible pour tout réactiver. Utile pour une maintenance planifiée, un test, ou en cas d'urgence.</p>
+          <div id="ctrl-panne-generale-body"></div>
+        </div>
+
         <!-- Controle maintenance des sites -->
         <div class="panel" id="ctrl-panel-maintenance" style="display:none">
           <h2>🛠️ Contrôle des sites</h2>
@@ -509,6 +542,21 @@ main{max-width:1150px; flex:1; min-width:0; margin:0; padding:20px;}
         <div class="panel" id="ctrl-panel-noaccess" style="display:none">
           <h2>🛠️ Contrôle des sites</h2>
           <div class="no-admin-access">Ce compte n'a pas les droits administrateur.<br>Contactez un administrateur existant pour être ajouté.</div>
+        </div>
+
+        <!-- Controle maintenance dediee a l'application comptabilite (compta.html) -->
+        <div class="panel" id="ctrl-panel-maintenance-compta" style="display:none">
+          <h2>🧮 Application Comptabilité</h2>
+          <div id="ctrl-maintenance-compta-body"></div>
+        </div>
+
+        <!-- Fiches de paie : visibilite (lecture seule depuis le dashboard) + maintenance dediee
+             a cette seule section de compta.html, independante du reste de l'application -->
+        <div class="panel" id="ctrl-panel-paie" style="display:none">
+          <h2>🧑‍💼 Fiches de paie</h2>
+          <div id="ctrl-paie-maintenance-body" style="margin-bottom:14px"></div>
+          <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Dernières fiches enregistrées (lecture seule) :</div>
+          <div id="ctrl-paie-liste">Chargement…</div>
         </div>
 
         <!-- Blocage de sections/categories individuelles -->
@@ -615,6 +663,45 @@ main{max-width:1150px; flex:1; min-width:0; margin:0; padding:20px;}
     </div>
     <!-- ═══ FIN VUE TRACABILITE GLOBALE ═══ -->
 
+    <!-- ═══ VUE : MATERIEL & OUTILLAGE ═══ -->
+    <div class="view-section" id="view-materiel">
+      <div class="panel">
+        <h2>🧰 Matériel & Outillage <span class="cnt" id="mat-dash-count">0</span></h2>
+        <p style="font-size:.72rem;color:var(--muted);margin-bottom:12px">Vue d'ensemble de tout le matériel. Scannez ou tapez un code pour localiser un outil ou le marquer comme rendu.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+          <button class="btn-sm2" onclick="ouvrirScanMaterielDash()">📷 Scanner un outil</button>
+          <button class="btn-sm2" onclick="basculerCodeMaterielDash()">⌨️ Saisir un code</button>
+        </div>
+        <div id="mat-dash-scan-zone" style="display:none;margin-bottom:12px"></div>
+        <div id="mat-dash-code-zone" style="display:none;margin-bottom:12px">
+          <div style="display:flex;gap:6px;max-width:360px">
+            <input id="mat-dash-code-saisie" class="ctrl-select" placeholder="Référence, nom ou n° de série" style="flex:1" onkeydown="if(event.key==='Enter')validerCodeMaterielDash()">
+            <button class="btn-sm2" onclick="validerCodeMaterielDash()">OK</button>
+          </div>
+        </div>
+        <div id="mat-dash-resultat" style="margin-bottom:14px;font-size:.78rem"></div>
+        <table class="doc-preview-table"><thead><tr><th>Réf.</th><th>Nom</th><th>N° série</th><th>Statut</th><th>Détenu par</th><th>Chantier</th><th>Retour prévu</th><th>Prochain contrôle</th></tr></thead><tbody id="mat-dash-liste"></tbody></table>
+      </div>
+    </div>
+    <!-- ═══ FIN VUE MATERIEL ═══ -->
+
+    <!-- ═══ VUE : SALARIÉS ═══ -->
+    <div class="view-section" id="view-salaries-dash">
+      <div class="panel">
+        <h2>👷 Salariés <span class="cnt" id="sal-dash-count">0</span></h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+          <input id="sal-dash-recherche" class="ctrl-select" placeholder="🔍 Rechercher un salarié..." style="flex:1;min-width:200px" oninput="renderListeSalariesDash()">
+          <label style="font-size:.72rem;color:var(--muted);display:flex;align-items:center;gap:5px;white-space:nowrap"><input type="checkbox" id="sal-dash-voir-archives" onchange="renderListeSalariesDash()"> Voir aussi les archivés</label>
+        </div>
+        <div id="sal-dash-liste"></div>
+      </div>
+      <div class="panel" id="sal-dash-fiche-panel" style="display:none">
+        <h2 id="sal-dash-fiche-titre">Fiche salarié</h2>
+        <div id="sal-dash-fiche-contenu"></div>
+      </div>
+    </div>
+    <!-- ═══ FIN VUE SALARIÉS ═══ -->
+
     <!-- ═══ VUE : ENTREPRISE & VITRINE ═══ -->
     <div class="view-section" id="view-entreprise">
       <div class="panel">
@@ -659,9 +746,22 @@ main{max-width:1150px; flex:1; min-width:0; margin:0; padding:20px;}
                 <input type="text" class="ctrl-select" id="new-user-password" placeholder="Mot de passe provisoire (6 caractères min.)" style="flex:1">
                 <button class="btn-preview" type="button" onclick="genererMotDePasseNouvelUtilisateur()">🎲</button>
               </div>
-              <label style="display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--muted);margin-bottom:10px">
-                <input type="checkbox" id="new-user-admin" checked style="width:14px;height:14px"> Donner les droits administrateur (accès Dashboard + gestion complète)
-              </label>
+              <div class="fg" style="margin-bottom:10px">
+                <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">Rôle du nouveau compte</label>
+                <select id="new-user-role" style="width:100%" onchange="toggleChampsSalarieDash()">
+                  <option value="admin">Administrateur (accès total)</option>
+                  <option value="compta">Comptabilité (lecture seule devis/factures/clients + app Comptabilité)</option>
+                  <option value="employe" selected>Employé / artisan (accès normal, sans Administration)</option>
+                </select>
+              </div>
+              <div class="fg" style="margin-bottom:10px" id="new-user-nom-wrap">
+                <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">Nom du salarié</label>
+                <input type="text" class="ctrl-select" id="new-user-nom" placeholder="Nom et prénom" style="width:100%">
+              </div>
+              <div class="fg" style="margin-bottom:10px" id="new-user-poste-wrap">
+                <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">Poste (optionnel)</label>
+                <input type="text" class="ctrl-select" id="new-user-poste" placeholder="Ex : Artisan multi-services" style="width:100%">
+              </div>
               <button class="btn-sm2" onclick="creerNouvelUtilisateurDash()">Créer le compte</button>
               <p id="new-user-status" style="font-size:.7rem;margin-top:8px;display:none"></p>
             </div>
@@ -673,6 +773,15 @@ main{max-width:1150px; flex:1; min-width:0; margin:0; padding:20px;}
                 <button class="btn-sm2" onclick="ajouterAdminDashboard()">➕ Ajouter</button>
               </div>
               <p style="font-size:.68rem;color:var(--muted);margin-top:8px">Trouvez l'UID dans Firebase Console → Authentication.</p>
+            </div>
+
+            <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">
+              <div style="font-size:.72rem;font-weight:700;margin-bottom:8px">🧮 Rôle Comptabilité (accès app Comptabilité + lecture seule dans Gestion Devis &amp; Factures)</div>
+              <div class="admin-list" id="compta-role-list"></div>
+              <div class="admin-add-row" style="margin-top:8px">
+                <input type="text" id="new-compta-uid" placeholder="UID Firebase du compte à passer en rôle Comptabilité">
+                <button class="btn-sm2" onclick="ajouterRoleComptaDashboard()">➕ Attribuer le rôle</button>
+              </div>
             </div>
           </div>
         </div>
@@ -701,6 +810,49 @@ main{max-width:1150px; flex:1; min-width:0; margin:0; padding:20px;}
           </div>
         </div>
 
+        <!-- Mode vue client : consultation en lecture seule des donnees d'un autre compte,
+             pour diagnostiquer un probleme signale sans risque de modifier ses donnees
+             (contrairement au Debogueur JSON de l'explorateur base de donnees complet). -->
+        <div class="panel" id="ctrl-panel-vueclient" style="display:none">
+          <h2>👁️ Mode vue client (lecture seule)</h2>
+          <p style="font-size:.72rem;color:var(--muted);margin-bottom:12px">Consultez le résumé des données d'un compte (clients, devis/factures, matériel, planning...) sans aucun risque de les modifier — utile pour diagnostiquer un problème signalé par un utilisateur.</p>
+          <div class="ctrl-actions-row" style="margin-bottom:12px">
+            <select id="vueclient-select" class="ctrl-select" style="flex:1"><option value="">— Choisir un compte —</option></select>
+            <button class="btn-sm2" onclick="chargerVueClient()">👁️ Consulter</button>
+          </div>
+          <div id="vueclient-contenu"></div>
+        </div>
+
+        <!-- Portail applications : boutons configurables affiches sur portail.html, la
+             page d'accueil a mettre sur les ordinateurs de l'entreprise, qui renvoie vers
+             les differents sites/applis existants. -->
+        <div class="panel" id="ctrl-panel-portail" style="display:none">
+          <h2>🔗 Portail applications</h2>
+          <p style="font-size:.72rem;color:var(--muted);margin-bottom:12px">Ces boutons s'affichent sur <code>portail.html</code> — la page à mettre en page d'accueil sur les ordinateurs de l'entreprise pour accéder rapidement à chaque site/application.</p>
+          <div id="portail-liste" style="margin-bottom:14px"></div>
+          <div style="border-top:1px solid var(--border);padding-top:12px">
+            <input type="hidden" id="portail-edit-id">
+            <div class="ctrl-actions-row">
+              <input type="text" class="ctrl-select" id="portail-icone" placeholder="Emoji (ex: 🧾)" style="width:80px;text-align:center">
+              <input type="text" class="ctrl-select" id="portail-label" placeholder="Nom du bouton (ex: Gestion devis)" style="flex:1">
+            </div>
+            <div class="ctrl-actions-row">
+              <input type="text" class="ctrl-select" id="portail-url" placeholder="https://..." style="flex:1">
+              <button class="btn-sm2" onclick="savePortailBouton()">💾 Enregistrer</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Zone dangereuse : suppression complete des donnees. Reservee aux administrateurs
+             (comme tous les panneaux de cette section), avec double confirmation ecrite pour
+             eviter tout clic accidentel. Ne supprime PAS les comptes de connexion Firebase
+             Auth (impossible depuis le client) — utilisez reset-complet.js pour cela. -->
+        <div class="panel" id="ctrl-panel-dangerzone" style="display:none;border:1px solid #DC2626">
+          <h2 style="color:#DC2626">🗑️ Zone dangereuse</h2>
+          <p style="font-size:.72rem;color:var(--muted);margin-bottom:12px">Supprime <strong>définitivement</strong> toutes les données métier : clients, devis, factures, planning, matériel, contrats, litiges, salariés et paie. Les comptes de connexion (email/mot de passe) ne sont PAS supprimés — vous pourrez toujours vous reconnecter sur une base vide.</p>
+          <button class="btn-sm2 danger" onclick="ouvrirSuppressionTotale()">🗑️ Supprimer toutes les données</button>
+        </div>
+
         <!-- Reinitialisation de mot de passe -->
         <div class="panel" id="ctrl-panel-resetmdp" style="display:none">
           <h2>✉️ Réinitialisation de mot de passe</h2>
@@ -724,6 +876,12 @@ main{max-width:1150px; flex:1; min-width:0; margin:0; padding:20px;}
 
     <!-- ═══ VUE : JOURNAL & TENTATIVES ═══ -->
     <div class="view-section" id="view-journal">
+        <!-- Historique dedie des maintenances / pannes (filtre du journal general ci-dessous) -->
+        <div class="panel" id="ctrl-panel-historique-pannes" style="display:none">
+          <h2>🔧 Historique des maintenances &amp; pannes <span class="cnt" id="historique-pannes-count">0</span></h2>
+          <div class="feed" id="historique-pannes-list" style="max-height:340px"></div>
+        </div>
+
         <!-- Journal des actions admin -->
         <div class="panel" id="ctrl-panel-journal" style="display:none">
           <h2>🗒️ Journal des modifications <span class="cnt" id="journal-count">0</span></h2>
@@ -919,6 +1077,15 @@ main{max-width:1150px; flex:1; min-width:0; margin:0; padding:20px;}
   </div>
 </div>
 
+<!-- ═══ MODAL APERCU FICHE DE PAIE ═══ -->
+<div class="modal-overlay" id="apercu-paie-modal" onclick="if(event.target===this)closeApercuPaieDash()">
+  <div class="modal-box">
+    <h3><span id="apercu-paie-title">Aperçu — bulletin de paie</span><button class="modal-close" onclick="closeApercuPaieDash()">✕</button></h3>
+    <div id="apercu-paie-body"><div class="modal-empty">Chargement…</div></div>
+  </div>
+</div>
+
+
 <!-- ═══ MODAL PERSONNALISATION DU DASHBOARD ═══ -->
 <div class="modal-overlay" id="perso-modal" onclick="if(event.target===this)closePersonnalisation()">
   <div class="modal-box">
@@ -928,6 +1095,41 @@ main{max-width:1150px; flex:1; min-width:0; margin:0; padding:20px;}
     <div class="ctrl-actions-row" style="margin-top:14px">
       <button class="btn-sm2" onclick="reinitialiserPersonnalisation()">↺ Tout réafficher</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL SUPPRESSION TOTALE : double confirmation (case a cocher + saisie exacte du mot
+     "SUPPRIMER") avant tout declenchement, pour eviter un clic accidentel sur une action
+     irreversible. -->
+<div class="modal-overlay" id="danger-modal">
+  <div class="modal-box">
+    <h3><span style="color:#DC2626">🗑️ Supprimer toutes les données</span><button class="modal-close" onclick="fermerSuppressionTotale()">✕</button></h3>
+    <div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;padding:12px;margin-bottom:14px;font-size:.76rem;color:#991B1B;line-height:1.6">
+      ⚠️ Cette action va supprimer <strong>définitivement et irréversiblement</strong> : tous les clients, devis, factures, le planning, le matériel, les contrats, les litiges, les salariés et les bulletins de paie.<br><br>
+      Cette action <strong>ne peut pas être annulée</strong>. Assurez-vous d'avoir exporté ce dont vous avez besoin au préalable (Paramètres &gt; Export).
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:.78rem;margin-bottom:12px">
+      <input type="checkbox" id="danger-checkbox" onchange="document.getElementById('danger-confirm-input').disabled=!this.checked">
+      Je comprends que cette action est irréversible.
+    </label>
+    <div style="margin-bottom:14px">
+      <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">Tapez SUPPRIMER en majuscules pour confirmer :</label>
+      <input type="text" id="danger-confirm-input" class="ctrl-select" style="width:100%" disabled oninput="document.getElementById('danger-btn-confirmer').disabled=(this.value!=='SUPPRIMER')">
+    </div>
+    <div class="ctrl-actions-row">
+      <button class="btn-sm2" onclick="fermerSuppressionTotale()">Annuler</button>
+      <button class="btn-sm2 danger" id="danger-btn-confirmer" disabled onclick="executerSuppressionTotale()">🗑️ Supprimer définitivement</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NOUVEL UTILISATEUR : apparait automatiquement a l'admin quand un compte s'est
+     connecte pour la premiere fois cote gestion-devis-factures.html et a rempli son
+     prenom/nom, mais n'a pas encore de role attribue. -->
+<div class="modal-overlay" id="nouvel-user-modal">
+  <div class="modal-box">
+    <h3><span>👋 Nouvel utilisateur à configurer</span><button class="modal-close" onclick="fermerModalNouvelUtilisateur()">✕</button></h3>
+    <div id="nouvel-user-liste"></div>
   </div>
 </div>
 
@@ -1089,6 +1291,7 @@ fbAuth.onAuthStateChanged(function(user){
     traceEvent('page_vue','Connexion dashboard — '+user.email);
     startAllListeners();
     chargerNomsComptesDash();
+    afficherWelcomeModalSiPremiereFois();
   }else{
     fbUser=null;
     document.getElementById('auth-screen').style.display='flex';
@@ -1104,8 +1307,43 @@ function tickClock(){
 }
 setInterval(tickClock,1000); tickClock();
 
+// ═══ POP-UP DE BIENVENUE (premiere connexion, une seule fois par navigateur) ═══
+var WELCOME_STORAGE_KEY='nico_welcome_vu_dashboard';
+function afficherWelcomeModalSiPremiereFois(){
+  if(localStorage.getItem(WELCOME_STORAGE_KEY)==='1')return;
+  var m=document.getElementById('welcome-modal');
+  if(m)m.classList.add('open');
+}
+function fermerWelcomeModal(){
+  localStorage.setItem(WELCOME_STORAGE_KEY,'1');
+  var m=document.getElementById('welcome-modal');
+  if(m)m.classList.remove('open');
+}
+
 // ═══ UTILITAIRES ═══
 function esc(s){return (s===null||s===undefined)?'':String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+// ═══ MOBILE : labellise automatiquement les cellules de tableau avec leur en-tete ═══
+function labelliserTableauxMobile(){
+  document.querySelectorAll('.doc-preview-table').forEach(function(table){
+    var headers=Array.prototype.map.call(table.querySelectorAll('thead th'),function(th){return th.textContent.trim();});
+    if(!headers.length)return;
+    table.querySelectorAll('tbody tr').forEach(function(tr){
+      Array.prototype.forEach.call(tr.children,function(td,i){
+        if(headers[i]!==undefined)td.setAttribute('data-label',headers[i]);
+      });
+    });
+  });
+}
+var _mobileLabelObserverDash=new MutationObserver(function(){
+  clearTimeout(window._mobileLabelTimeoutDash);
+  window._mobileLabelTimeoutDash=setTimeout(labelliserTableauxMobile,150);
+});
+document.addEventListener('DOMContentLoaded',function(){
+  var zone=document.querySelector('.app-layout')||document.body;
+  _mobileLabelObserverDash.observe(zone,{childList:true,subtree:true});
+  labelliserTableauxMobile();
+});
 function timeAgo(date){
   if(!date)return '';
   var diff=Math.floor((Date.now()-date.getTime())/1000);
@@ -1211,6 +1449,7 @@ function startAllListeners(){
   listenSiteHealth();
   listenDemandesDevis();
   listenContacts();
+  listenIncidentsChantierDash();
   listenAvis();
   listenMessagesClients();
   listenDocumentsPublics();
@@ -1220,6 +1459,9 @@ function startAllListeners(){
   checkAdminEtInitControles();
   demarrerEstimationQuotaFirestore();
   appliquerPersonnalisationDashboard();
+  ecouterSalariesDash();
+  ecouterFichesPaieWidgetAccueil();
+  ecouterMaterielDash();
 }
 
 // ═══ NAVIGATION SIDEBAR (bascule entre les vues du dashboard) ═══
@@ -1257,6 +1499,7 @@ var PANNEAUX_PERSONNALISABLES=[
   {id:'panel-alerts',label:'⚠️ Alertes système'},
   {id:'panel-visites',label:'📈 Visites vitrine (graphique)'},
   {id:'ctrl-panel-maintenance',label:'🛠️ Contrôle des sites (maintenance)'},
+  {id:'ctrl-panel-panne-generale',label:'🚨 Panne générale (tous les sites)'},
   {id:'ctrl-panel-sections',label:'🚧 Sections & catégories'},
   {id:'ctrl-panel-banner',label:'📢 Annonce globale'},
   {id:'ctrl-panel-tickets',label:'🎫 Tickets de maintenance'},
@@ -1265,12 +1508,16 @@ var PANNEAUX_PERSONNALISABLES=[
   {id:'ctrl-panel-demandes-aide',label:'🆘 Demandes d\'aide'},
   {id:'ctrl-panel-admins',label:'👤 Administrateurs'},
   {id:'ctrl-panel-journal',label:'🗒️ Journal des modifications'},
+  {id:'ctrl-panel-historique-pannes',label:'🔧 Historique des maintenances & pannes'},
   {id:'ctrl-panel-tentatives',label:'🚨 Tentatives de code échouées'},
   {id:'ctrl-panel-quota',label:'📊 Usage Firestore (estimation)'},
   {id:'ctrl-panel-diagnostic',label:'🩺 Diagnostic de la configuration'},
   {id:'ctrl-panel-stats-detail',label:'📊 Statistiques détaillées'},
   {id:'ctrl-panel-lockusers',label:'🔐 Verrouillage des comptes'},
   {id:'ctrl-panel-groupes',label:'🗂️ Bases de données par compte'},
+  {id:'ctrl-panel-vueclient',label:'👁️ Mode vue client (lecture seule)'},
+  {id:'ctrl-panel-portail',label:'🔗 Portail applications'},
+  {id:'ctrl-panel-dangerzone',label:'🗑️ Zone dangereuse'},
   {id:'ctrl-panel-resetmdp',label:'✉️ Réinitialisation de mot de passe'},
   {id:'ctrl-panel-testemail',label:'✉️ Test d\'envoi email'},
   {id:'ctrl-panel-restructure',label:'☠️ Zone dangereuse — Restructurer Firestore'},
@@ -1358,6 +1605,135 @@ function reinitialiserPersonnalisation(){
   ouvrirPersonnalisation();
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// ZONE DANGEREUSE : suppression complete des donnees metier. Vide entierement les
+// collections users, salaries et paie (meme liste que reset-complet.js), SANS toucher aux
+// comptes de connexion Firebase Auth (impossible depuis le SDK client — pour cela, utilisez
+// le script reset-complet.js en local avec la cle admin).
+// ═══════════════════════════════════════════════════════════════════════
+function ouvrirSuppressionTotale(){
+  document.getElementById('danger-checkbox').checked=false;
+  document.getElementById('danger-confirm-input').value='';
+  document.getElementById('danger-confirm-input').disabled=true;
+  document.getElementById('danger-btn-confirmer').disabled=true;
+  document.getElementById('danger-modal').classList.add('open');
+}
+
+function fermerSuppressionTotale(){
+  document.getElementById('danger-modal').classList.remove('open');
+}
+
+function executerSuppressionTotale(){
+  if(document.getElementById('danger-confirm-input').value!=='SUPPRIMER')return;
+  document.getElementById('danger-btn-confirmer').disabled=true;
+  document.getElementById('danger-btn-confirmer').textContent='Suppression en cours…';
+
+  var COLLECTIONS_A_VIDER=['users','salaries','paie'];
+
+  var viderCollection=function(nomCollection){
+    return fbDb.collection(nomCollection).get().then(function(snap){
+      if(snap.empty)return;
+      // Firestore limite un batch a 500 operations : on decoupe si necessaire.
+      var docs=snap.docs;
+      var lots=[];
+      for(var i=0;i<docs.length;i+=450)lots.push(docs.slice(i,i+450));
+      return lots.reduce(function(chaine,lot){
+        return chaine.then(function(){
+          var batch=fbDb.batch();
+          lot.forEach(function(d){batch.delete(d.ref);});
+          return batch.commit();
+        });
+      },Promise.resolve());
+    });
+  };
+
+  Promise.all(COLLECTIONS_A_VIDER.map(viderCollection))
+    .then(function(){
+      enregistrerActionAdminDash('⚠️ SUPPRESSION TOTALE des données effectuée',fbUser?fbUser.email:'');
+      fermerSuppressionTotale();
+      alert('✅ Toutes les données ont été supprimées.\n\nVos comptes de connexion restent valides — vous pouvez continuer à vous connecter, sur une base désormais vide.');
+      document.getElementById('danger-btn-confirmer').textContent='🗑️ Supprimer définitivement';
+    })
+    .catch(function(e){
+      console.error('Erreur suppression totale:',e);
+      alert('⚠️ Une erreur est survenue pendant la suppression. Certaines données ont pu être partiellement supprimées. Vérifiez les règles Firestore (droits de suppression) et réessayez.');
+      document.getElementById('danger-btn-confirmer').disabled=false;
+      document.getElementById('danger-btn-confirmer').textContent='🗑️ Supprimer définitivement';
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// NOUVEL UTILISATEUR A CONFIGURER : quand un compte se connecte pour la premiere fois cote
+// gestion-devis-factures.html, il renseigne son prenom/nom (voir cote gestion-devis-factures.html)
+// et une fiche userProfiles/{uid} est creee avec role:''. Le dashboard detecte ces fiches
+// en attente et propose a l'admin de leur attribuer un role.
+// ═══════════════════════════════════════════════════════════════════════
+function verifierNouveauxUtilisateurs(){
+  fbDb.collection('userProfiles').where('role','==','').get().then(function(snap){
+    if(snap.empty)return;
+    var liste=[];
+    snap.forEach(function(doc){liste.push(Object.assign({uid:doc.id},doc.data()));});
+    afficherModalNouvelUtilisateur(liste);
+  }).catch(function(e){console.error('Erreur vérification nouveaux utilisateurs:',e);});
+}
+
+function afficherModalNouvelUtilisateur(liste){
+  var el=document.getElementById('nouvel-user-liste');
+  el.innerHTML=liste.map(function(u){
+    return '<div style="border-bottom:1px solid var(--border);padding:12px 0">'+
+      '<div style="font-size:.85rem;font-weight:700;margin-bottom:2px">'+esc((u.prenom||'')+' '+(u.nom||''))+'</div>'+
+      '<div style="font-size:.72rem;color:var(--muted);margin-bottom:10px">'+esc(u.email||'')+'</div>'+
+      '<div class="ctrl-actions-row" style="margin-bottom:8px">'+
+        '<select class="ctrl-select" id="nu-role-'+u.uid+'" style="flex:1">'+
+          '<option value="artisan">Artisan</option>'+
+          '<option value="salarie">Salarié</option>'+
+          '<option value="comptable">Comptable</option>'+
+          '<option value="administrateur">Administrateur (accès complet dashboard)</option>'+
+          '<option value="autre">Autre</option>'+
+        '</select>'+
+      '</div>'+
+      '<label style="display:flex;align-items:center;gap:6px;font-size:.72rem;margin-bottom:8px">'+
+        '<input type="checkbox" id="nu-fichepaye-'+u.uid+'" checked> Créer sa fiche salarié (pour la paie et le planning)'+
+      '</label>'+
+      '<button class="btn-sm2" onclick="validerNouvelUtilisateur(\''+u.uid+'\',\''+encodeURIComponent(u.nom||'')+'\',\''+encodeURIComponent(u.prenom||'')+'\',\''+encodeURIComponent(u.email||'')+'\')">✓ Valider</button>'+
+    '</div>';
+  }).join('');
+  document.getElementById('nouvel-user-modal').classList.add('open');
+}
+
+function fermerModalNouvelUtilisateur(){
+  document.getElementById('nouvel-user-modal').classList.remove('open');
+}
+
+function validerNouvelUtilisateur(uid,nomEnc,prenomEnc,emailEnc){
+  var nom=decodeURIComponent(nomEnc),prenom=decodeURIComponent(prenomEnc),email=decodeURIComponent(emailEnc);
+  var role=document.getElementById('nu-role-'+uid).value;
+  var creerFiche=document.getElementById('nu-fichepaye-'+uid).checked;
+
+  var taches=[fbDb.collection('userProfiles').doc(uid).update({role:role,nomComplet:(prenom+' '+nom).trim()})];
+
+  if(role==='administrateur'){
+    taches.push(fbDb.collection('admins').doc(uid).set({ajoutePar:fbUser?fbUser.email:'',date:firebase.firestore.FieldValue.serverTimestamp()}));
+  }
+  if(creerFiche){
+    taches.push(fbDb.collection('salaries').add({
+      nom:(prenom+' '+nom).trim(),email:email,
+      poste:({artisan:'Artisan',salarie:'Salarié',comptable:'Comptable',administrateur:'Administrateur'})[role]||'Autre',
+      tauxHoraire:0,creePar:fbUser?fbUser.email:'',date:firebase.firestore.FieldValue.serverTimestamp()
+    }));
+  }
+
+  Promise.all(taches).then(function(){
+    enregistrerActionAdminDash('Nouvel utilisateur configuré ('+role+')',email);
+    verifierNouveauxUtilisateurs(); // rafraichit la liste (ferme le modal si plus personne)
+    if(document.getElementById('nouvel-user-liste').children.length===0)fermerModalNouvelUtilisateur();
+  }).catch(function(e){
+    console.error('Erreur configuration utilisateur:',e);
+    alert('⚠️ Erreur lors de la configuration. Vérifiez les règles Firestore.');
+  });
+}
+
+
 // ═══ ESTIMATION D'USAGE FIRESTORE (session en cours uniquement) ═══
 // Le plan gratuit Firebase (Spark) n'expose pas de quota temps reel via une API cote
 // client — il faudrait passer par Cloud Functions + Admin SDK (un serveur) pour lire le
@@ -1416,6 +1792,7 @@ function checkAdminEtInitControles(){
       document.getElementById('ctrl-panel-banner').style.display='block';
       document.getElementById('ctrl-panel-journal').style.display='block';
       document.getElementById('ctrl-panel-tentatives').style.display='block';
+      document.getElementById('ctrl-panel-historique-pannes').style.display='block';
       document.getElementById('ctrl-panel-tickets').style.display='block';
       document.getElementById('ctrl-panel-demandes-aide').style.display='block';
       document.getElementById('ctrl-panel-chatmaintenance').style.display='block';
@@ -1425,8 +1802,17 @@ function checkAdminEtInitControles(){
       document.getElementById('ctrl-panel-stats-detail').style.display='block';
       document.getElementById('ctrl-panel-lockusers').style.display='block';
       document.getElementById('ctrl-panel-groupes').style.display='block';
+      document.getElementById('ctrl-panel-vueclient').style.display='block';
+      document.getElementById('ctrl-panel-portail').style.display='block';
+      document.getElementById('ctrl-panel-dangerzone').style.display='block';
       document.getElementById('ctrl-panel-resetmdp').style.display='block';
       document.getElementById('ctrl-panel-dbexplorer').style.display='block';
+      document.getElementById('ctrl-panel-maintenance-compta').style.display='block';
+      ecouterMaintenanceComptaDash();
+      document.getElementById('ctrl-panel-panne-generale').style.display='block';
+      document.getElementById('ctrl-panel-paie').style.display='block';
+      ecouterFichesPaieDash();
+      ecouterBlocagePaieDash();
       document.getElementById('ctrl-panel-testemail').style.display='block';
       document.getElementById('ctrl-panel-restructure').style.display='block';
       document.getElementById('ctrl-panel-alldocs').style.display='block';
@@ -1434,7 +1820,12 @@ function checkAdminEtInitControles(){
       document.getElementById('ctrl-panel-clienttest').style.display='block';
       listenSiteConfigControles();
       chargerListeAdminsDashboard();
+      chargerListeComptesVueClient();
+      verifierNouveauxUtilisateurs();
+      chargerPortailListe();
+      chargerListeRoleComptaDashboard();
       chargerJournalAdminDashboard();
+      chargerHistoriquePannesDash();
       chargerTentativesEchouees();
       chargerTicketsDashboard();
       chargerDemandesAideDash();
@@ -1454,6 +1845,7 @@ function checkAdminEtInitControles(){
       document.getElementById('ctrl-panel-banner').style.display='none';
       document.getElementById('ctrl-panel-journal').style.display='none';
       document.getElementById('ctrl-panel-tentatives').style.display='none';
+      document.getElementById('ctrl-panel-historique-pannes').style.display='none';
       document.getElementById('ctrl-panel-tickets').style.display='none';
       document.getElementById('ctrl-panel-demandes-aide').style.display='none';
       document.getElementById('ctrl-panel-sante').style.display='none';
@@ -1461,6 +1853,9 @@ function checkAdminEtInitControles(){
       document.getElementById('ctrl-panel-stats-detail').style.display='none';
       document.getElementById('ctrl-panel-lockusers').style.display='none';
       document.getElementById('ctrl-panel-groupes').style.display='none';
+      document.getElementById('ctrl-panel-vueclient').style.display='none';
+      document.getElementById('ctrl-panel-portail').style.display='none';
+      document.getElementById('ctrl-panel-dangerzone').style.display='none';
       document.getElementById('ctrl-panel-resetmdp').style.display='none';
       document.getElementById('ctrl-panel-testemail').style.display='none';
       document.getElementById('ctrl-panel-restructure').style.display='none';
@@ -1484,6 +1879,8 @@ function listenSiteConfigControles(){
     renderSectionsBloquables(_lastCfgControles);
     renderBanniereControles(_lastCfgControles);
     renderSanteDuJour();
+    renderSiteHealth();
+    renderPanneGeneraleDash();
   },function(e){console.error('Erreur listener siteConfig (controles):',e);});
 }
 
@@ -1615,6 +2012,847 @@ function dbxSupprimerDocument(){
     document.getElementById('dbx-editeur').style.display='none';
     dbxChargerCollection();
   }).catch(function(e){dbxStatus('Erreur de suppression : '+(e&&e.message||e),true);});
+}
+
+// ═══ MAINTENANCE DEDIEE A compta.html (document siteConfig/comptaMaintenance, independant
+// du reste pour ne pas interferer avec la maintenance des autres applications) ═══
+function ecouterMaintenanceComptaDash(){
+  fbDb.collection('siteConfig').doc('comptaMaintenance').onSnapshot(function(doc){
+    renderMaintenanceComptaDash(doc.exists?doc.data():{});
+  },function(e){console.error('Erreur écoute maintenance compta:',e);});
+}
+function renderMaintenanceComptaDash(cfg){
+  var el=document.getElementById('ctrl-maintenance-compta-body');
+  if(!el)return;
+  var expiree=cfg.expiration&&new Date(cfg.expiration)<new Date();
+  var actif=!!cfg.actif&&!expiree;
+  el.innerHTML=
+    '<p style="font-size:.72rem;color:var(--muted);margin-bottom:10px">Statut actuel : '+
+    (actif?'<span class="badge badge-warn">🔧 En maintenance</span>':'<span class="badge badge-ok">✅ En ligne</span>')+'</p>'+
+    (actif?'':'<div class="fg" style="margin-bottom:8px"><label style="font-size:.68rem;color:var(--muted);display:block;margin-bottom:4px">Message affiché aux utilisateurs</label><textarea id="compta-maint-msg" rows="2" style="width:100%">Certaines fonctions peuvent être temporairement indisponibles.</textarea></div>')+
+    '<button class="btn-sm2" onclick="'+(actif?'desactiverMaintenanceComptaDash()':'activerMaintenanceComptaDash()')+'">'+(actif?'✅ Réactiver l\'application':'🔧 Passer en maintenance')+'</button>';
+}
+function activerMaintenanceComptaDash(){
+  var msg=(document.getElementById('compta-maint-msg')&&document.getElementById('compta-maint-msg').value)||'';
+  fbDb.collection('siteConfig').doc('comptaMaintenance').set({actif:true,message:msg},{merge:true}).then(function(){
+    enregistrerActionAdminDash('Application Comptabilité — maintenance activée',msg);
+  }).catch(function(e){alert('Erreur : '+e.message);});
+}
+function desactiverMaintenanceComptaDash(){
+  fbDb.collection('siteConfig').doc('comptaMaintenance').set({actif:false},{merge:true}).then(function(){
+    enregistrerActionAdminDash('Application Comptabilité — maintenance désactivée','');
+  }).catch(function(e){alert('Erreur : '+e.message);});
+}
+
+// ═══ FICHES DE PAIE — visibilite en lecture seule depuis le dashboard, et maintenance
+// dediee a cette seule section (independante du reste de compta.html), stockee dans le
+// meme document siteConfig/comptaMaintenance, champ "sections.paie" ═══
+function ecouterFichesPaieDash(){
+  fbDb.collection('paie').orderBy('date','desc').limit(50).onSnapshot(function(snap){
+    var liste=[];
+    snap.forEach(function(doc){liste.push(doc.data());});
+    renderFichesPaieDash(liste);
+  },function(e){
+    console.error('Erreur écoute fiches de paie:',e);
+    var el=document.getElementById('ctrl-paie-liste');
+    if(el)el.innerHTML='<p style="font-size:.72rem;color:var(--muted)">Impossible de charger les fiches de paie.</p>';
+  });
+}
+function renderFichesPaieDash(liste){
+  var el=document.getElementById('ctrl-paie-liste');
+  _dernieresFichesPaieDash=liste;
+  majWidgetPaieDash(liste);
+  if(!el)return;
+  if(!liste.length){el.innerHTML='<p style="font-size:.72rem;color:var(--muted)">Aucune fiche de paie enregistrée.</p>';return;}
+  var fmtE=function(n){return (parseFloat(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';};
+  el.innerHTML='<table class="doc-preview-table"><thead><tr><th>Salarié</th><th>Période</th><th style="text-align:right">Net</th><th>Date</th><th></th></tr></thead><tbody>'+
+    liste.map(function(d,i){
+      var dt=d.date&&d.date.toDate?d.date.toDate():null;
+      return '<tr><td>'+esc(d.salarie||'')+'</td><td>'+esc(d.periode||'')+'</td><td class="num">'+fmtE(d.net)+'</td><td>'+(dt?dt.toLocaleDateString('fr-FR'):'—')+'</td>'+
+        '<td><button class="btn-sm2" style="padding:3px 9px;font-size:.68rem" onclick="ouvrirApercuPaieDash('+i+')">👁 Aperçu</button></td></tr>';
+    }).join('')+
+    '</tbody></table>';
+}
+
+// ═══ WIDGET PAIE DASHBOARD (masse salariale du mois, prochaine echeance, alertes) ═══
+var _salariesActifsDash=[];
+function ecouterFichesPaieWidgetAccueil(){
+  fbDb.collection('paie').orderBy('date','desc').limit(50).onSnapshot(function(snap){
+    var liste=[];
+    snap.forEach(function(doc){liste.push(doc.data());});
+    _dernieresFichesPaieDash=liste;
+    majWidgetPaieDash(liste);
+  },function(e){console.error('Erreur écoute paie (widget accueil):',e);});
+}
+var _tousSalariesDash=[];
+function ecouterSalariesDash(){
+  fbDb.collection('salaries').onSnapshot(function(snap){
+    var liste=[];
+    snap.forEach(function(doc){var d=doc.data();d.id=doc.id;liste.push(d);});
+    _tousSalariesDash=liste;
+    _salariesActifsDash=liste.filter(function(s){return s.statut!=='inactif'&&s.statut!=='archive';});
+    majWidgetPaieDash(_dernieresFichesPaieDash);
+    renderListeSalariesDash();
+  },function(e){console.error('Erreur écoute salariés (widget paie):',e);});
+}
+function majWidgetPaieDash(fichesPaie){
+  var el=document.getElementById('paie-dash-body');
+  if(!el)return;
+  fichesPaie=fichesPaie||[];
+  var fmtE=function(n){return (parseFloat(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/\s/g,' ')+' €';};
+
+  var now=new Date();
+  var moisCourant=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+
+  var fichesDuMois=fichesPaie.filter(function(d){return d.periode===moisCourant;});
+  var masseSalariale=fichesDuMois.reduce(function(s,d){return s+(parseFloat(d.brut)||0);},0);
+
+  // Prochaine echeance : fin du mois en cours (date usuelle de versement de salaire)
+  var finMois=new Date(now.getFullYear(),now.getMonth()+1,0);
+  var joursRestants=Math.ceil((finMois-now)/86400000);
+
+  // Alertes : salaries actifs sans fiche de paie enregistree ce mois-ci
+  var nomsAvecFiche={};
+  fichesDuMois.forEach(function(d){nomsAvecFiche[d.salarie]=true;});
+  var salariesSansFiche=_salariesActifsDash.filter(function(s){return !nomsAvecFiche[s.nom];});
+
+  var html='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'+
+    '<div class="stat-card accent" style="margin:0"><div class="val">'+fmtE(masseSalariale)+'</div><div class="lbl">Masse salariale (brut) — '+fmtPeriodePaieDash(moisCourant)+'</div></div>'+
+    '<div class="stat-card blue" style="margin:0"><div class="val">'+joursRestants+' j</div><div class="lbl">Avant fin de mois ('+finMois.toLocaleDateString('fr-FR')+')</div></div>'+
+    '</div>';
+
+  if(salariesSansFiche.length){
+    html+='<div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:10px 12px;font-size:.75rem;color:#92400E">'+
+      '⚠️ <strong>'+salariesSansFiche.length+' salarié(s)</strong> sans fiche de paie ce mois-ci : '+
+      salariesSansFiche.map(function(s){return esc(s.nom);}).join(', ')+
+      '</div>';
+  }else if(_salariesActifsDash.length){
+    html+='<div style="background:#DCFCE7;border:1px solid #86EFAC;border-radius:8px;padding:10px 12px;font-size:.75rem;color:#15803D">✅ Tous les salariés actifs ont une fiche de paie ce mois-ci.</div>';
+  }else{
+    html+='<p style="font-size:.72rem;color:var(--muted)">Aucun salarié actif enregistré.</p>';
+  }
+  el.innerHTML=html;
+}
+
+// ═══ SALARIÉS (Dashboard) — liste, recherche, archivage, fiche detaillee ═══
+function renderListeSalariesDash(){
+  var el=document.getElementById('sal-dash-liste');if(!el)return;
+  var recherche=((document.getElementById('sal-dash-recherche')||{}).value||'').toLowerCase().trim();
+  var voirArchives=(document.getElementById('sal-dash-voir-archives')||{}).checked;
+  var liste=(_tousSalariesDash||[]).slice();
+  if(!voirArchives)liste=liste.filter(function(s){return s.statut!=='inactif'&&s.statut!=='archive';});
+  if(recherche){
+    liste=liste.filter(function(s){
+      return (s.nom&&s.nom.toLowerCase().indexOf(recherche)!==-1)||(s.poste&&s.poste.toLowerCase().indexOf(recherche)!==-1);
+    });
+  }
+  liste.sort(function(a,b){return (a.nom||'').localeCompare(b.nom||'');});
+  document.getElementById('sal-dash-count').textContent=liste.length;
+
+  if(!liste.length){el.innerHTML='<p style="font-size:.72rem;color:var(--muted);padding:10px 0">Aucun salarié'+(recherche?' pour cette recherche':'')+'.</p>';return;}
+
+  el.innerHTML=liste.map(function(s){
+    var estArchive=s.statut==='inactif'||s.statut==='archive';
+    var badge=estArchive?'<span class="badge" style="background:#F1F5F9;color:#64748B">Archivé</span>':'<span class="badge" style="background:#DCFCE7;color:#15803D">Actif</span>';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;'+(estArchive?'opacity:.65;':'')+'">'+
+      '<div><strong>'+esc(s.nom||'')+'</strong>'+(s.poste?' <span style="color:var(--muted);font-size:.75rem">— '+esc(s.poste)+'</span>':'')+' '+badge+'</div>'+
+      '<div style="display:flex;gap:6px"><button class="btn-sm2" onclick="ouvrirFicheSalarieDash(\''+s.id+'\')">Voir la fiche</button></div>'+
+      '</div>';
+  }).join('');
+}
+
+function ouvrirFicheSalarieDash(salarieId){
+  var s=(_tousSalariesDash||[]).find(function(x){return x.id===salarieId;});
+  if(!s)return;
+  var panel=document.getElementById('sal-dash-fiche-panel');
+  panel.style.display='block';
+  document.getElementById('sal-dash-fiche-titre').textContent='👷 '+(s.nom||'');
+  panel.scrollIntoView({behavior:'smooth',block:'start'});
+
+  var estArchive=s.statut==='inactif'||s.statut==='archive';
+  var contenu='<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px;font-size:.78rem">'+
+    (s.poste?'<div><strong>Poste :</strong> '+esc(s.poste)+'</div>':'')+
+    (s.email?'<div><strong>Email :</strong> '+esc(s.email)+'</div>':'')+
+    (s.tel?'<div><strong>Téléphone :</strong> <a href="tel:'+esc(s.tel.replace(/\s/g,''))+'">'+esc(s.tel)+'</a></div>':'')+
+    (s.tauxHoraire?'<div><strong>Taux horaire :</strong> '+parseFloat(s.tauxHoraire).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €/h</div>':'<div style="color:#92400E">⚠️ Aucun taux horaire renseigné</div>')+
+    '</div>'+
+    '<div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap">'+
+    '<button class="btn-sm2" style="background:'+(estArchive?'#15803D':'#DC2626')+'" onclick="toggleArchiveSalarieDash(\''+salarieId+'\','+(!estArchive)+')">'+(estArchive?'✅ Réactiver ce salarié':'📦 Archiver ce salarié')+'</button>'+
+    (s.email?'<button class="btn-sm2" onclick="ouvrirMailRendreMateriel(\''+salarieId+'\')">📧 Demander le retour de matériel</button><button class="btn-sm2" onclick="ouvrirMailAffectationChantier(\''+salarieId+'\')">📧 Notifier une affectation chantier</button>':'<span style="font-size:.7rem;color:var(--muted)">Renseignez un email pour ce salarié pour pouvoir lui écrire.</span>')+
+    '</div>';
+
+  // Historique paie (annee en cours)
+  var anneeActuelle=new Date().getFullYear();
+  fbDb.collection('paie').where('salarieId','==',salarieId).get().then(function(snap){
+    var fiches=[];
+    snap.forEach(function(doc){fiches.push(doc.data());});
+    fiches.sort(function(a,b){return (b.periode||'').localeCompare(a.periode||'');});
+    var fichesAnnee=fiches.filter(function(f){return (f.periode||'').substring(0,4)===String(anneeActuelle);});
+    var cumulBrut=fichesAnnee.reduce(function(sum,f){return sum+(parseFloat(f.brut)||0);},0);
+
+    // Chantiers travailles (a partir des pointages d'heures dans le planning partage)
+    var chantiers={};
+    (_eventsDash||[]).forEach(function(ev){
+      (ev.pointagesHeures||[]).forEach(function(p){
+        if(p.employe===s.nom){
+          if(!chantiers[ev.titre])chantiers[ev.titre]=0;
+          chantiers[ev.titre]+=parseFloat(p.heures)||0;
+        }
+      });
+    });
+    var nomsChantiers=Object.keys(chantiers).sort(function(a,b){return chantiers[b]-chantiers[a];});
+
+    var html2=contenu;
+    html2+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">'+
+      '<div class="stat-card accent" style="margin:0"><div class="val">'+cumulBrut.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €</div><div class="lbl">Cumul brut '+anneeActuelle+'</div></div>'+
+      '<div class="stat-card blue" style="margin:0"><div class="val">'+fiches.length+'</div><div class="lbl">Fiches de paie au total</div></div>'+
+      '</div>';
+
+    html2+='<h3 style="font-size:.82rem;margin-bottom:6px">Historique des fiches de paie</h3>';
+    if(!fiches.length){html2+='<p style="font-size:.72rem;color:var(--muted)">Aucune fiche de paie enregistrée.</p>';}
+    else{
+      html2+='<table class="doc-preview-table"><thead><tr><th>Période</th><th style="text-align:right">Brut</th><th style="text-align:right">Net</th></tr></thead><tbody>'+
+        fiches.map(function(f){return '<tr><td data-label="Période">'+esc(f.periode||'')+'</td><td class="num" data-label="Brut" style="white-space:nowrap">'+parseFloat(f.brut||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €</td><td class="num" data-label="Net" style="white-space:nowrap">'+parseFloat(f.net||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €</td></tr>';}).join('')+
+        '</tbody></table>';
+    }
+
+    html2+='<h3 style="font-size:.82rem;margin:14px 0 6px">Chantiers travaillés</h3>';
+    if(!nomsChantiers.length){html2+='<p style="font-size:.72rem;color:var(--muted)">Aucun pointage d\'heures enregistré pour ce salarié.</p>';}
+    else{
+      html2+='<table class="doc-preview-table"><thead><tr><th>Chantier</th><th style="text-align:right">Heures</th></tr></thead><tbody>'+
+        nomsChantiers.map(function(nom){return '<tr><td data-label="Chantier">'+esc(nom)+'</td><td class="num" data-label="Heures">'+chantiers[nom]+' h</td></tr>';}).join('')+
+        '</tbody></table>';
+    }
+
+    document.getElementById('sal-dash-fiche-contenu').innerHTML=html2;
+  }).catch(function(e){
+    console.error('Erreur chargement fiche salarié:',e);
+    document.getElementById('sal-dash-fiche-contenu').innerHTML=contenu+'<p style="color:#B91C1C;font-size:.75rem">Erreur de chargement de l\'historique.</p>';
+  });
+}
+
+function toggleArchiveSalarieDash(salarieId,archiver){
+  var msg=archiver?'Archiver ce salarié ? Il n\'apparaîtra plus dans les listes actives (équipe chantier, sélection de paie) mais son historique reste conservé.':'Réactiver ce salarié ?';
+  if(!confirm(msg))return;
+  fbDb.collection('salaries').doc(salarieId).set({statut:archiver?'archive':'actif'},{merge:true})
+    .then(function(){ouvrirFicheSalarieDash(salarieId);})
+    .catch(function(e){alert('Erreur : '+e.message);});
+}
+
+// ═══ EMAIL : DEMANDER LE RETOUR DE MATERIEL ═══
+var _mmSalarieId=null;
+function ouvrirMailRendreMateriel(salarieId){
+  var s=(_tousSalariesDash||[]).find(function(x){return x.id===salarieId;});if(!s)return;
+  _mmSalarieId=salarieId;
+  document.getElementById('mm-salarie-nom').innerHTML='Destinataire : <strong>'+esc(s.nom||'')+'</strong> ('+esc(s.email||'')+')';
+  var outils=(_materielDash||[]).filter(function(m){return m.detenuPar===s.nom;});
+  var el=document.getElementById('mm-outils-liste');
+  if(!outils.length){
+    el.innerHTML='<p style="font-size:.72rem;color:var(--muted)">Aucun outil actuellement enregistré comme pris par ce salarié.</p>';
+  }else{
+    el.innerHTML=outils.map(function(m){
+      var dateP=m.dernierMouvement?m.dernierMouvement.date:'';
+      return '<label style="display:block;padding:6px 8px;border:1px solid var(--border);border-radius:6px;margin-bottom:4px;font-size:.75rem;cursor:pointer">'+
+        '<input type="checkbox" class="mm-outil-check" data-ref="'+esc(m.ref||'')+'" data-nom="'+esc(m.nom||'')+'" data-date="'+esc(dateP)+'" checked style="width:auto;margin-right:6px" onchange="mettreAJourApercuMailMateriel()">'+
+        '<strong>'+esc(m.ref||'')+'</strong> — '+esc(m.nom||'')+(dateP?' <span style="color:var(--muted)">(pris le '+dateP+')</span>':'')+
+        '</label>';
+    }).join('');
+  }
+  mettreAJourApercuMailMateriel();
+  document.getElementById('mail-materiel-modal').classList.add('open');
+}
+
+function mettreAJourApercuMailMateriel(){
+  var s=(_tousSalariesDash||[]).find(function(x){return x.id===_mmSalarieId;});if(!s)return;
+  var checks=Array.prototype.filter.call(document.querySelectorAll('.mm-outil-check'),function(c){return c.checked;});
+  var lignes=checks.map(function(c){
+    var d=c.getAttribute('data-date');
+    return '- '+c.getAttribute('data-ref')+' — '+c.getAttribute('data-nom')+(d?' (pris le '+d+')':'');
+  });
+  var corps='Bonjour '+(s.nom||'')+',\n\nMerci de bien vouloir rendre le(s) outil(s) suivant(s) dès que possible :\n\n'+
+    (lignes.length?lignes.join('\n'):'(aucun outil sélectionné)')+
+    '\n\nMerci de votre retour rapide.\n\nNICO MULTISERVICES';
+  document.getElementById('mm-message-preview').value=corps;
+}
+
+function envoyerMailRendreMateriel(){
+  var s=(_tousSalariesDash||[]).find(function(x){return x.id===_mmSalarieId;});if(!s||!s.email)return;
+  var statutEl=document.getElementById('mm-statut');
+  var cfg=(_lastCfgControles&&_lastCfgControles.emailjsConfig)||{};
+  initEmailJSDash(cfg);
+  if(!_emailjsReadyDash){statutEl.innerHTML='<span style="color:#B91C1C">EmailJS non configuré (voir gestion-devis-factures.html → Paramètres).</span>';return;}
+  var form=document.getElementById('ej-hidden-form');
+  form.to_email.value=s.email;
+  form.to_name.value=s.nom||'';
+  form.cc_email.value='';
+  form.subject.value='Retour de matériel demandé';
+  form.message.value=document.getElementById('mm-message-preview').value;
+  form.from_name.value='NICO MULTISERVICES';
+  statutEl.textContent='Envoi en cours…';
+  emailjs.sendForm(cfg.serviceId,cfg.templateId,form).then(function(){
+    statutEl.innerHTML='<span style="color:#15803D">✅ Email envoyé.</span>';
+    setTimeout(function(){document.getElementById('mail-materiel-modal').classList.remove('open');},1200);
+  }).catch(function(e){
+    statutEl.innerHTML='<span style="color:#B91C1C">Erreur d\'envoi : '+esc(e.text||e.message||'inconnue')+'</span>';
+  });
+}
+
+// ═══ EMAIL : NOTIFIER UNE AFFECTATION CHANTIER ═══
+var _mcSalarieId=null;
+function ouvrirMailAffectationChantier(salarieId){
+  var s=(_tousSalariesDash||[]).find(function(x){return x.id===salarieId;});if(!s)return;
+  _mcSalarieId=salarieId;
+  document.getElementById('mc-salarie-nom').innerHTML='Destinataire : <strong>'+esc(s.nom||'')+'</strong> ('+esc(s.email||'')+')';
+
+  var aujourdhui=new Date().toISOString().split('T')[0];
+  var chantiers=(_eventsDash||[]).filter(function(ev){return (ev.end||ev.start)>=aujourdhui;}).sort(function(a,b){return (a.start||'').localeCompare(b.start||'');});
+  var sel=document.getElementById('mc-chantier-select');
+  if(!chantiers.length){
+    sel.innerHTML='<option value="">Aucun chantier à venir</option>';
+  }else{
+    sel.innerHTML=chantiers.map(function(ev,i){return '<option value="'+i+'">'+esc(ev.titre||'(sans titre)')+' — '+fmtDateFrDash(ev.start)+'</option>';}).join('');
+  }
+  sel.dataset.chantiers=JSON.stringify(chantiers);
+
+  var outils=(_materielDash||[]).slice().sort(function(a,b){return (a.ref||'').localeCompare(b.ref||'');});
+  document.getElementById('mc-outils-liste').innerHTML=outils.length?outils.map(function(m){
+    return '<label style="display:block;padding:5px 8px;border:1px solid var(--border);border-radius:6px;margin-bottom:3px;font-size:.72rem;cursor:pointer">'+
+      '<input type="checkbox" class="mc-outil-check" data-ref="'+esc(m.ref||'')+'" data-nom="'+esc(m.nom||'')+'" style="width:auto;margin-right:6px" onchange="mettreAJourApercuMailChantier()">'+
+      esc(m.ref||'')+' — '+esc(m.nom||'')+'</label>';
+  }).join(''):'<p style="font-size:.7rem;color:var(--muted)">Aucun outil enregistré.</p>';
+
+  mettreAJourApercuMailChantier();
+  document.getElementById('mail-chantier-modal').classList.add('open');
+}
+
+function fmtDateFrDash(d){if(!d)return'';var p=String(d).split('-');return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):d;}
+
+function mettreAJourApercuMailChantier(){
+  var s=(_tousSalariesDash||[]).find(function(x){return x.id===_mcSalarieId;});if(!s)return;
+  var sel=document.getElementById('mc-chantier-select');
+  var chantiers=JSON.parse(sel.dataset.chantiers||'[]');
+  var ev=chantiers[parseInt(sel.value,10)];
+  var checks=Array.prototype.filter.call(document.querySelectorAll('.mc-outil-check'),function(c){return c.checked;});
+  var outilsTxt=checks.map(function(c){return '- '+c.getAttribute('data-ref')+' — '+c.getAttribute('data-nom');}).join('\n');
+
+  if(!ev){
+    document.getElementById('mc-message-preview').value='Aucun chantier sélectionné.';
+    return;
+  }
+  var corps='Bonjour '+(s.nom||'')+',\n\nVous êtes affecté(e) au chantier suivant :\n\n'+
+    'Chantier : '+(ev.titre||'')+'\n'+
+    'Date : '+fmtDateFrDash(ev.start)+(ev.end&&ev.end!==ev.start?' au '+fmtDateFrDash(ev.end):'')+'\n'+
+    (ev.hstart?('Horaire : '+ev.hstart+(ev.hend?(' - '+ev.hend):'')+'\n'):'')+
+    (ev.lieu?('Lieu : '+ev.lieu+'\n'):'')+
+    (ev.notes?('\nDétails : '+ev.notes+'\n'):'')+
+    (outilsTxt?('\nMatériel à ramener :\n'+outilsTxt+'\n'):'')+
+    '\nMerci de bien noter cette affectation.\n\nNICO MULTISERVICES';
+  document.getElementById('mc-message-preview').value=corps;
+}
+
+function envoyerMailAffectationChantier(){
+  var s=(_tousSalariesDash||[]).find(function(x){return x.id===_mcSalarieId;});if(!s||!s.email)return;
+  var statutEl=document.getElementById('mc-statut');
+  var cfg=(_lastCfgControles&&_lastCfgControles.emailjsConfig)||{};
+  initEmailJSDash(cfg);
+  if(!_emailjsReadyDash){statutEl.innerHTML='<span style="color:#B91C1C">EmailJS non configuré (voir gestion-devis-factures.html → Paramètres).</span>';return;}
+  var form=document.getElementById('ej-hidden-form');
+  form.to_email.value=s.email;
+  form.to_name.value=s.nom||'';
+  form.cc_email.value='';
+  form.subject.value='Affectation chantier';
+  form.message.value=document.getElementById('mc-message-preview').value;
+  form.from_name.value='NICO MULTISERVICES';
+  statutEl.textContent='Envoi en cours…';
+  emailjs.sendForm(cfg.serviceId,cfg.templateId,form).then(function(){
+    statutEl.innerHTML='<span style="color:#15803D">✅ Email envoyé.</span>';
+    setTimeout(function(){document.getElementById('mail-chantier-modal').classList.remove('open');},1200);
+  }).catch(function(e){
+    statutEl.innerHTML='<span style="color:#B91C1C">Erreur d\'envoi : '+esc(e.text||e.message||'inconnue')+'</span>';
+  });
+}
+
+// ═══ MATERIEL & OUTILLAGE (Dashboard) ═══
+var _materielDash=[];
+var html5QrScannerDash=null;
+
+var _eventsDash=[];
+var _materielDashPrecedent=null; // snapshot precedent, pour detecter les nouvelles prises
+
+function ecouterMaterielDash(){
+  fbDb.collection('users').doc(DOC_ACTIF).onSnapshot(function(doc){
+    if(doc.exists&&doc.data().db){
+      var nouveauMateriel=doc.data().db.materiel||[];
+      detecterNouvellesPrisesMateriel(_materielDashPrecedent,nouveauMateriel);
+      _materielDashPrecedent=nouveauMateriel;
+      _materielDash=nouveauMateriel;
+      _eventsDash=doc.data().db.events||[];
+      renderMaterielDash();
+      majAlertesMaterielDash();
+    }
+  },function(e){console.error('Erreur écoute matériel:',e);});
+}
+
+// Compare l'ancien et le nouveau tableau de matériel pour detecter les nouvelles prises
+// d'outil (detenuPar qui passe de vide a rempli) et les pousser dans le flux d'activite en
+// direct — c'est la "notification a l'admin quand un outil est pris" (visible sans avoir a
+// ouvrir la vue Materiel, directement sur l'accueil du dashboard).
+function detecterNouvellesPrisesMateriel(ancien,nouveau){
+  if(!ancien)return; // 1er chargement : pas de notification retroactive
+  var ancienParId={};
+  ancien.forEach(function(m){ancienParId[m.id]=m;});
+  nouveau.forEach(function(m){
+    var avant=ancienParId[m.id];
+    if(m.detenuPar&&(!avant||!avant.detenuPar)){
+      feedItems['materiel_pris_'+m.id+'_'+Date.now()]={
+        id:'mp_'+m.id,type:'materiel',icon:'🧰',
+        title:m.detenuPar+' a pris '+(m.ref?m.ref+' — ':'')+esc(m.nom),
+        sub:(m.dernierMouvement&&m.dernierMouvement.chantier?'Chantier : '+esc(m.dernierMouvement.chantier)+' — ':'')+(m.dateRetourPrevue?'Retour prévu le '+fmtDate(m.dateRetourPrevue):'Pas de date de retour prévue'),
+        date:new Date()
+      };
+      renderFeed();
+    }
+  });
+}
+
+function fmtDate(ds){return fmtDateFrDash(ds);}
+
+// Alerte les outils dont la date de retour prevue est depassee (toujours pris par
+// quelqu'un), affichee dans le panneau "⚠️ Alertes systeme" de l'accueil.
+function majAlertesMaterielDash(){
+  var today=new Date().toISOString().split('T')[0];
+  Object.keys(alertItems).forEach(function(k){if(k.indexOf('materiel_retard_')===0&&!(_materielDash||[]).some(function(m){return 'materiel_retard_'+m.id===k;}))delete alertItems[k];});
+  (_materielDash||[]).forEach(function(m){
+    var cle='materiel_retard_'+m.id;
+    if(m.detenuPar&&m.dateRetourPrevue&&m.dateRetourPrevue<today){
+      var joursRetard=Math.round((new Date(today)-new Date(m.dateRetourPrevue))/86400000);
+      alertItems[cle]={
+        id:cle,icon:'🧰',
+        title:'Outil non rendu — '+(m.ref?m.ref+' — ':'')+esc(m.nom),
+        sub:'Pris par '+esc(m.detenuPar)+', retour prévu le '+fmtDate(m.dateRetourPrevue)+' (en retard de '+joursRetard+' j).',
+        date:new Date(m.dateRetourPrevue),level:joursRetard>7?'danger':'warn'
+      };
+    }else{
+      delete alertItems[cle];
+    }
+  });
+  majAlertesChantiersRetardDash();
+  renderAlerts();
+}
+
+// Alerte les chantiers dont la date de fin prevue est depassee sans etre marques
+// "termine" — meme logique que pour le materiel, cote agenda-chantier.html.
+function majAlertesChantiersRetardDash(){
+  var today=new Date().toISOString().split('T')[0];
+  Object.keys(alertItems).forEach(function(k){if(k.indexOf('chantier_retard_')===0&&!(_eventsDash||[]).some(function(e){return 'chantier_retard_'+e.id===k;}))delete alertItems[k];});
+  (_eventsDash||[]).forEach(function(e){
+    var cle='chantier_retard_'+e.id;
+    if(e.type==='chantier'&&e.statut!=='termine'&&(e.end||e.start)<today){
+      var joursRetard=Math.round((new Date(today)-new Date(e.end||e.start))/86400000);
+      alertItems[cle]={
+        id:cle,icon:'🔨',
+        title:'Chantier en retard — '+esc(e.titre||''),
+        sub:'Fin prévue le '+fmtDate(e.end||e.start)+' (en retard de '+joursRetard+' j), toujours pas marqué "terminé".',
+        date:new Date(e.end||e.start),level:joursRetard>7?'danger':'warn'
+      };
+    }else{
+      delete alertItems[cle];
+    }
+  });
+}
+
+function renderMaterielDash(){
+  var tb=document.getElementById('mat-dash-liste');if(!tb)return;
+  document.getElementById('mat-dash-count').textContent=_materielDash.length;
+  var list=_materielDash.slice().sort(function(a,b){return (a.ref||'').localeCompare(b.ref||'');});
+  if(!list.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px">Aucun outil enregistré.</td></tr>';return;}
+  var today=new Date().toISOString().split('T')[0];
+  tb.innerHTML=list.map(function(m){
+    var statutBadge=m.detenuPar?'<span class="badge" style="background:#FEF3C7;color:#92400E">🔧 En cours</span>':'<span class="badge" style="background:#DCFCE7;color:#15803D">✅ Disponible</span>';
+    var noteBadge=m.notes?' <span title="'+esc(m.notes)+'" style="cursor:help">⚠️</span>':'';
+    var chantier=(m.dernierMouvement&&m.detenuPar)?esc(m.dernierMouvement.chantier||'—'):'—';
+    var retourTxt='—';
+    if(m.detenuPar&&m.dateRetourPrevue){
+      var enRetard=m.dateRetourPrevue<today;
+      retourTxt='<span style="'+(enRetard?'color:#DC2626;font-weight:700':'')+'">'+(enRetard?'⚠️ ':'')+fmtDate(m.dateRetourPrevue)+'</span>';
+    }
+    var controleTxt='—';
+    if(m.prochainControle){
+      var jours=Math.round((new Date(m.prochainControle)-new Date(today))/86400000);
+      var couleur=jours<0?'#DC2626':(jours<=30?'#EA580C':'inherit');
+      controleTxt='<span style="color:'+couleur+(jours<=30?';font-weight:700':'')+'">'+(jours<=30?(jours<0?'🔴 ':'🟠 '):'')+fmtDate(m.prochainControle)+'</span>';
+    }
+    return '<tr><td><strong>'+esc(m.ref||'—')+'</strong></td><td>'+esc(m.nom)+noteBadge+'</td><td>'+esc(m.serie||'—')+'</td><td>'+statutBadge+'</td><td>'+esc(m.detenuPar||'—')+'</td><td style="font-size:.68rem">'+chantier+'</td><td style="font-size:.68rem">'+retourTxt+'</td><td style="font-size:.68rem">'+controleTxt+'</td></tr>';
+  }).join('');
+}
+
+function pushMaterielDash(){
+  fbDb.collection('users').doc(DOC_ACTIF).update({'db.materiel':_materielDash,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+    .catch(function(e){console.error('Erreur sauvegarde matériel:',e);});
+}
+
+function trouverMaterielParCodeDash(saisie){
+  var saisieLC=(saisie||'').toLowerCase().trim();
+  if(!saisieLC)return null;
+  var m=_materielDash.find(function(x){
+    return (x.ref&&x.ref.toLowerCase()===saisieLC)||(x.serie&&x.serie.toLowerCase()===saisieLC)||(x.nom&&x.nom.toLowerCase()===saisieLC);
+  });
+  if(!m){
+    m=_materielDash.find(function(x){
+      return (x.ref&&x.ref.toLowerCase().indexOf(saisieLC)!==-1)||(x.serie&&x.serie.toLowerCase().indexOf(saisieLC)!==-1)||(x.nom&&x.nom.toLowerCase().indexOf(saisieLC)!==-1);
+    });
+  }
+  return m||null;
+}
+
+function ouvrirScanMaterielDash(){
+  document.getElementById('mat-dash-scan-zone').style.display='block';
+  document.getElementById('mat-dash-code-zone').style.display='none';
+  document.getElementById('mat-dash-resultat').innerHTML='';
+  if(typeof Html5Qrcode==='undefined'){
+    document.getElementById('mat-dash-scan-zone').innerHTML='<p style="color:#B91C1C;font-size:.75rem">Lecteur QR indisponible (connexion internet requise). Utilisez "Saisir un code".</p>';
+    return;
+  }
+  document.getElementById('mat-dash-scan-zone').innerHTML='<div id="mat-dash-reader" style="width:100%;max-width:280px"></div>';
+  html5QrScannerDash=new Html5Qrcode('mat-dash-reader');
+  html5QrScannerDash.start(
+    {facingMode:'environment'},
+    {fps:10,qrbox:200},
+    function(decodedText){
+      html5QrScannerDash.stop().then(function(){traiterScanMaterielDash(decodedText);}).catch(function(){traiterScanMaterielDash(decodedText);});
+    },
+    function(){}
+  ).catch(function(){
+    document.getElementById('mat-dash-scan-zone').innerHTML='<p style="color:#B91C1C;font-size:.75rem">Impossible d\'accéder à la caméra. Utilisez "Saisir un code".</p>';
+  });
+}
+
+var _scansRetourSession=[];
+var _dernierCodeScanneDash=null;
+var _dernierScanTimestamp=0;
+
+function ouvrirScanMaterielDash(){
+  document.getElementById('mat-dash-scan-zone').style.display='block';
+  document.getElementById('mat-dash-code-zone').style.display='none';
+  document.getElementById('mat-dash-resultat').innerHTML='<p style="font-size:.72rem;color:var(--muted)">📷 Mode retour rapide : scannez les outils un par un, chacun est automatiquement remis en stock. Fermez la caméra quand vous avez terminé.</p>';
+  _scansRetourSession=[];
+  _dernierCodeScanneDash=null;
+  if(typeof Html5Qrcode==='undefined'){
+    document.getElementById('mat-dash-scan-zone').innerHTML='<p style="color:#B91C1C;font-size:.75rem">Lecteur QR indisponible (connexion internet requise). Utilisez "Saisir un code".</p>';
+    return;
+  }
+  document.getElementById('mat-dash-scan-zone').innerHTML=
+    '<div id="mat-dash-reader" style="width:100%;max-width:280px"></div>'+
+    '<button class="btn-sm2" style="margin-top:8px" onclick="fermerScanMaterielDash()">⏹ Arrêter le scan</button>'+
+    '<div id="mat-dash-scan-journal" style="margin-top:10px"></div>';
+  html5QrScannerDash=new Html5Qrcode('mat-dash-reader');
+  html5QrScannerDash.start(
+    {facingMode:'environment'},
+    {fps:10,qrbox:200},
+    function(decodedText){
+      // Anti-doublon : ignore les detections repetees du meme QR pendant 2.5s
+      // (la camera continue de filmer le meme code plusieurs frames de suite).
+      var maintenant=Date.now();
+      if(decodedText===_dernierCodeScanneDash&&(maintenant-_dernierScanTimestamp)<2500)return;
+      _dernierCodeScanneDash=decodedText;
+      _dernierScanTimestamp=maintenant;
+      traiterScanContinuDash(decodedText);
+    },
+    function(){}
+  ).catch(function(){
+    document.getElementById('mat-dash-scan-zone').innerHTML='<p style="color:#B91C1C;font-size:.75rem">Impossible d\'accéder à la caméra. Utilisez "Saisir un code".</p>';
+  });
+}
+
+function fermerScanMaterielDash(){
+  if(html5QrScannerDash){html5QrScannerDash.stop().catch(function(){});html5QrScannerDash=null;}
+  document.getElementById('mat-dash-scan-zone').style.display='none';
+  document.getElementById('mat-dash-scan-zone').innerHTML='';
+}
+
+function traiterScanContinuDash(decodedText){
+  var match=/^NICO-MATERIEL:(\d+)$/.exec(decodedText||'');
+  var journal=document.getElementById('mat-dash-scan-journal');
+  if(!match){
+    if(journal)journal.innerHTML='<p style="color:#B91C1C;font-size:.72rem">QR non reconnu.</p>'+journal.innerHTML;
+    return;
+  }
+  var id=parseInt(match[1],10);
+  var m=_materielDash.find(function(x){return x.id===id;});
+  if(!m){
+    if(journal)journal.innerHTML='<p style="color:#B91C1C;font-size:.72rem">Outil introuvable.</p>'+journal.innerHTML;
+    return;
+  }
+  var ligne;
+  if(m.detenuPar){
+    var ancienPorteur=m.detenuPar;
+    rendreMaterielDashSilencieux(id);
+    ligne='<div style="font-size:.72rem;color:#15803D;padding:3px 0">✅ '+esc(m.ref||'')+' — '+esc(m.nom)+' rendu (était pris par '+esc(ancienPorteur)+')</div>';
+  }else{
+    ligne='<div style="font-size:.72rem;color:#92400E;padding:3px 0">ℹ️ '+esc(m.ref||'')+' — '+esc(m.nom)+' était déjà disponible</div>';
+  }
+  if(journal)journal.innerHTML=ligne+journal.innerHTML;
+}
+
+// Variante silencieuse de rendreMaterielDash (pas de reaffichage de fiche unique,
+// utilisee pendant le scan continu ou le journal fait deja le retour visuel).
+function rendreMaterielDashSilencieux(id){
+  var m=_materielDash.find(function(x){return x.id===id;});if(!m)return;
+  if(!m.historique)m.historique=[];
+  for(var i=m.historique.length-1;i>=0;i--){
+    if(m.historique[i].type==='prise'&&!m.historique[i].dateRendu){
+      m.historique[i].dateRendu=new Date().toISOString().split('T')[0];
+      break;
+    }
+  }
+  m.detenuPar=null;
+  pushMaterielDash();
+}
+
+function basculerCodeMaterielDash(){
+  if(html5QrScannerDash){html5QrScannerDash.stop().catch(function(){});html5QrScannerDash=null;}
+  document.getElementById('mat-dash-scan-zone').style.display='none';
+  document.getElementById('mat-dash-scan-zone').innerHTML='';
+  document.getElementById('mat-dash-code-zone').style.display='block';
+  document.getElementById('mat-dash-resultat').innerHTML='';
+  document.getElementById('mat-dash-code-saisie').value='';
+  setTimeout(function(){document.getElementById('mat-dash-code-saisie').focus();},50);
+}
+
+function validerCodeMaterielDash(){
+  var saisie=document.getElementById('mat-dash-code-saisie').value.trim();
+  if(!saisie){alert('Entrez une référence, un nom ou un n° de série.');return;}
+  var m=trouverMaterielParCodeDash(saisie);
+  if(!m){
+    document.getElementById('mat-dash-resultat').innerHTML='<p style="color:#B91C1C">Aucun outil trouvé pour "'+esc(saisie)+'".</p>';
+    return;
+  }
+  afficherFicheMaterielDash(m.id);
+}
+
+function traiterScanMaterielDash(decodedText){
+  var match=/^NICO-MATERIEL:(\d+)$/.exec(decodedText||'');
+  if(!match){
+    document.getElementById('mat-dash-resultat').innerHTML='<p style="color:#B91C1C">Ce QR ne correspond pas à un outil NICO MULTISERVICES.</p>';
+    return;
+  }
+  afficherFicheMaterielDash(parseInt(match[1],10));
+}
+
+function afficherFicheMaterielDash(id){
+  var m=_materielDash.find(function(x){return x.id===id;});
+  var res=document.getElementById('mat-dash-resultat');
+  if(!m){res.innerHTML='<p style="color:#B91C1C">Outil introuvable.</p>';return;}
+  var noteHtml=m.notes?'<div style="margin-top:6px;padding:6px 8px;background:#FEF3C7;border-radius:6px;font-size:.72rem;color:#92400E">⚠️ '+esc(m.notes)+'</div>':'';
+  if(m.detenuPar){
+    res.innerHTML='<div style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">'+
+      '<strong>'+esc(m.ref||'')+' — '+esc(m.nom)+'</strong><br>'+
+      'Actuellement pris par : <strong>'+esc(m.detenuPar)+'</strong>'+(m.dernierMouvement&&m.dernierMouvement.chantier?' sur le chantier « '+esc(m.dernierMouvement.chantier)+' »':'')+noteHtml+
+      '<br><button class="btn-sm2" style="margin-top:8px" onclick="rendreMaterielDash('+id+')">↩️ Marquer comme rendu</button></div>';
+  }else{
+    res.innerHTML='<div style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">'+
+      '<strong>'+esc(m.ref||'')+' — '+esc(m.nom)+'</strong><br>Cet outil est disponible (non détenu actuellement).</div>'+noteHtml;
+  }
+}
+
+function rendreMaterielDash(id){
+  var m=_materielDash.find(function(x){return x.id===id;});if(!m)return;
+  if(!m.historique)m.historique=[];
+  for(var i=m.historique.length-1;i>=0;i--){
+    if(m.historique[i].type==='prise'&&!m.historique[i].dateRendu){
+      m.historique[i].dateRendu=new Date().toISOString().split('T')[0];
+      break;
+    }
+  }
+  m.detenuPar=null;
+  pushMaterielDash();
+  afficherFicheMaterielDash(id);
+}
+var _dernieresFichesPaieDash=[];
+function fmtPeriodePaieDash(periode){
+  if(!periode)return'';
+  var parts=String(periode).split('-');
+  if(parts.length!==2)return periode;
+  var mois=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  var m=parseInt(parts[1],10);
+  return (mois[m-1]||parts[1])+' '+parts[0];
+}
+function ouvrirApercuPaieDash(i){
+  var d=_dernieresFichesPaieDash[i];
+  if(!d)return;
+  document.getElementById('apercu-paie-title').textContent='Aperçu — '+(d.salarie||'')+' — '+fmtPeriodePaieDash(d.periode);
+  document.getElementById('apercu-paie-body').innerHTML=construireApercuFichePaieHTML(d);
+  document.getElementById('apercu-paie-modal').classList.add('open');
+}
+function closeApercuPaieDash(){
+  document.getElementById('apercu-paie-modal').classList.remove('open');
+}
+// Rendu HTML d'un aperçu de bulletin de paie (sans generation de PDF), reutilisable partout
+// ou l'on affiche une fiche de paie en lecture seule (dashboard, espace employe...).
+function construireApercuFichePaieHTML(d){
+  var fmtE=function(n){return (parseFloat(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';};
+  var brut=parseFloat(d.brut)||0,chargesSal=parseFloat(d.chargesSalariales)||0,chargesPat=parseFloat(d.chargesPatronales)||0;
+  var netImposable=brut-chargesSal;
+  var dt=d.date&&d.date.toDate?d.date.toDate():null;
+  return '<div style="background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:18px">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:8px">'+
+      '<div><div style="font-size:.9rem;font-weight:700">'+esc(d.salarie||'')+'</div>'+
+        '<div style="font-size:.7rem;color:var(--muted)">Période : '+esc(fmtPeriodePaieDash(d.periode))+(dt?' · Émise le '+dt.toLocaleDateString('fr-FR'):'')+'</div></div>'+
+      '<span style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);border:1px solid var(--accent);border-radius:20px;padding:3px 10px">Bulletin de paie</span>'+
+    '</div>'+
+    '<table class="doc-preview-table" style="margin-bottom:14px">'+
+      '<tbody>'+
+        '<tr><td>Salaire brut</td><td class="num">'+fmtE(brut)+'</td></tr>'+
+        '<tr><td>Cotisations salariales</td><td class="num">- '+fmtE(chargesSal)+'</td></tr>'+
+        '<tr><td style="font-weight:700">Net imposable</td><td class="num" style="font-weight:700">'+fmtE(netImposable)+'</td></tr>'+
+      '</tbody></table>'+
+    '<div style="background:var(--accent);color:#062812;border-radius:9px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:14px">'+
+      '<span>NET À PAYER</span><span style="font-size:1.15rem">'+fmtE(d.net!==undefined&&d.net!==null&&d.net!==''?d.net:netImposable)+'</span></div>'+
+    (chargesPat?('<div style="font-size:.68rem;color:var(--muted);border-top:1px solid var(--border);padding-top:10px;margin-bottom:'+(d.notes?'10px':'0')+'">'+
+      'Pour information (charges employeur, non déduites du salarié) — Cotisations patronales : '+fmtE(chargesPat)+' · Coût total employeur : '+fmtE(brut+chargesPat)+'</div>'):'')+
+    (d.notes?('<div style="font-size:.72rem;font-style:italic;color:var(--muted)">Observations : '+esc(d.notes)+'</div>'):'')+
+    '</div>';
+}
+function ecouterBlocagePaieDash(){
+  fbDb.collection('siteConfig').doc('comptaMaintenance').onSnapshot(function(doc){
+    var cfg=doc.exists?doc.data():{};
+    _lastCfgComptaMaintenance=cfg;
+    _lastCfgPaieBlocage=(cfg.sections&&cfg.sections.paie)||{};
+    renderBlocagePaieDash(_lastCfgPaieBlocage);
+    renderSiteHealth();
+    renderPanneGeneraleDash();
+  },function(e){console.error('Erreur écoute blocage paie:',e);});
+}
+var _lastCfgComptaMaintenance={};
+var _lastCfgPaieBlocage={};
+function renderBlocagePaieDash(bloc){
+  var el=document.getElementById('ctrl-paie-maintenance-body');
+  if(!el)return;
+  var actif=!!bloc.actif;
+  el.innerHTML=
+    '<div class="ctrl-row"><div class="ctrl-info">'+
+      '<div class="ctrl-name">Accès à la section "Fiches de paie"</div>'+
+      '<span class="ctrl-badge '+(actif?'on':'off')+'">'+(actif?'🔴 En maintenance':'🟢 Accessible')+'</span>'+
+    '</div>'+
+    '<label class="switch"><input type="checkbox" id="tog-paie-maintenance" '+(actif?'checked':'')+' onchange="togglerBlocagePaieDash(this.checked)"><span class="slider"></span></label>'+
+    '</div>'+
+    (actif?'':'<div style="padding-bottom:4px"><textarea class="ctrl-msg-input" id="msg-paie-maintenance" placeholder="Message affiché aux utilisateurs">Cette section est momentanément indisponible. Merci de repasser bientôt.</textarea></div>');
+}
+function togglerBlocagePaieDash(activer){
+  if(!isAdminDash)return;
+  if(activer){
+    var msgEl=document.getElementById('msg-paie-maintenance');
+    var message=(msgEl?msgEl.value.trim():'')||'Cette section est momentanément indisponible. Merci de repasser bientôt.';
+    if(!confirm('Passer la section "Fiches de paie" en maintenance ? Elle sera inaccessible depuis compta.html jusqu\'à réactivation.')){
+      renderBlocagePaieDash(_lastCfgPaieBlocage);return;
+    }
+    fbDb.collection('siteConfig').doc('comptaMaintenance').set({sections:{paie:{actif:true,message:message}}},{merge:true}).then(function(){
+      enregistrerActionAdminDash('Fiches de paie — section mise en maintenance',message);
+    }).catch(function(e){alert('Erreur : '+e.message);});
+  }else{
+    fbDb.collection('siteConfig').doc('comptaMaintenance').set({sections:{paie:{actif:false}}},{merge:true}).then(function(){
+      enregistrerActionAdminDash('Fiches de paie — section réactivée','');
+    }).catch(function(e){alert('Erreur : '+e.message);});
+  }
+}
+
+// ═══ PANNE GENERALE — bascule en une seule action tous les sites/apps en maintenance,
+// SAUF le dashboard (jamais concerne, pour pouvoir toujours tout reactiver). Reutilise
+// exactement les memes champs que les toggles individuels ci-dessous/ci-dessus, ecrits
+// tous en une fois. Le statut "en cours" est calcule en direct (aucun champ dedie a
+// desynchroniser) : actif si les 5 maintenances individuelles le sont toutes. ═══
+function statutPanneGeneraleDash(){
+  var cfg=_lastCfgControles||{};
+  var cfgCompta=_lastCfgComptaMaintenance||{};
+  var maintenanceExpiree=cfg.maintenanceExpiration&&new Date(cfg.maintenanceExpiration)<new Date();
+  var verrouillageExpire=cfg.verrouillageExpiration&&new Date(cfg.verrouillageExpiration)<new Date();
+  var maintAppExpiree=cfg.maintenanceAppExpiration&&new Date(cfg.maintenanceAppExpiration)<new Date();
+  var maintAgendaExpiree=cfg.maintenanceAgendaExpiration&&new Date(cfg.maintenanceAgendaExpiration)<new Date();
+  var comptaExpiree=cfgCompta.expiration&&new Date(cfgCompta.expiration)<new Date();
+  var vitrineOff=!!cfg.modeMaintenance&&!maintenanceExpiree;
+  var consultOff=!!cfg.blocageConsultation&&!verrouillageExpire;
+  var appOff=!!cfg.maintenanceAppActive&&!maintAppExpiree;
+  var agendaOff=!!cfg.maintenanceAgendaActive&&!maintAgendaExpiree;
+  var comptaOff=!!cfgCompta.actif&&!comptaExpiree;
+  return {
+    toutesActives:vitrineOff&&consultOff&&appOff&&agendaOff&&comptaOff,
+    auMoinsUne:vitrineOff||consultOff||appOff||agendaOff||comptaOff,
+    codeApp:cfg.maintenanceAppCode||'',codeAgenda:cfg.maintenanceAgendaCode||''
+  };
+}
+function renderPanneGeneraleDash(){
+  var el=document.getElementById('ctrl-panne-generale-body');
+  if(!el)return;
+  var s=statutPanneGeneraleDash();
+  if(s.toutesActives){
+    el.innerHTML='<div class="ctrl-row"><div class="ctrl-info">'+
+        '<div class="ctrl-name">Statut</div>'+
+        '<span class="ctrl-badge on">🔴 Panne générale en cours — tous les sites sont en maintenance</span>'+
+        (s.codeApp||s.codeAgenda?'<div class="ctrl-status-line">Codes de déverrouillage — Gestion : <code style="color:var(--accent2)">'+esc(s.codeApp)+'</code> · Agenda : <code style="color:var(--accent2)">'+esc(s.codeAgenda)+'</code></div>':'')+
+      '</div></div>'+
+      '<button class="btn-sm2" style="background:var(--accent);border-color:var(--accent)" onclick="annulerPanneGeneraleDash()">✅ Tout réactiver</button>';
+  }else{
+    el.innerHTML=(s.auMoinsUne?'<div class="ctrl-status-line" style="margin-bottom:10px;color:var(--warn)">⚠️ Certains sites sont déjà individuellement en maintenance (voir ci-dessous). Déclencher une panne générale mettra aussi les autres en maintenance.</div>':'')+
+      '<div class="fg" style="margin-bottom:8px"><label style="font-size:.68rem;color:var(--muted);display:block;margin-bottom:4px">Message affiché sur tous les sites</label><textarea id="panne-generale-msg" rows="2" style="width:100%">Nous effectuons actuellement une opération de maintenance. Merci de revenir un peu plus tard.</textarea></div>'+
+      '<button class="btn-sm2" style="background:var(--danger);border-color:var(--danger)" onclick="declencherPanneGeneraleDash()">🚨 Déclencher une panne générale</button>';
+  }
+}
+function genererCodeAleatoireDash(){
+  var chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var code='';
+  for(var i=0;i<6;i++)code+=chars.charAt(Math.floor(Math.random()*chars.length));
+  return code;
+}
+function declencherPanneGeneraleDash(){
+  if(!isAdminDash)return;
+  var msgEl=document.getElementById('panne-generale-msg');
+  var message=(msgEl?msgEl.value.trim():'')||'Nous effectuons actuellement une opération de maintenance. Merci de revenir un peu plus tard.';
+  var code=genererCodeAleatoireDash();
+  if(!confirm('Déclencher une panne générale ?\n\nTOUS les sites seront bloqués (vitrine, espace client, application de gestion, agenda chantier, comptabilité), SAUF ce dashboard.\n\nCode de déverrouillage généré automatiquement : '+code+'\n\nNotez-le bien avant de continuer — il sera aussi affiché ici tant que la panne est active. Confirmer ?'))return;
+  var d=new Date();d.setHours(d.getHours()+24);
+  var expirationConsult=d.toISOString();
+  Promise.all([
+    fbDb.collection('siteConfig').doc('main').set({
+      modeMaintenance:true,messageMaintenance:message,maintenanceExpiration:null,
+      blocageConsultation:true,verrouillageExpiration:expirationConsult,
+      maintenanceAppActive:true,maintenanceAppMessage:message,maintenanceAppCode:code,maintenanceAppExpiration:null,
+      maintenanceAgendaActive:true,maintenanceAgendaMessage:message,maintenanceAgendaCode:code,maintenanceAgendaExpiration:null
+    },{merge:true}),
+    fbDb.collection('siteConfig').doc('comptaMaintenance').set({actif:true,message:message,expiration:null},{merge:true})
+  ]).then(function(){
+    enregistrerActionAdminDash('🚨 Panne générale déclenchée','Tous les sites en maintenance — code : '+code);
+    envoyerNotificationPanneDash('🚨 Panne générale déclenchée','Une panne générale vient d\'être déclenchée sur tous les sites (sauf le dashboard) par '+(fbUser?fbUser.email:'un administrateur')+'.\n\nMessage affiché aux visiteurs : '+message+'\n\nCode de déverrouillage (app de gestion / agenda chantier) : '+code+'\n\nPour tout réactiver, rendez-vous dans le dashboard → Contrôle & sections → Panne générale.');
+  }).catch(function(e){console.error('Erreur panne générale:',e);alert('Erreur lors du déclenchement : '+e.message);});
+}
+function annulerPanneGeneraleDash(){
+  if(!isAdminDash)return;
+  if(!confirm('Réactiver tous les sites et applications ?'))return;
+  Promise.all([
+    fbDb.collection('siteConfig').doc('main').set({
+      modeMaintenance:false,blocageConsultation:false,maintenanceAppActive:false,maintenanceAgendaActive:false
+    },{merge:true}),
+    fbDb.collection('siteConfig').doc('comptaMaintenance').set({actif:false},{merge:true})
+  ]).then(function(){
+    enregistrerActionAdminDash('✅ Panne générale terminée','Tous les sites réactivés');
+    envoyerNotificationPanneDash('✅ Panne générale terminée','Tous les sites ont été réactivés par '+(fbUser?fbUser.email:'un administrateur')+'. Tout est de nouveau accessible normalement.');
+  }).catch(function(e){console.error('Erreur réactivation générale:',e);alert('Erreur lors de la réactivation : '+e.message);});
+}
+// Notification email automatique (silencieuse si EmailJS n'est pas configure) envoyee a
+// l'email entreprise lors du declenchement / de la fin d'une panne generale, pour garder
+// une trace meme si personne n'a le dashboard sous les yeux au moment ou ca se produit.
+function envoyerNotificationPanneDash(sujet,message){
+  var cfg=(_lastCfgControles&&_lastCfgControles.emailjsConfig)||{};
+  if(!cfg.actif||!cfg.publicKey||!cfg.serviceId||!cfg.templateId||!cfg.emailEntreprise)return;
+  initEmailJSDash(cfg);
+  if(!_emailjsReadyDash)return;
+  var form=document.getElementById('ej-hidden-form');
+  form.to_email.value=cfg.emailEntreprise;
+  form.to_name.value=cfg.nomEntreprise||'Administrateur';
+  form.cc_email.value='';
+  form.subject.value=sujet;
+  form.message.value=message;
+  form.from_name.value='Dashboard — Alerte automatique';
+  emailjs.sendForm(cfg.serviceId,cfg.templateId,form).catch(function(e){console.error('Erreur envoi notification panne:',e);});
 }
 
 function renderControlesMaintenance(cfg){
@@ -1949,6 +3187,139 @@ function chargerListeAdminsDashboard(){
   });
 }
 
+// ═══ MODE VUE CLIENT (lecture seule) : consulte le resume des donnees d'un compte via son
+// document users/{uid} SANS jamais ecrire dessus, pour diagnostiquer un probleme signale
+// sans risque de modification accidentelle (contrairement a l'explorateur de base complet,
+// qui lui permet l'edition JSON brute). ═══
+function chargerListeComptesVueClient(){
+  var sel=document.getElementById('vueclient-select');
+  if(!sel)return;
+  fbDb.collection('admins').get().then(function(snap){
+    var options='<option value="">— Choisir un compte —</option>';
+    snap.forEach(function(doc){
+      var data=doc.data()||{};
+      options+='<option value="'+esc(doc.id)+'">'+esc(data.email||doc.id)+'</option>';
+    });
+    sel.innerHTML=options;
+  }).catch(function(e){console.error('Erreur chargement comptes (vue client):',e);});
+}
+
+function chargerVueClient(){
+  var uid=document.getElementById('vueclient-select').value;
+  var zone=document.getElementById('vueclient-contenu');
+  if(!uid){zone.innerHTML='';return;}
+  zone.innerHTML='<div class="ctrl-status-line">Chargement en lecture seule…</div>';
+  fbDb.collection('users').doc(uid).get().then(function(doc){
+    if(!doc.exists){zone.innerHTML='<div class="ctrl-status-line">Aucune donnée trouvée pour ce compte.</div>';return;}
+    var data=doc.data()||{};
+    var db=data.db||{};
+    var maj=data.updatedAt&&data.updatedAt.toDate?data.updatedAt.toDate().toLocaleString('fr-FR'):'—';
+    var nbClients=(db.clients||[]).length;
+    var nbDevisEnCours=(db.documents||[]).filter(function(d){return d.type==='devis'&&d.statut==='en-cours';}).length;
+    var nbFactures=(db.documents||[]).filter(function(d){return d.type==='facture';}).length;
+    var caTotal=(db.documents||[]).filter(function(d){return d.type==='facture';}).reduce(function(s,d){return s+(d.totalHT||0);},0);
+    var nbMaterielSorti=(db.materiel||[]).filter(function(m){return m.detenuPar;}).length;
+    var nbEvenements=(db.events||[]).length;
+    var nbSalaries=(db.salaries||[]).length;
+    zone.innerHTML=
+      '<div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:.72rem;color:#92400E">👁️ Vous consultez les données de ce compte en <strong>lecture seule</strong>. Aucune modification n\'est possible depuis cet écran — utilisez l\'explorateur de base de données pour éditer.</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px">'+
+        '<div class="ctrl-status-line"><strong>'+nbClients+'</strong><br>Clients</div>'+
+        '<div class="ctrl-status-line"><strong>'+nbDevisEnCours+'</strong><br>Devis en cours</div>'+
+        '<div class="ctrl-status-line"><strong>'+nbFactures+'</strong><br>Factures</div>'+
+        '<div class="ctrl-status-line"><strong>'+fmtEur(caTotal)+'</strong><br>CA total</div>'+
+        '<div class="ctrl-status-line"><strong>'+nbMaterielSorti+'</strong><br>Outils sortis</div>'+
+        '<div class="ctrl-status-line"><strong>'+nbEvenements+'</strong><br>Événements agenda</div>'+
+        '<div class="ctrl-status-line"><strong>'+nbSalaries+'</strong><br>Salariés</div>'+
+      '</div>'+
+      '<div style="font-size:.68rem;color:var(--muted)">Dernière synchronisation : '+maj+'</div>';
+    enregistrerActionAdminDash('Consultation Mode vue client',uid);
+  }).catch(function(e){
+    console.error('Erreur chargement vue client:',e);
+    zone.innerHTML='<div class="ctrl-status-line" style="color:var(--danger)">Erreur de chargement. Vérifiez les règles Firestore sur "users".</div>';
+  });
+}
+
+// ═══ PORTAIL APPLICATIONS : boutons configurables ici, affiches sur portail.html (page a
+// mettre en accueil sur les ordinateurs de l'entreprise) pour acceder rapidement a chaque
+// site/application. Stockes dans la collection Firestore "portailBoutons". ═══
+var editPortailId=null;
+
+function chargerPortailListe(){
+  fbDb.collection('portailBoutons').orderBy('ordre','asc').onSnapshot(function(snap){
+    var el=document.getElementById('portail-liste');
+    if(!el)return;
+    var boutons=[];
+    snap.forEach(function(doc){boutons.push(Object.assign({id:doc.id},doc.data()));});
+    if(!boutons.length){el.innerHTML='<div class="ctrl-status-line">Aucun bouton configuré pour le moment.</div>';return;}
+    el.innerHTML=boutons.map(function(b,i){
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:.75rem">'+
+        '<span style="font-size:1.1rem">'+(b.icone||'🔗')+'</span>'+
+        '<span style="flex:1"><strong>'+esc(b.label||'')+'</strong><br><span style="color:var(--muted)">'+esc(b.url||'')+'</span></span>'+
+        '<button class="btn-sm2" onclick="deplacerPortailBouton(\''+b.id+'\',-1)" title="Monter" '+(i===0?'disabled':'')+'>▲</button>'+
+        '<button class="btn-sm2" onclick="deplacerPortailBouton(\''+b.id+'\',1)" title="Descendre" '+(i===boutons.length-1?'disabled':'')+'>▼</button>'+
+        '<button class="btn-sm2" onclick="editerPortailBouton(\''+b.id+'\',\''+encodeURIComponent(b.icone||'')+'\',\''+encodeURIComponent(b.label||'')+'\',\''+encodeURIComponent(b.url||'')+'\')">✏️</button>'+
+        '<button class="btn-sm2" onclick="supprimerPortailBouton(\''+b.id+'\')" style="color:var(--danger)">🗑️</button>'+
+      '</div>';
+    }).join('');
+  },function(e){console.error('Erreur chargement portail:',e);});
+}
+
+function editerPortailBouton(id,icone,label,url){
+  editPortailId=id;
+  document.getElementById('portail-edit-id').value=id;
+  document.getElementById('portail-icone').value=decodeURIComponent(icone);
+  document.getElementById('portail-label').value=decodeURIComponent(label);
+  document.getElementById('portail-url').value=decodeURIComponent(url);
+}
+
+function savePortailBouton(){
+  var label=document.getElementById('portail-label').value.trim();
+  var url=document.getElementById('portail-url').value.trim();
+  if(!label||!url){alert('Le nom et l\'URL du bouton sont obligatoires.');return;}
+  if(!/^https?:\/\//i.test(url)){alert('L\'URL doit commencer par http:// ou https://');return;}
+  var icone=document.getElementById('portail-icone').value.trim()||'🔗';
+  var payload={label:label,url:url,icone:icone};
+
+  var apres=function(){
+    editPortailId=null;
+    document.getElementById('portail-edit-id').value='';
+    document.getElementById('portail-icone').value='';
+    document.getElementById('portail-label').value='';
+    document.getElementById('portail-url').value='';
+  };
+
+  if(editPortailId){
+    fbDb.collection('portailBoutons').doc(editPortailId).update(payload).then(apres)
+      .catch(function(e){console.error(e);alert('Erreur lors de la mise à jour.');});
+  }else{
+    fbDb.collection('portailBoutons').get().then(function(snap){
+      payload.ordre=snap.size;
+      return fbDb.collection('portailBoutons').add(payload);
+    }).then(apres).catch(function(e){console.error(e);alert('Erreur lors de l\'ajout.');});
+  }
+}
+
+function supprimerPortailBouton(id){
+  if(!confirm('Supprimer ce bouton du portail ?'))return;
+  fbDb.collection('portailBoutons').doc(id).delete().catch(function(e){console.error(e);alert('Erreur lors de la suppression.');});
+}
+
+// Echange l'ordre d'affichage entre ce bouton et son voisin (direction -1 = monter, 1 = descendre)
+function deplacerPortailBouton(id,direction){
+  fbDb.collection('portailBoutons').orderBy('ordre','asc').get().then(function(snap){
+    var boutons=[];
+    snap.forEach(function(doc){boutons.push({id:doc.id,ordre:doc.data().ordre||0});});
+    var i=boutons.findIndex(function(b){return b.id===id;});
+    var j=i+direction;
+    if(i===-1||j<0||j>=boutons.length)return;
+    var batch=fbDb.batch();
+    batch.update(fbDb.collection('portailBoutons').doc(boutons[i].id),{ordre:boutons[j].ordre});
+    batch.update(fbDb.collection('portailBoutons').doc(boutons[j].id),{ordre:boutons[i].ordre});
+    return batch.commit();
+  }).catch(function(e){console.error('Erreur réordonnancement portail:',e);});
+}
+
 function genererMotDePasseNouvelUtilisateur(){
   var chars='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
   var pass='';
@@ -1960,15 +3331,26 @@ function genererMotDePasseNouvelUtilisateur(){
 // automatiquement tout compte nouvellement cree, ce qui deconnecterait l'administrateur en
 // train de l'ajouter. Pour l'eviter, la creation passe par une SECONDE instance Firebase,
 // isolee de la session principale, detruite immediatement apres usage. ═══
+function toggleChampsSalarieDash(){
+  var role=document.getElementById('new-user-role').value;
+  var estEmploye=role==='employe';
+  document.getElementById('new-user-nom-wrap').style.display=estEmploye?'':'none';
+  document.getElementById('new-user-poste-wrap').style.display=estEmploye?'':'none';
+}
 function creerNouvelUtilisateurDash(){
   if(!isAdminDash)return;
   var email=document.getElementById('new-user-email').value.trim();
   var password=document.getElementById('new-user-password').value;
-  var donnerAdmin=document.getElementById('new-user-admin').checked;
+  var roleChoisi=document.getElementById('new-user-role').value; // 'admin' | 'compta' | 'employe'
+  var donnerAdmin=roleChoisi==='admin';
+  var estEmploye=roleChoisi==='employe';
+  var nomSalarie=estEmploye?document.getElementById('new-user-nom').value.trim():'';
+  var posteSalarie=estEmploye?document.getElementById('new-user-poste').value.trim():'';
   var statusEl=document.getElementById('new-user-status');
 
   if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){alert('Merci de saisir une adresse e-mail valide.');return;}
   if(!password||password.length<6){alert('Le mot de passe doit contenir au moins 6 caractères.');return;}
+  if(estEmploye&&!nomSalarie){alert('Merci de saisir le nom du salarié.');return;}
 
   statusEl.style.display='block';
   statusEl.style.color='var(--muted)';
@@ -1985,18 +3367,34 @@ function creerNouvelUtilisateurDash(){
         promesses.push(fbDb.collection('admins').doc(nouvelUid).set({
           ajoutePar:fbUser?fbUser.email:'',date:firebase.firestore.FieldValue.serverTimestamp()
         }));
+      }else if(roleChoisi==='compta'){
+        promesses.push(fbDb.collection('userRoles').doc(nouvelUid).set({
+          role:'compta',ajoutePar:fbUser?fbUser.email:'',date:firebase.firestore.FieldValue.serverTimestamp()
+        }));
       }
       promesses.push(fbDb.collection('userProfiles').doc(nouvelUid).set({
         email:email,creeParDashboard:true,date:firebase.firestore.FieldValue.serverTimestamp()
       },{merge:true}));
+      // Rôle employé : cree en plus la fiche salarie (collection 'salaries', partagee avec
+      // compta.html et gestion-devis-factures.html), liee au compte via authUid ET email —
+      // c'est cette fiche qui sert de base aux fiches de paie et a l'assignation chantier.
+      if(estEmploye){
+        promesses.push(fbDb.collection('salaries').add({
+          nom:nomSalarie,email:email,poste:posteSalarie,authUid:nouvelUid,
+          creeParDashboard:true,creePar:fbUser?fbUser.email:'',date:firebase.firestore.FieldValue.serverTimestamp()
+        }));
+      }
       return Promise.all(promesses).then(function(){return nouvelUid;});
     })
     .then(function(nouvelUid){
+      var libelleRole=roleChoisi==='admin'?'administrateur':roleChoisi==='compta'?'comptabilité':'employé/artisan';
       statusEl.style.color='var(--accent)';
-      statusEl.textContent='✓ Compte créé : '+email+(donnerAdmin?' (administrateur)':'')+'. Communiquez-lui ces identifiants pour sa première connexion.';
-      enregistrerActionAdminDash('Nouvel utilisateur créé',email+' ('+nouvelUid+')');
+      statusEl.textContent='✓ Compte créé : '+email+' ('+libelleRole+')'+(estEmploye?' — fiche salarié ajoutée automatiquement':'')+'. Communiquez-lui ces identifiants pour sa première connexion.';
+      enregistrerActionAdminDash('Nouvel utilisateur créé',email+' ('+nouvelUid+') — rôle '+libelleRole);
       document.getElementById('new-user-email').value='';
       document.getElementById('new-user-password').value='';
+      document.getElementById('new-user-nom').value='';
+      document.getElementById('new-user-poste').value='';
       chargerListeAdminsDashboard();
     })
     .catch(function(e){
@@ -2046,6 +3444,8 @@ function retirerAdminDashboard(uid){
         document.getElementById('ctrl-panel-banner').style.display='none';
         document.getElementById('ctrl-panel-journal').style.display='none';
         document.getElementById('ctrl-panel-tentatives').style.display='none';
+        document.getElementById('ctrl-panel-historique-pannes').style.display='none';
+        document.getElementById('ctrl-panel-panne-generale').style.display='none';
         document.getElementById('ctrl-panel-tickets').style.display='none';
         document.getElementById('ctrl-panel-demandes-aide').style.display='none';
         document.getElementById('ctrl-panel-sante').style.display='none';
@@ -2060,9 +3460,50 @@ function retirerAdminDashboard(uid){
         document.getElementById('ctrl-panel-doceditor').style.display='none';
         document.getElementById('ctrl-panel-creerdoc').style.display='none';
         document.getElementById('ctrl-panel-clienttest').style.display='none';
+        document.getElementById('ctrl-panel-dbexplorer').style.display='none';
+        document.getElementById('ctrl-panel-maintenance-compta').style.display='none';
+        document.getElementById('ctrl-panel-panne-generale').style.display='none';
+        document.getElementById('ctrl-panel-paie').style.display='none';
       }
     })
     .catch(function(e){console.error('Erreur suppression admin:',e);alert('Erreur lors de la suppression.');});
+}
+
+// ═══ ROLE COMPTABILITE (collection userRoles/{uid}, role:'compta') ═══
+function chargerListeRoleComptaDashboard(){
+  var el=document.getElementById('compta-role-list');
+  if(!el)return;
+  el.innerHTML='<div class="ctrl-status-line">Chargement…</div>';
+  fbDb.collection('userRoles').where('role','==','compta').get().then(function(snap){
+    if(snap.empty){el.innerHTML='<div class="ctrl-status-line">Aucun compte avec le rôle Comptabilité.</div>';return;}
+    var rows=[];
+    snap.forEach(function(doc){
+      var data=doc.data()||{};
+      var estMoi=fbUser&&doc.id===fbUser.uid;
+      rows.push('<div class="admin-row"><div class="u"><code>'+esc(doc.id)+'</code>'+(estMoi?'<span class="you">(vous)</span>':'')+(data.email?'<span class="em">'+esc(data.email)+'</span>':'')+'</div>'+
+        '<button class="btn-sm2 danger" onclick="retirerRoleComptaDashboard(\''+esc(doc.id)+'\')">Retirer</button></div>');
+    });
+    el.innerHTML=rows.join('');
+  }).catch(function(e){
+    console.error('Erreur chargement rôle compta:',e);
+    el.innerHTML='<div class="ctrl-status-line" style="color:var(--danger)">Erreur de chargement. Vérifiez les règles Firestore sur "userRoles".</div>';
+  });
+}
+function ajouterRoleComptaDashboard(){
+  if(!isAdminDash)return;
+  var input=document.getElementById('new-compta-uid');
+  var uid=input.value.trim();
+  if(!uid){alert('Entrez un UID Firebase valide.');return;}
+  fbDb.collection('userRoles').doc(uid).set({role:'compta',ajoutePar:fbUser?fbUser.email:'',date:firebase.firestore.FieldValue.serverTimestamp()})
+    .then(function(){input.value='';chargerListeRoleComptaDashboard();enregistrerActionAdminDash('Rôle Comptabilité attribué',uid);})
+    .catch(function(e){console.error('Erreur attribution rôle compta:',e);alert('Erreur lors de l\'attribution. Vérifiez les règles Firestore sur "userRoles".');});
+}
+function retirerRoleComptaDashboard(uid){
+  if(!isAdminDash)return;
+  if(!confirm('Retirer le rôle Comptabilité de ce compte ?'))return;
+  fbDb.collection('userRoles').doc(uid).delete()
+    .then(function(){chargerListeRoleComptaDashboard();enregistrerActionAdminDash('Rôle Comptabilité retiré',uid);})
+    .catch(function(e){console.error('Erreur retrait rôle compta:',e);alert('Erreur lors du retrait.');});
 }
 
 // ═══ FICHE CLIENT (modal) ═══
@@ -2304,6 +3745,44 @@ function chargerJournalAdminDashboard(){
   }).catch(function(e){
     console.error('Erreur chargement journal admin:',e);
     el.innerHTML='<div class="feed-empty" style="color:var(--danger)">Erreur de chargement (vérifiez les règles Firestore sur "adminLog").</div>';
+  });
+}
+
+// ═══ HISTORIQUE DEDIE DES MAINTENANCES / PANNES — meme collection adminLog que le journal
+// general ci-dessus, mais filtree sur les seules actions liees a une mise en/hors maintenance
+// (site vitrine, espace client, app de gestion, agenda chantier, comptabilite, fiches de
+// paie, panne generale), pour retrouver rapidement quand et par qui un site a ete coupe. ═══
+var MOTS_CLES_MAINTENANCE=['maintenance','panne générale','désactivé','réactivé','bloqué','débloqué','verrouillé','déverrouillé'];
+function chargerHistoriquePannesDash(){
+  var el=document.getElementById('historique-pannes-list');
+  if(!el)return;
+  el.innerHTML='<div class="feed-empty">Chargement…</div>';
+  fbDb.collection('adminLog').limit(150).get().then(function(snap){
+    var entrees=[];
+    snap.forEach(function(doc){entrees.push(doc.data());});
+    entrees=entrees.filter(function(e){
+      var texte=((e.action||'')+' '+(e.detail||'')).toLowerCase();
+      return MOTS_CLES_MAINTENANCE.some(function(m){return texte.indexOf(m)!==-1;});
+    });
+    entrees.sort(function(a,b){
+      var ta=a.date&&a.date.toMillis?a.date.toMillis():0;
+      var tb=b.date&&b.date.toMillis?b.date.toMillis():0;
+      return tb-ta;
+    });
+    document.getElementById('historique-pannes-count').textContent=entrees.length;
+    if(!entrees.length){el.innerHTML='<div class="feed-empty">Aucune maintenance ni panne enregistrée pour le moment.</div>';return;}
+    el.innerHTML=entrees.slice(0,60).map(function(e){
+      var d=e.date&&e.date.toDate?e.date.toDate():null;
+      var dateStr=d?d.toLocaleDateString('fr-FR')+' à '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'—';
+      var texte=(e.action||'').toLowerCase();
+      var estActivation=/désactivé|bloqué|verrouillé|déclenchée/.test(texte)&&!/réactivé|débloqué|déverrouillé|terminée/.test(texte);
+      return '<div class="journal-item"><div class="action">'+(estActivation?'🔴':'🟢')+' '+esc(e.action||'')+'</div>'+
+        (e.detail?'<div class="detail">'+esc(e.detail)+'</div>':'')+
+        '<div class="meta">'+esc(e.parEmail||'')+' · '+dateStr+'</div></div>';
+    }).join('');
+  }).catch(function(e){
+    console.error('Erreur chargement historique pannes:',e);
+    el.innerHTML='<div class="feed-empty" style="color:var(--danger)">Erreur de chargement.</div>';
   });
 }
 
@@ -3695,6 +5174,7 @@ function restructurerFirestoreDash(){
     // Recharge les panneaux qui dependent des collections qu'on vient de vider.
     chargerListeAdminsDashboard();
     chargerJournalAdminDashboard();
+    chargerHistoriquePannesDash();
     chargerTicketsDashboard();
     chargerTentativesEchouees();
     chargerUtilisateursVerrouillesDash();
@@ -4525,13 +6005,30 @@ function renderSiteHealth(){
   var h=window._siteHealth||{};
   var v=computeFreshness(h.vitrineLastSeen);
   var c=computeFreshness(h.consultationLastSeen);
+  var cfg=_lastCfgControles||{};
+  var cfgCompta=_lastCfgComptaMaintenance||{};
+  var maintenanceExpiree=cfg.maintenanceExpiration&&new Date(cfg.maintenanceExpiration)<new Date();
+  var verrouillageExpire=cfg.verrouillageExpiration&&new Date(cfg.verrouillageExpiration)<new Date();
+  var maintAppExpiree=cfg.maintenanceAppExpiration&&new Date(cfg.maintenanceAppExpiration)<new Date();
+  var maintAgendaExpiree=cfg.maintenanceAgendaExpiration&&new Date(cfg.maintenanceAgendaExpiration)<new Date();
+  var vitrineOff=!!cfg.modeMaintenance&&!maintenanceExpiree;
+  var consultOff=!!cfg.blocageConsultation&&!verrouillageExpire;
+  var appOff=!!cfg.maintenanceAppActive&&!maintAppExpiree;
+  var agendaOff=!!cfg.maintenanceAgendaActive&&!maintAgendaExpiree;
+  var comptaExpiree=cfgCompta.expiration&&new Date(cfgCompta.expiration)<new Date();
+  var comptaOff=!!cfgCompta.actif&&!comptaExpiree;
+  var paieOff=!!(cfgCompta.sections&&cfgCompta.sections.paie&&cfgCompta.sections.paie.actif);
   var cards=[
-    {name:'App gestion (ce compte)',dot:'ok', detail:'Connecté à Firebase · '+ (fbUser?fbUser.email:'')},
-    {name:'Site vitrine',dot:v.dot, detail:v.label},
-    {name:'Portail consultation client',dot:c.dot, detail:c.label}
+    {name:'App gestion (ce compte)',dot:'ok',detail:'Connecté à Firebase · '+(fbUser?fbUser.email:''),href:null},
+    {name:'🌐 Site vitrine',dot:vitrineOff?'off':v.dot,detail:vitrineOff?'🔴 En maintenance':v.label,href:'vitrine.html'},
+    {name:'🔒 Portail consultation client',dot:(vitrineOff||consultOff)?'off':c.dot,detail:(vitrineOff||consultOff)?'🔴 Verrouillé':c.label,href:'consultation.html'},
+    {name:'📋 Gestion Devis &amp; Factures',dot:appOff?'off':'ok',detail:appOff?'🔴 En maintenance (code requis)':'🟢 Accessible','href':'gestion-devis-factures.html'},
+    {name:'👷 Agenda Chantier',dot:agendaOff?'off':'ok',detail:agendaOff?'🔴 En maintenance':'🟢 Accessible',href:'agenda-chantier.html'},
+    {name:'🧮 Comptabilité',dot:comptaOff?'off':'ok',detail:comptaOff?'🔴 En maintenance':'🟢 Accessible',href:'compta.html'},
+    {name:'🧾 Fiches de paie',dot:paieOff?'off':'ok',detail:paieOff?'🔴 En maintenance':'🟢 Accessible',href:null}
   ];
   document.getElementById('sites-status').innerHTML=cards.map(function(c){
-    return '<div class="site-card"><div class="site-dot '+c.dot+'"></div><div class="info"><div class="name">'+esc(c.name)+'</div><div class="detail">'+esc(c.detail)+'</div></div></div>';
+    return '<div class="site-card"><div class="site-dot '+c.dot+'"></div><div class="info"><div class="name">'+c.name+(c.href?' <a href="'+c.href+'" target="_blank" rel="noopener" style="font-size:.62rem;color:var(--accent2);text-decoration:none;font-weight:600">Ouvrir ↗</a>':'')+'</div><div class="detail">'+esc(c.detail)+'</div></div></div>';
   }).join('');
 }
 // Convertit un timestamp de derniere activite en statut visuel : vert si recent (<7j),
@@ -4563,6 +6060,38 @@ function listenDemandesDevis(){
     markVitrineActive();
     renderFeed();
   },function(e){console.error('Erreur listener demandesDevis:',e);});
+}
+
+// ── Incidents signales par les ouvriers depuis agenda-chantier.html (bouton "⚠️ Signaler
+// un probleme"). Toujours dans le fil d'activite ; en plus dans les Alertes systeme si
+// gravite = "urgent" (bloque le chantier). ──
+function listenIncidentsChantierDash(){
+  fbDb.collection('incidentsChantier').orderBy('date','desc').limit(50).onSnapshot(function(snap){
+    snap.docChanges().forEach(function(ch){
+      if(ch.type==='removed'){delete feedItems['incident_'+ch.doc.id];delete alertItems['incident_'+ch.doc.id];return;}
+      var d=ch.doc.data();
+      var date=toDate(d.date)||new Date();
+      var icone=d.gravite==='urgent'?'🚨':(d.gravite==='attention'?'⚠️':'ℹ️');
+      var titre=(d.chantierTitre?'Incident — '+d.chantierTitre:'Incident signalé')+' — '+(d.personne||'');
+      feedItems['incident_'+ch.doc.id]={
+        id:ch.doc.id,type:'incident',icon:icone,
+        title:titre,sub:(d.description||'').slice(0,120),date:date,
+        _clientNom:d.personne||''
+      };
+      if(d.gravite==='urgent'&&d.statut!=='resolu'){
+        alertItems['incident_'+ch.doc.id]={
+          id:'incident_'+ch.doc.id,icon:'🚨',
+          title:'Incident urgent — '+(d.chantierTitre||'sans chantier'),
+          sub:(d.personne||'')+' : '+(d.description||'').slice(0,120),
+          date:date,level:'danger'
+        };
+      }else{
+        delete alertItems['incident_'+ch.doc.id];
+      }
+    });
+    renderFeed();
+    renderAlerts();
+  },function(e){console.error('Erreur listener incidentsChantier:',e);});
 }
 
 // ── 3. Messages de contact (formulaire vitrine) ──
@@ -4833,5 +6362,59 @@ function markConsultationActive(){
   renderSiteHealth();
 }
 </script>
+<!-- MODAL BIENVENUE PREMIERE CONNEXION -->
+<div class="modal-overlay" id="welcome-modal">
+  <div class="modal-box" style="max-width:560px">
+    <h3>👋 Bienvenue sur votre espace NICO MULTISERVICES <button class="modal-close" onclick="fermerWelcomeModal()">✕</button></h3>
+    <div style="font-size:.85rem;line-height:1.6;color:var(--text)">
+      <p style="margin-bottom:12px">Ce logiciel regroupe plusieurs applications reliées entre elles. Voici un rapide tour d'horizon :</p>
+      <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px">
+        <div style="font-weight:700;margin-bottom:4px">🏠 Dashboard (ici)</div>
+        <div style="color:var(--muted)">Le centre de contrôle. Gestion des comptes utilisateurs, des salariés, de la maintenance des applications, et vue d'ensemble de l'activité.</div>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px">
+        <div style="font-weight:700;margin-bottom:4px">📋 Gestion devis & factures</div>
+        <div style="color:var(--muted)">L'application principale : clients, devis, factures, produits, et suivi des chantiers avec pointage d'heures.</div>
+      </div>
+      <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <div style="font-weight:700;margin-bottom:4px">📅 Agenda chantier</div>
+        <div style="color:var(--muted)">Le planning des interventions, accessible sur le terrain, avec suivi d'équipe et pointage d'heures synchronisé partout.</div>
+      </div>
+      <p style="font-size:.78rem;color:var(--muted)">Toutes les données saisies (clients, heures, planning) se synchronisent automatiquement entre ces applications.</p>
+    </div>
+    <button class="btn-sm2" style="margin-top:16px;width:100%" onclick="fermerWelcomeModal()">J'ai compris, commencer</button>
+  </div>
+</div>
+
+<!-- MODAL : DEMANDER LE RETOUR DE MATERIEL -->
+<div class="modal-overlay" id="mail-materiel-modal" onclick="if(event.target===this)document.getElementById('mail-materiel-modal').classList.remove('open')">
+  <div class="modal-box" style="max-width:520px">
+    <h3>📧 Demander le retour de matériel <button class="modal-close" onclick="document.getElementById('mail-materiel-modal').classList.remove('open')">✕</button></h3>
+    <div style="font-size:.8rem;margin-bottom:10px" id="mm-salarie-nom"></div>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Sélectionnez les outils actuellement empruntés par ce salarié à réclamer :</div>
+    <div id="mm-outils-liste" style="max-height:220px;overflow-y:auto;margin-bottom:12px"></div>
+    <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">Aperçu du message</label>
+    <textarea id="mm-message-preview" style="width:100%;min-height:110px;font-family:inherit;font-size:.78rem;padding:8px;border-radius:8px;border:1px solid var(--border)" readonly></textarea>
+    <div id="mm-statut" style="font-size:.72rem;margin-top:6px"></div>
+    <button class="btn-sm2" style="margin-top:10px;width:100%" onclick="envoyerMailRendreMateriel()">Envoyer la demande</button>
+  </div>
+</div>
+
+<!-- MODAL : NOTIFIER UNE AFFECTATION CHANTIER -->
+<div class="modal-overlay" id="mail-chantier-modal" onclick="if(event.target===this)document.getElementById('mail-chantier-modal').classList.remove('open')">
+  <div class="modal-box" style="max-width:520px">
+    <h3>📧 Notifier une affectation chantier <button class="modal-close" onclick="document.getElementById('mail-chantier-modal').classList.remove('open')">✕</button></h3>
+    <div style="font-size:.8rem;margin-bottom:10px" id="mc-salarie-nom"></div>
+    <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">Chantier à annoncer</label>
+    <select id="mc-chantier-select" class="ctrl-select" style="width:100%;margin-bottom:10px" onchange="mettreAJourApercuMailChantier()"></select>
+    <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">Matériel à ramener (optionnel)</label>
+    <div id="mc-outils-liste" style="max-height:150px;overflow-y:auto;margin-bottom:10px"></div>
+    <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">Aperçu du message</label>
+    <textarea id="mc-message-preview" style="width:100%;min-height:130px;font-family:inherit;font-size:.78rem;padding:8px;border-radius:8px;border:1px solid var(--border)" readonly></textarea>
+    <div id="mc-statut" style="font-size:.72rem;margin-top:6px"></div>
+    <button class="btn-sm2" style="margin-top:10px;width:100%" onclick="envoyerMailAffectationChantier()">Envoyer la notification</button>
+  </div>
+</div>
+
 </body>
 </html>
