@@ -599,6 +599,7 @@ body.mode-presentation{background:#F1F5F9}
 <div class="sync-status" id="sync-status" style="display:none">
   <div class="sync-dot" id="sync-dot"></div>
   <span id="sync-text">Mode local</span>
+  <button id="btn-demande-doc" onclick="openModalDemandeDocument()" style="display:none;background:none;border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11.5px;cursor:pointer;margin-right:6px" title="Demander une attestation, un bulletin de paie, etc.">📄 Mes documents</button>
   <span class="sync-user" id="sync-user-email" onclick="handleLogout()" style="display:none" title="Cliquer pour se deconnecter"></span>
 </div>
 
@@ -2869,7 +2870,30 @@ body.mode-presentation{background:#F1F5F9}
   </div>
 </div>
 
-<!-- MODAL REMBOURSEMENT -->
+<!-- MODAL SCAN DEVIS SIGNE A LA MAIN : upload une photo/scan du devis papier signe, demande
+     le lieu et la date de signature, puis depose le fichier sur Google Drive (nomme avec le
+     client + le numero de document) et marque le devis comme signe. -->
+<div class="modal-overlay" id="modal-scan-signature">
+  <div class="modal">
+    <div class="modal-header"><h2>📷 Scanner le devis signé</h2><button class="close-btn" onclick="closeModal('modal-scan-signature')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="scansig-doc-id">
+      <div id="scansig-info" style="font-size:13px;color:var(--muted);margin-bottom:14px"></div>
+      <div class="fg"><label>Photo ou scan du document signé *</label><input type="file" id="scansig-fichier" accept="image/*,application/pdf" capture="environment"></div>
+      <div class="g2">
+        <div class="fg"><label>Date de signature</label><input type="date" id="scansig-date"></div>
+        <div class="fg"><label>Lieu de signature *</label><input id="scansig-lieu" placeholder="ex: Lille, au domicile du client"></div>
+      </div>
+      <div id="scansig-statut" style="font-size:12.5px;margin-top:8px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-scan-signature')">Annuler</button>
+      <button class="btn btn-primary" id="scansig-btn-confirmer" onclick="confirmerScanSignature()">✅ Enregistrer et envoyer sur Drive</button>
+    </div>
+  </div>
+</div>
+
+
 <div class="modal-overlay" id="modal-refund">
   <div class="modal" style="max-width:540px">
     <div class="modal-header"><h2>↩️ Effectuer un remboursement</h2><button class="close-btn" onclick="closeModal('modal-refund')">✕</button></div>
@@ -3267,6 +3291,21 @@ body.mode-presentation{background:#F1F5F9}
 //       || exists(/databases/$(database)/documents/admins/$(request.auth.uid))
 //     );
 //     allow delete: if request.auth != null &&
+//       exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+//   }
+//
+// ⚠️ POUR LES DEMANDES DE DOCUMENTS EN LIBRE-SERVICE (bouton "📄 Mes documents" +
+// panneau "📄 Demandes de documents" du dashboard) : un utilisateur connecte peut creer
+// une demande et lire UNIQUEMENT les siennes ; seul un administrateur peut lire toutes les
+// demandes et les marquer traitees :
+//
+//   match /demandesDocuments/{id} {
+//     allow create: if request.auth != null && request.resource.data.demandeParUid == request.auth.uid;
+//     allow read: if request.auth != null && (
+//       resource.data.demandeParUid == request.auth.uid
+//       || exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+//     );
+//     allow update, delete: if request.auth != null &&
 //       exists(/databases/$(database)/documents/admins/$(request.auth.uid));
 //   }
 //
@@ -3797,6 +3836,7 @@ function hideAuthScreen(){
   if(fbUser){
     document.getElementById('sync-user-email').textContent='👤 '+(_nomsComptesCache[fbUser.uid]||fbUser.email);
     document.getElementById('sync-user-email').style.display='inline-block';
+    document.getElementById('btn-demande-doc').style.display='inline-block';
   }
 }
 
@@ -7220,7 +7260,7 @@ function renderDevis(){
     var statutBadge=d.convertiEnFacture
       ?'<span class="badge bp" title="Converti en facture '+esc(d.convertiEnFacture)+'">🔒 Converti</span>'
       :d.devisSigne
-        ?'<span class="badge" style="background:#DCFCE7;color:#15803D;font-weight:700" title="Signé par le client le '+(d.signatureClientDate?fmtDate(d.signatureClientDate.split('T')[0]):'')+'">✓ Signé — prêt à facturer</span>'
+        ?'<span class="badge" style="background:#DCFCE7;color:#15803D;font-weight:700" title="Signé le '+(d.signatureClientDate?fmtDate(d.signatureClientDate.split('T')[0]):'')+(d.signatureLieu?(' à '+d.signatureLieu):'')+'">✓ Signé — prêt à facturer</span>'+(d.lienScanSigne?' <a href="'+esc(d.lienScanSigne)+'" target="_blank" title="Voir le scan de la signature">📄</a>':'')
         :'<span class="badge bd">'+d.statut+'</span>';
     statutBadge=maintBadge+statutBadge;
     var acomptesVerses=(db.documents||[]).filter(function(x){return x.type==='facture'&&x.acompteDepuisDevis===d.numero;}).reduce(function(s,x){return s+x.totalHT;},0);
@@ -7241,6 +7281,7 @@ function renderDevis(){
     return '<tr'+(enMaintenance?' style="background:#2A1416"':'')+'><td><strong>'+esc(d.numero)+'</strong></td><td>'+(c?esc(c.nom):'—')+associesBadge+'</td><td>'+fmtDate(d.date)+'</td><td><strong>'+fmt(d.totalHT)+' €</strong></td><td>'+statutBadge+'</td><td style="display:flex;gap:3px;flex-wrap:wrap">'+
       '<button class="btn btn-ghost btn-sm" onclick="showPv('+d.id+')">👁</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="openDocModal(\'devis\','+d.id+')">✏️</button>'+
+      (d.convertiEnFacture?'':'<button class="btn btn-ghost btn-sm" onclick="openModalScanSignature('+d.id+')" title="Scanner le devis signé à la main">📷</button>')+
       convertBtn+acompteBtn+soldeBtn+histBtn+consultBtn+
       '<button class="btn btn-primary btn-sm" onclick="downloadPDF('+d.id+',true)">⬇</button>'+
       '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteDoc('+d.id+')">🗑</button>'+
@@ -7531,7 +7572,7 @@ function showPv(id){
     '<div class="pv-co"><strong>'+esc(p.nom||'Mon Entreprise')+'</strong>'+(p.adresse?esc(p.adresse)+'<br>':'')+(p.ville?esc(p.ville)+'<br>':'')+(p.tel?'Tel. : '+esc(p.tel)+'<br>':'')+(p.siret?'SIRET : '+esc(p.siret)+'<br>':'')+'<span style="color:#1A56DB;font-weight:600;font-size:10px">TVA non applicable, art. 293B du CGI</span></div></div>'+
     '<div class="pv-box"><div class="dtype">'+(isD?'DEVIS':'FACTURE')+'</div><div class="dnum">'+esc(doc.numero)+'</div><hr><div class="dinfo">Date : '+fmtDate(doc.date)+'<br>'+(isD?'Validite':'Echeance')+' : '+ech+'</div></div></div>'+
     stamp+
-    '<div class="pv-sec"><div class="pv-sec-t">Client</div><div class="pv-cli"><strong>'+esc(client?client.nom:'—')+'</strong>'+(client&&client.contact?'<span>'+esc(client.contact)+'</span>':'')+'<span>'+esc(cAddr)+'</span>'+(client&&client.email?'<span>'+esc(client.email)+'</span>':'')+'</div>'+associesBlock+(ch?'<div class="pv-sec-t" style="margin-top:7px">Adresse du chantier</div><div style="font-size:11px;color:#718096;font-style:italic">📍 '+esc(ch)+'</div>':'')+(doc.objet?'<div style="font-size:11px;color:#718096;font-style:italic;margin-top:3px">Objet : '+esc(doc.objet)+'</div>':'')+'</div>'+
+    '<div class="pv-sec"><div class="pv-sec-t">Client</div><div class="pv-cli"><strong>'+esc(client?client.nom:'—')+'</strong>'+(client&&client.contact?'<span>'+esc(client.contact)+'</span>':'')+'<span>'+esc(cAddr)+'</span>'+(client&&client.email?'<span>'+esc(client.email)+'</span>':'')+(doc.devisSigne?'<span style="color:#15803D;font-weight:700">✓ Signé'+(doc.signatureClientDate?(' le '+fmtDate(doc.signatureClientDate.split('T')[0])):'')+(doc.signatureLieu?(' à '+esc(doc.signatureLieu)):'')+'</span>':'')+'</div>'+associesBlock+(ch?'<div class="pv-sec-t" style="margin-top:7px">Adresse du chantier</div><div style="font-size:11px;color:#718096;font-style:italic">📍 '+esc(ch)+'</div>':'')+(doc.objet?'<div style="font-size:11px;color:#718096;font-style:italic;margin-top:3px">Objet : '+esc(doc.objet)+'</div>':'')+'</div>'+
     reglementsBlock+
     '<table class="pv-tbl"><thead><tr><th>Designation</th><th style="text-align:right">Qte</th><th style="text-align:right">Prix HT</th><th style="text-align:right">Total HT</th></tr></thead><tbody>'+rows+'</tbody></table>'+
     '<div class="pv-tots">'+
@@ -7574,6 +7615,75 @@ function repartitionDeDocument(doc){
 }
 function montantDejaPayeParClient(doc,clientId){
   return (doc.paiements||[]).filter(function(p){return p.clientId===clientId;}).reduce(function(s,p){return s+(p.montant||0);},0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SCAN DEVIS SIGNE A LA MAIN : upload une photo/scan du document papier signe, demande le
+// lieu et la date de signature, depose le fichier sur Google Drive (nomme avec le client +
+// le numero de document) puis marque le devis comme signe — meme etat final que la
+// signature electronique (devisSigne=true), pour beneficier des memes badges/filtres.
+// ═══════════════════════════════════════════════════════════════════════
+function openModalScanSignature(docId){
+  var doc=db.documents.find(function(x){return x.id===docId;});
+  if(!doc)return;
+  var c=db.clients.find(function(x){return x.id===doc.clientId;});
+  document.getElementById('scansig-doc-id').value=docId;
+  document.getElementById('scansig-info').innerHTML='<strong>Devis '+esc(doc.numero)+'</strong> · '+(c?esc(c.nom):'?');
+  document.getElementById('scansig-fichier').value='';
+  document.getElementById('scansig-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('scansig-lieu').value=doc.signatureLieu||'';
+  document.getElementById('scansig-statut').textContent='';
+  openModal('modal-scan-signature');
+}
+
+function confirmerScanSignature(){
+  var docId=parseInt(document.getElementById('scansig-doc-id').value,10)||document.getElementById('scansig-doc-id').value;
+  var doc=db.documents.find(function(x){return x.id===docId;});
+  if(!doc)return;
+  var fichier=document.getElementById('scansig-fichier').files[0];
+  var lieu=document.getElementById('scansig-lieu').value.trim();
+  var dateSignature=document.getElementById('scansig-date').value;
+  if(!fichier){alert('Sélectionnez une photo ou un scan du document signé.');return;}
+  if(!lieu){alert('Indiquez le lieu de signature.');return;}
+  if(!dateSignature){alert('Indiquez la date de signature.');return;}
+
+  var statutEl=document.getElementById('scansig-statut');
+  var btn=document.getElementById('scansig-btn-confirmer');
+  btn.disabled=true;
+  statutEl.style.color='var(--muted)';
+  statutEl.textContent='Lecture du fichier…';
+
+  var c=db.clients.find(function(x){return x.id===doc.clientId;});
+  var nomFichier=((c?c.nom:'client')+'_'+doc.numero).replace(/[^a-z0-9]+/gi,'_')+'.'+(fichier.type==='application/pdf'?'pdf':'jpg');
+
+  var reader=new FileReader();
+  reader.onload=function(){
+    statutEl.textContent='Envoi vers Google Drive…';
+    uploaderVersGoogleDrive(reader.result,nomFichier,function(res){
+      doc.devisSigne=true;
+      doc.signatureClientDate=dateSignature+'T00:00:00.000Z';
+      doc.signatureLieu=lieu;
+      doc.lienScanSigne=res.driveUrl;
+      doc.devisSigneNotifie=true;
+      sDB();
+      if(docDoitEtrePublie(doc)){
+        publierDocumentPublic(doc).then(function(pub){
+          if(pub&&pub.docId)fbDb.collection('documentsPublics').doc(pub.docId).set({signatureLieu:lieu,lienScanSigne:res.driveUrl},{merge:true}).catch(function(){});
+        });
+      }
+      traceEvent&&traceEvent('devis_signe_scan',doc.numero+' — '+lieu);
+      btn.disabled=false;
+      statutEl.style.color='#15803D';
+      statutEl.textContent='✅ Document envoyé et devis marqué comme signé.';
+      renderDevis();
+      setTimeout(function(){closeModal('modal-scan-signature');},900);
+    },function(erreur){
+      btn.disabled=false;
+      statutEl.style.color='var(--danger)';
+      statutEl.textContent='⚠️ '+erreur+' Vérifiez la connexion Google Drive (Paramètres) et réessayez.';
+    });
+  };
+  reader.readAsDataURL(fichier);
 }
 
 function openReceiptModal(id){
@@ -10487,8 +10597,13 @@ function traiterScanMateriel(decodedText){
   }else{
     var dansSeptJours=new Date();dansSeptJours.setDate(dansSeptJours.getDate()+7);
     var eventsOptions=(db.events||[]).slice().sort(function(a,b){return (a.date||'').localeCompare(b.date||'');}).map(function(e){return '<option value="'+esc(e.titre||'')+'">'+esc(e.titre||'')+(e.date?' ('+fmtDate(e.date)+')':'')+'</option>';}).join('');
+    // Prise de materiel liee au compte connecte (pas de choix libre de la personne) : evite
+    // qu'un outil soit enregistre au nom de quelqu'un d'autre par erreur ou par facilite.
+    var salarieConnecte=(_salariesGDF||[]).find(function(s){return fbUser&&s.email&&s.email.toLowerCase()===fbUser.email.toLowerCase();});
+    var nomDetecte=salarieConnecte?salarieConnecte.nom:(fbUser?fbUser.email:'');
+    var avertissementIdentite=salarieConnecte?'':'<div style="font-size:11px;color:#92400E;margin-top:2px">⚠️ Profil salarié non lié à votre email — demandez à un administrateur de renseigner votre email sur votre fiche salarié (Comptabilité &gt; Salariés).</div>';
     res.innerHTML='<div style="font-size:13.5px"><strong>'+esc(m.nom)+'</strong> est disponible.</div>'+noteHtml+
-      '<div class="fg" style="margin-top:8px"><label>Pris par *</label><select id="mt-scan-personne"><option value="">-- Sélectionner --</option>'+_salariesGDF.map(function(s){return '<option value="'+esc(s.nom)+'">'+esc(s.nom)+'</option>';}).join('')+'</select></div>'+
+      '<div class="fg" style="margin-top:8px"><label>Pris par</label><div style="padding:8px 10px;background:#F1F5F9;border-radius:8px;font-size:13px;font-weight:600">👤 '+esc(nomDetecte)+'</div>'+avertissementIdentite+'<input type="hidden" id="mt-scan-personne" value="'+esc(nomDetecte)+'"></div>'+
       '<div class="fg" style="margin-top:6px"><label>Chantier</label><select id="mt-scan-chantier"><option value="">-- Aucun / autre --</option>'+eventsOptions+'</select></div>'+
       '<div class="fg" style="margin-top:6px"><label>Retour prévu le</label><input type="date" id="mt-scan-date-retour" value="'+dansSeptJours.toISOString().split('T')[0]+'"></div>'+
       '<button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="confirmerPriseMateriel('+id+')">✅ Confirmer la prise</button>';
@@ -11896,6 +12011,69 @@ function enregistrerPremiereConnexion(){
     console.error('Erreur enregistrement identité:',e);
     alert('⚠️ Erreur lors de l\'enregistrement. Vérifiez votre connexion et réessayez.');
   });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// DEMANDE DE DOCUMENT EN LIBRE-SERVICE : tout compte connecte peut demander une attestation
+// de travail, un bulletin de paie ou autre chose, sans avoir a passer par un message a
+// l'administrateur. La demande est stockee dans Firestore (demandesDocuments) et traitee
+// depuis dashboard.html.
+// ═══════════════════════════════════════════════════════════════════════
+function openModalDemandeDocument(){
+  document.getElementById('dd-type').value='attestation_travail';
+  document.getElementById('dd-periode').value='';
+  document.getElementById('dd-commentaire').value='';
+  chargerMesDemandesDocuments();
+  openModal('modal-demande-doc');
+}
+
+function envoyerDemandeDocument(){
+  if(!fbUser){alert('Vous devez être connecté.');return;}
+  var payload={
+    demandeParUid:fbUser.uid,
+    demandeParEmail:fbUser.email,
+    type:document.getElementById('dd-type').value,
+    periode:document.getElementById('dd-periode').value.trim(),
+    commentaire:document.getElementById('dd-commentaire').value.trim(),
+    statut:'nouvelle',
+    date:firebase.firestore.FieldValue.serverTimestamp()
+  };
+  fbDb.collection('userProfiles').doc(fbUser.uid).get().then(function(doc){
+    payload.nomComplet=doc.exists?(doc.data().nomComplet||doc.data().prenom+' '+doc.data().nom):fbUser.email;
+    return fbDb.collection('demandesDocuments').add(payload);
+  }).then(function(){
+    document.getElementById('dd-periode').value='';
+    document.getElementById('dd-commentaire').value='';
+    chargerMesDemandesDocuments();
+    alert('✅ Votre demande a bien été envoyée. Vous serez prévenu(e) une fois traitée.');
+  }).catch(function(e){
+    console.error('Erreur envoi demande document:',e);
+    alert('⚠️ Erreur lors de l\'envoi. Vérifiez votre connexion et réessayez.');
+  });
+}
+
+function chargerMesDemandesDocuments(){
+  var el=document.getElementById('dd-mes-demandes');
+  if(!fbUser){el.innerHTML='';return;}
+  fbDb.collection('demandesDocuments').where('demandeParUid','==',fbUser.uid).get().then(function(snap){
+    var liste=[];
+    snap.forEach(function(doc){liste.push(doc.data());});
+    liste.sort(function(a,b){
+      var da=a.date&&a.date.toDate?a.date.toDate():new Date(0);
+      var db2=b.date&&b.date.toDate?b.date.toDate():new Date(0);
+      return db2-da;
+    });
+    if(!liste.length){el.innerHTML='<div style="color:var(--muted)">Aucune demande envoyée pour le moment.</div>';return;}
+    var typeLabel={attestation_travail:'Attestation de travail',bulletin_paie:'Bulletin de paie',autre:'Autre'};
+    var statutBadge={nouvelle:'<span class="badge" style="background:#FEF3C7;color:#92400E">🟠 En attente</span>',traitee:'<span class="badge" style="background:#DCFCE7;color:#15803D">✅ Traitée</span>'};
+    el.innerHTML=liste.map(function(d){
+      var date=d.date&&d.date.toDate?d.date.toDate().toLocaleDateString('fr-FR'):'—';
+      return '<div style="padding:6px 0;border-bottom:1px solid var(--border)">'+
+        '<div>'+esc(typeLabel[d.type]||d.type)+(d.periode?(' — '+esc(d.periode)):'')+' '+(statutBadge[d.statut]||statutBadge.nouvelle)+'</div>'+
+        '<div style="font-size:11px;color:var(--muted)">Demandée le '+date+(d.reponseAdmin?('<br>Réponse : '+esc(d.reponseAdmin)):'')+'</div>'+
+      '</div>';
+    }).join('');
+  }).catch(function(e){console.error('Erreur chargement mes demandes:',e);el.innerHTML='<div style="color:var(--danger)">Erreur de chargement.</div>';});
 }
 
 // Serialise une valeur en JS (JSON.stringify) puis echappe les guillemets pour une insertion
@@ -14714,6 +14892,32 @@ setTimeout(applyTableLabels,200);
     </div>
     <div class="modal-footer">
       <button class="btn btn-primary" style="width:100%" onclick="enregistrerPremiereConnexion()">Valider</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DEMANDE DE DOCUMENT (libre-service) : accessible a tout compte connecte (bouton
+     "📄 Mes documents" pres de l'indicateur de compte). Cree une demande dans la collection
+     Firestore demandesDocuments, visible et traitable depuis dashboard.html. -->
+<div class="modal-overlay" id="modal-demande-doc">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><h2>📄 Mes documents</h2><button class="close-btn" onclick="closeModal('modal-demande-doc')">✕</button></div>
+    <div class="modal-body">
+      <div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
+        <h3 style="font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:10px">Nouvelle demande</h3>
+        <div class="fg"><label>Type de document</label>
+          <select id="dd-type">
+            <option value="attestation_travail">Attestation de travail</option>
+            <option value="bulletin_paie">Bulletin de paie</option>
+            <option value="autre">Autre (préciser ci-dessous)</option>
+          </select>
+        </div>
+        <div class="fg"><label>Période concernée (optionnel)</label><input id="dd-periode" placeholder="Ex : mars 2026, ou 'depuis mon embauche'"></div>
+        <div class="fg"><label>Précisions</label><textarea id="dd-commentaire" rows="2" placeholder="Toute information utile pour traiter votre demande"></textarea></div>
+        <button class="btn btn-primary" style="width:100%" onclick="envoyerDemandeDocument()">Envoyer la demande</button>
+      </div>
+      <h3 style="font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:10px">Mes demandes précédentes</h3>
+      <div id="dd-mes-demandes" style="font-size:12.5px">Chargement…</div>
     </div>
   </div>
 </div>
