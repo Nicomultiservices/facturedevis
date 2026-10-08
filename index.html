@@ -981,7 +981,11 @@ body.mode-presentation{background:#F1F5F9}
       <option value="normal">Format normal (grille 3×4)</option>
       <option value="etroit">Format étroit (tournevis, petits outils)</option>
     </select>
-    <button class="btn btn-ghost" onclick="imprimerPlancheEtiquettes('selection')">🖨 Imprimer la sélection</button><button class="btn btn-ghost" onclick="imprimerPlancheEtiquettes('tous')">🖨 Imprimer tout</button><button class="btn btn-primary" onclick="openMaterielModal(null)">+ Nouvel outil</button></div></div>
+    <button class="btn btn-ghost" onclick="imprimerPlancheEtiquettes('selection')">🖨 Imprimer la sélection</button><button class="btn btn-ghost" onclick="imprimerPlancheEtiquettes('tous')">🖨 Imprimer tout</button>
+    <button class="btn btn-ghost" onclick="exporterMaterielJSON()" title="Télécharge un fichier de sauvegarde du matériel, à garder sur votre ordinateur">💾 Sauvegarder</button>
+    <button class="btn btn-ghost" onclick="document.getElementById('mt-import-file').click()" title="Réimporte une sauvegarde précédente en cas de problème">📥 Réimporter</button>
+    <input type="file" id="mt-import-file" accept="application/json" style="display:none" onchange="importerMaterielJSON(this.files[0])">
+    <button class="btn btn-primary" onclick="openMaterielModal(null)">+ Nouvel outil</button></div></div>
   <div class="content">
     <div class="card"><div class="card-body tw" style="padding-bottom:0">
       <input id="mt-recherche" placeholder="🔍 Rechercher un outil (nom, référence, n° de série)..." style="width:100%;max-width:360px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);margin-bottom:12px" oninput="renderMateriel()">
@@ -1464,6 +1468,25 @@ body.mode-presentation{background:#F1F5F9}
         <button class="btn btn-primary" style="margin-top:16px" onclick="saveParams()">Enregistrer</button>
         <span id="params-ok" style="display:none;margin-left:10px;color:var(--accent);font-size:13px;font-weight:600">✓ Enregistré</span>
       </div></div>
+      <div class="card"><div class="card-header"><h3>🔢 Numérotation devis & factures</h3></div><div class="card-body">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Le prochain numéro attribué automatiquement à un nouveau devis ou une nouvelle facture. Utile si vous avez supprimé un document et voulez reprendre à un numéro précis — une vérification empêche de créer un doublon ou un conflit avec un document déjà existant.</p>
+        <div class="g2">
+          <div class="fg"><label>Prochain n° de devis (année en cours)</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span style="font-weight:700;color:var(--muted)" id="num-prefixe-devis">D—</span>
+              <input type="number" min="1" id="num-prochain-devis" style="width:100px">
+              <button class="btn btn-ghost btn-sm" onclick="modifierProchainNumero('devis')">Enregistrer</button>
+            </div>
+          </div>
+          <div class="fg"><label>Prochain n° de facture (année en cours)</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span style="font-weight:700;color:var(--muted)" id="num-prefixe-facture">F—</span>
+              <input type="number" min="1" id="num-prochain-facture" style="width:100px">
+              <button class="btn btn-ghost btn-sm" onclick="modifierProchainNumero('facture')">Enregistrer</button>
+            </div>
+          </div>
+        </div>
+      </div></div>
       <div class="card"><div class="card-header"><h3>🔗 Liens de vos autres pages</h3></div><div class="card-body">
         <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Adresses utilisées par le raccourci de la barre latérale et par les liens envoyés à vos clients. Laissez vide pour utiliser le fichier par défaut (utile si vos 3 pages sont hébergées côte à côte, par exemple sur GitHub Pages).</p>
         <div class="g2" style="gap:12px">
@@ -1706,6 +1729,26 @@ body.mode-presentation{background:#F1F5F9}
       </div>
     </div>
 
+    <div class="card" style="margin-bottom:18px" id="card-avis-google">
+      <div class="card-header"><h3>🔵 Avis Google</h3></div>
+      <div class="card-body">
+        <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Recopiez ici vos avis Google : ils s'affichent automatiquement sur votre site vitrine, dans la même rubrique que les avis clients (avec un badge « Avis Google »). Vous pouvez aussi rattacher chaque avis à la fiche du client concerné (visible uniquement par vous).</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:10px">
+          <div class="fg" style="margin:0"><label>Nom affiché (tel que sur Google)</label><input id="ag-nom" placeholder="Ex: Jean Dupont" oninput="suggererClientAvisGoogle()"></div>
+          <div class="fg" style="margin:0"><label>Note</label><select id="ag-note"><option value="5">⭐⭐⭐⭐⭐ (5)</option><option value="4">⭐⭐⭐⭐ (4)</option><option value="3">⭐⭐⭐ (3)</option><option value="2">⭐⭐ (2)</option><option value="1">⭐ (1)</option></select></div>
+          <div class="fg" style="margin:0"><label>Date de l'avis</label><input type="date" id="ag-date"></div>
+          <div class="fg" style="margin:0"><label>Client rattaché (optionnel)</label><select id="ag-client"><option value="">— Aucun —</option></select></div>
+        </div>
+        <div class="fg" style="margin-bottom:10px"><label>Commentaire</label><textarea id="ag-comm" style="min-height:60px" placeholder="Copiez le texte de l'avis Google (laisser vide s'il n'y a que la note)"></textarea></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+          <button class="btn btn-primary" id="ag-btn-save" onclick="enregistrerAvisGoogle()">➕ Ajouter l'avis Google</button>
+          <button class="btn btn-ghost" id="ag-btn-cancel" style="display:none" onclick="annulerEditionAvisGoogle()">Annuler la modification</button>
+        </div>
+        <div id="avis-google-resume" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
+        <div id="avis-google-list" style="display:grid;gap:10px"></div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-header"><h3>Avis reçus</h3></div>
       <div class="card-body" id="avis-list" style="display:grid;gap:12px"></div>
@@ -1850,9 +1893,13 @@ body.mode-presentation{background:#F1F5F9}
         <div class="fg"><label>Titre principal (grand titre en haut de page)</label><input id="sv-heroTitre" placeholder="Votre artisan multi-services de confiance"></div>
         <div class="fg"><label>Petit badge au-dessus du titre (laissez vide pour le masquer)</label><input id="sv-heroLabel" placeholder="✅ Devis gratuit sous 24h"></div>
         <div class="fg"><label>Phrase d'accroche</label><textarea id="sv-heroDesc" placeholder="Peinture, plâtrerie, rénovation, petits travaux. Devis gratuit sous 24h..."></textarea></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="fg"><label>Nb clients satisfaits (chiffre)</label><input id="sv-statClients" type="number" placeholder="350"></div>
-          <div class="fg"><label>Années d'expérience (chiffre)</label><input id="sv-statAnnees" type="number" placeholder="12"></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+          <div class="fg"><label>Nb clients satisfaits (chiffre)</label><input id="sv-statClients" type="number" placeholder="350">
+            <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-weight:500;cursor:pointer"><input type="checkbox" id="sv-afficherStatClients" checked style="width:auto"> Afficher sur le site</label></div>
+          <div class="fg"><label>Interventions réalisées (chiffre)</label><input id="sv-statInterventions" type="number" placeholder="1200">
+            <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-weight:500;cursor:pointer"><input type="checkbox" id="sv-afficherStatInterventions" checked style="width:auto"> Afficher sur le site</label></div>
+          <div class="fg"><label>Années d'expérience (chiffre)</label><input id="sv-statAnnees" type="number" placeholder="12">
+            <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-weight:500;cursor:pointer"><input type="checkbox" id="sv-afficherStatAnnees" checked style="width:auto"> Afficher sur le site</label></div>
         </div>
       </div>
     </div>
@@ -1912,6 +1959,8 @@ body.mode-presentation{background:#F1F5F9}
       <div class="card-body">
         <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Le petit texte au-dessus de chaque titre (ex: "Ce que je fais"), le grand titre, et le sous-titre quand il y en a un.</p>
 
+        <label style="display:flex;align-items:center;gap:6px;margin:0 0 14px;font-weight:600;cursor:pointer"><input type="checkbox" id="sv-afficherCommentCaMarche" checked style="width:auto"> Afficher la section « Comment ça marche ? »</label>
+        <div class="fg"><label>Lien de votre fiche Google (pour « Laisser un avis sur Google » — laissez vide pour masquer)</label><input id="sv-googleAvisUrl" placeholder="https://g.page/r/.../review"></div>
         <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin:16px 0 8px">🔧 Section Services</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="fg" style="margin:0"><label>Petit texte</label><input id="sv-servicesLabel" placeholder="Ce que je fais"></div>
@@ -2007,13 +2056,8 @@ body.mode-presentation{background:#F1F5F9}
           </div>
           <div class="fg" style="margin:0"><label>URL de la photo</label><input id="ph-url" placeholder="https://exemple.com/photo.jpg" oninput="previewPhotoUrl()"></div>
           <div class="fg" style="margin:0"><label>Catégorie</label>
-            <select id="ph-categorie">
-              <option value="Avant/Après">Avant / Après</option>
-              <option value="Peinture">Peinture</option>
-              <option value="Plâtrerie">Plâtrerie</option>
-              <option value="Rénovation">Rénovation</option>
-              <option value="Autre">Autre</option>
-            </select>
+            <select id="ph-categorie" onchange="onPhotoCategorieChange()"></select>
+            <input id="ph-newcat" placeholder="Nom de la nouvelle catégorie" style="display:none;margin-top:6px">
           </div>
           <button class="btn btn-primary" onclick="ajouterPhotoGalerie()" style="justify-content:center">➕ Ajouter</button>
         </div>
@@ -2694,6 +2738,23 @@ body.mode-presentation{background:#F1F5F9}
         <button class="btn btn-ghost btn-sm" id="mc-portal-resend" onclick="">📧 Renvoyer l'email d'accès</button>
       </div>
     </div>
+    <div id="mc-avisgoogle-wrap" style="display:none;margin:0 20px 16px;padding:12px 14px;background:#F8FAFC;border:1px solid var(--border);border-radius:8px">
+      <div style="font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:6px">🔵 Avis Google de ce client</div>
+      <div id="mc-avisgoogle-list" style="display:grid;gap:8px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:10px">
+        <div style="flex:1;min-width:200px"><label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px">Rattacher un avis Google déjà saisi</label><select id="mc-avisgoogle-select" style="width:100%"></select></div>
+        <button class="btn btn-ghost btn-sm" onclick="rattacherAvisGoogleDepuisClient()">🔗 Rattacher</button>
+      </div>
+      <details>
+        <summary style="font-size:12px;cursor:pointer;color:var(--primary)">➕ Saisir un nouvel avis Google pour ce client</summary>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+          <div><label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px">Note</label><select id="mcag-note" style="width:100%"><option value="5">⭐⭐⭐⭐⭐ (5)</option><option value="4">⭐⭐⭐⭐ (4)</option><option value="3">⭐⭐⭐ (3)</option><option value="2">⭐⭐ (2)</option><option value="1">⭐ (1)</option></select></div>
+          <div><label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px">Date</label><input type="date" id="mcag-date" style="width:100%"></div>
+          <div style="grid-column:1/-1"><label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px">Commentaire</label><textarea id="mcag-comm" style="width:100%;min-height:50px"></textarea></div>
+        </div>
+        <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="ajouterAvisGoogleDepuisClient()">Ajouter l'avis Google</button>
+      </details>
+    </div>
     <div id="mc-blocage-wrap" style="display:none;margin:0 20px 16px;padding:12px 14px;border-radius:8px"></div>
     <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-client')">Annuler</button><button class="btn btn-primary" onclick="saveClient()">Enregistrer</button></div>
   </div>
@@ -2827,6 +2888,12 @@ body.mode-presentation{background:#F1F5F9}
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text)">
           <input type="checkbox" id="doc-send-email" checked style="width:16px;height:16px;cursor:pointer">
           <span id="doc-send-email-label">📧 Envoyer automatiquement ce document par email au client</span>
+        </label>
+      </div>
+      <div id="doc-avis-opt-wrap" style="display:none;margin-top:10px;padding:12px 14px;background:#F8FAFC;border:1px solid var(--border);border-radius:8px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text)">
+          <input type="checkbox" id="doc-avis-visible" checked style="width:16px;height:16px;cursor:pointer">
+          <span>⭐ Afficher le code d'avis sur cette facture (PDF et aperçu)</span>
         </label>
       </div>
     </div>
@@ -3230,6 +3297,15 @@ body.mode-presentation{background:#F1F5F9}
 // Cela permet a un client (sans compte) de creer un avis, mais jamais de le modifier,
 // le supprimer, ou lire les avis des autres. Seul vous (connecte) pouvez les consulter.
 //
+// ⚠️ POUR LES AVIS GOOGLE AFFICHES SUR LA VITRINE (collection avisGoogle) :
+// Ajoutez ce bloc dans Firestore Database > Regles (lecture publique pour la vitrine,
+// ecriture uniquement si connecte, donc modifiable/supprimable depuis cette appli) :
+//
+//   match /avisGoogle/{doc} {
+//     allow read: if true;
+//     allow write: if request.auth != null;
+//   }
+//
 // ⚠️ POUR LA MESSAGERIE CLIENT SUR LES DEVIS/FACTURES (consultation.html) :
 // Dans Firestore Database > Regles, ajoutez aussi ce bloc pour autoriser la lecture et
 // l'ecriture publiques UNIQUEMENT sur la collection messagesClients (le reste de vos
@@ -3443,6 +3519,9 @@ if(FIREBASE_ENABLED){
   try{
     fbApp=firebase.initializeApp(FIREBASE_CONFIG);
     fbAuth=firebase.auth();
+    // Isole la session de connexion a CETTE page uniquement (pas de partage automatique avec
+    // dashboard.html, portail.html, etc. meme ouverts dans un autre onglet du navigateur).
+    fbAuth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(function(e){console.error('Erreur configuration persistance session:',e);});
     fbDb=firebase.firestore();
     fbStorage=firebase.storage();
     // Persistance offline : Firestore garde une copie locale et synchronise en arriere-plan
@@ -3489,12 +3568,32 @@ function sDB(){
   }
 }
 
+// Fusionne le materiel local avec celui actuellement sur le serveur AVANT une sauvegarde
+// complete : si un outil a ete ajoute depuis un autre onglet/appareil et que cet onglet-ci
+// ne l'a pas encore recu via son ecouteur temps reel, une sauvegarde complete l'effacerait
+// sinon purement et simplement (perte de donnees silencieuse). On garde la version LOCALE
+// pour les outils presents des deux cotes (l'edition en cours doit primer), et on rajoute
+// ceux qui n'existent QUE sur le serveur (ajouts recents pas encore recus ici).
+function fusionnerMaterielAvantSauvegarde(materielServeur){
+  if(!db.materiel)db.materiel=[];
+  var localParId={};
+  (db.materiel||[]).forEach(function(m){localParId[m.id]=true;});
+  (materielServeur||[]).forEach(function(mServeur){
+    if(!localParId[mServeur.id])db.materiel.push(mServeur);
+  });
+}
+
 function pushToFirestore(){
   if(!FIREBASE_ENABLED||!fbUser)return;
-  // On exclut les scans (photos/PDF lourds) du document principal pour rester sous la limite Firestore de 1 Mo/document.
-  // Les scans sont synchronises a part, dans une sous-collection, document par document.
-  var dbWithoutScans=Object.assign({},db,{scans:[]});
-  fbDb.collection('users').doc(DOC_ACTIF).set({db:dbWithoutScans,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+  fbDb.collection('users').doc(DOC_ACTIF).get().then(function(doc){
+    if(doc.exists&&doc.data().db&&doc.data().db.materiel){
+      fusionnerMaterielAvantSauvegarde(doc.data().db.materiel);
+    }
+    // On exclut les scans (photos/PDF lourds) du document principal pour rester sous la limite Firestore de 1 Mo/document.
+    // Les scans sont synchronises a part, dans une sous-collection, document par document.
+    var dbWithoutScans=Object.assign({},db,{scans:[]});
+    return fbDb.collection('users').doc(DOC_ACTIF).set({db:dbWithoutScans,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  })
     .then(function(){setSyncStatus('online');})
     .catch(function(e){
       console.error('Erreur sync Firestore:',e);
@@ -3528,6 +3627,7 @@ function startFirestoreListener(){
       pushToFirestore();
     }
     if(!fbInitialLoadDone)setTimeout(verifierRelancesDuesAuChargement,1200);
+    if(!fbInitialLoadDone)setTimeout(publierCoordonneesPubliques,1500);
     fbInitialLoadDone=true;
     setSyncStatus(navigator.onLine?'online':'offline');
   },function(e){
@@ -3536,6 +3636,7 @@ function startFirestoreListener(){
   });
   startScansMetaListener();
   startAvisListener();
+  startAvisGoogleListener();
   startDemandesListeners();
 }
 
@@ -4287,7 +4388,8 @@ function activerMaintenanceApp(){
     maintenanceAppActive:true,
     maintenanceAppMessage:message||'Nous effectuons actuellement une mise à jour. Merci de revenir un peu plus tard.',
     maintenanceAppCode:code,
-    maintenanceAppExpiration:expiration
+    maintenanceAppExpiration:expiration,
+    maintenanceAppDepuis:firebase.firestore.FieldValue.serverTimestamp()
   },{merge:true}).then(function(){
     afficherStatutMaintenanceApp(true,expiration);
     enregistrerActionAdmin('Maintenance de l\'application activée',message+(expiration?' (auto-désactivation dans '+dureeHeures+'h)':''));
@@ -5476,6 +5578,17 @@ function demarrerEcouteMaintenanceApplication(){
   if(!FIREBASE_ENABLED||!fbDb){demarrerApplicationNormale();return;}
   fbDb.collection('siteConfig').doc('main').onSnapshot(function(doc){
     var cfg=doc.exists?doc.data():{};
+
+    // ═══ INTERRUPTEUR "ETEINDRE LE SITE" (dashboard.html > 🔌 Interrupteurs de sites) : si
+    // active, affiche une page blanche pure, AVANT toute autre logique (meme le mode
+    // maintenance classique avec son message). Distinct de la maintenance : ici, rien n'est
+    // affiche du tout, pas meme un message d'attente. ═══
+    if(cfg.sitesEteints&&cfg.sitesEteints.app){
+      document.documentElement.innerHTML='';
+      document.title='';
+      return;
+    }
+
     var expiree=cfg.maintenanceAppExpiration&&new Date(cfg.maintenanceAppExpiration)<new Date();
     var actif=!!cfg.maintenanceAppActive&&!expiree;
     maintenanceAppCodeAttendu=cfg.maintenanceAppCode||'';
@@ -5902,6 +6015,47 @@ function validerSignatureClientDevis(){
 }
 
 // ═══ PARAMS ═════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
+// NUMEROTATION MANUELLE DEVIS/FACTURES : permet de fixer le prochain numero a attribuer
+// (ex: apres suppression d'un document, pour reprendre a un numero precis), avec
+// verification qu'aucun document existant n'a deja ce numero OU un numero superieur pour
+// l'annee en cours — sinon le prochain document auto-numerote entrerait en collision avec
+// un document deja existant.
+// ═══════════════════════════════════════════════════════════════════════
+function modifierProchainNumero(type){
+  var champ=document.getElementById(type==='devis'?'num-prochain-devis':'num-prochain-facture');
+  var nouveauNum=parseInt(champ.value,10);
+  if(!nouveauNum||nouveauNum<1){alert('Indiquez un numéro valide (entier positif).');return;}
+
+  var year=new Date().getFullYear();
+  var prefixe=(type==='devis'?'D':'F')+year+'-';
+  var numeroCible=prefixe+String(nouveauNum).padStart(4,'0');
+
+  // 1) Verifie qu'aucun document existant ne porte deja EXACTEMENT ce numero
+  var docsMemeType=(db.documents||[]).filter(function(d){return d.type===type&&(d.numero||'').indexOf(prefixe)===0;});
+  var conflitExact=docsMemeType.find(function(d){return d.numero===numeroCible;});
+  if(conflitExact){
+    alert('❌ Impossible : le document "'+numeroCible+'" existe déjà (client : '+(function(){var c=db.clients.find(function(x){return x.id===conflitExact.clientId;});return c?c.nom:'?';})()+').\n\nChoisissez un autre numéro, ou supprimez/renommez ce document existant d\'abord.');
+    return;
+  }
+
+  // 2) Verifie qu'aucun document existant n'a un numero SUPERIEUR (sinon le prochain auto-
+  // numerote entrerait en collision avec lui des qu'on progresserait dans la sequence)
+  var maxExistant=0;
+  docsMemeType.forEach(function(d){
+    var suffixe=(d.numero||'').substring(prefixe.length);
+    var n=parseInt(suffixe,10);
+    if(!isNaN(n)&&n>maxExistant)maxExistant=n;
+  });
+  if(nouveauNum<=maxExistant){
+    if(!confirm('⚠️ Attention : il existe déjà un document numéroté "'+prefixe+String(maxExistant).padStart(4,'0')+'" (plus haut que celui que vous voulez fixer).\n\nContinuer quand même risque de créer un doublon de numéro plus tard dans la séquence.\n\nVoulez-vous vraiment fixer le prochain numéro à '+numeroCible+' ?'))return;
+  }
+
+  db.counters[type]=nouveauNum;
+  sDB();
+  alert('✅ Le prochain '+(type==='devis'?'devis':'facture')+' portera le numéro '+numeroCible+'.');
+}
+
 function loadParams(){
   var p=db.params;
   ['nom','siret','adresse','ville','tel','email','iban','paiement'].forEach(function(k){var el=document.getElementById('p-'+k);if(el)el.value=p[k]||'';});
@@ -5920,6 +6074,11 @@ function loadParams(){
   var urlVitrineEl=document.getElementById('p-url-vitrine');if(urlVitrineEl)urlVitrineEl.value=p.urlVitrine||'';
   var urlConsultEl=document.getElementById('p-url-consultation');if(urlConsultEl)urlConsultEl.value=p.consultationUrl||'';
   var gmailIdEl=document.getElementById('gmail-client-id');if(gmailIdEl)gmailIdEl.value=p.gmailClientId||'';
+  var yearNow=new Date().getFullYear();
+  document.getElementById('num-prefixe-devis').textContent='D'+yearNow+'-';
+  document.getElementById('num-prefixe-facture').textContent='F'+yearNow+'-';
+  document.getElementById('num-prochain-devis').value=db.counters.devis||1;
+  document.getElementById('num-prochain-facture').value=db.counters.facture||1;
   loadTemplatesEmail();
 }
 
@@ -5963,7 +6122,20 @@ function saveParams(){
   var freqEl=document.getElementById('p-frequence-urssaf');if(freqEl)db.params.frequenceUrssaf=freqEl.value;
   var acreEl=document.getElementById('p-acre');if(acreEl)db.params.acre=acreEl.value;
   sDB();document.getElementById('sidebar-company').textContent=db.params.nom||'Mon Entreprise';
+  publierCoordonneesPubliques();
   var el=document.getElementById('params-ok');el.style.display='inline';setTimeout(function(){el.style.display='none';},2500);
+}
+
+// Publie nom/tel/adresse/email dans un document PUBLIC (lecture sans connexion), pour que
+// portail.html (qui n'authentifie personne) puisse les afficher sans avoir acces au reste
+// de la base — contrairement a la collection 'users' qui, elle, reste privee.
+function publierCoordonneesPubliques(){
+  if(!FIREBASE_ENABLED||!fbDb)return;
+  fbDb.collection('siteConfig').doc('coordonnees').set({
+    nom:db.params.nom||'',tel:db.params.tel||'',adresse:db.params.adresse||'',
+    ville:db.params.ville||'',email:db.params.email||'',
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  },{merge:true}).catch(function(e){console.error('Erreur publication coordonnées publiques:',e);});
 }
 function loadLogo(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){db.params.logo=ev.target.result;sDB();document.getElementById('logo-preview').src=ev.target.result;document.getElementById('logo-preview').style.display='block';document.getElementById('logo-ph').style.display='none';};r.readAsDataURL(f);}
 
@@ -6528,11 +6700,13 @@ function openClientModal(id){
     document.getElementById('mc-portal-resend').onclick=function(){renvoyerEmailAccesClient(editCId);};
     portalWrap.style.display='block';
     chargerBlocageClientModal(c);
+    renderAvisGoogleClientModal(editCId);
   }else{
     f.forEach(function(k){var el=document.getElementById('c-'+k);if(el)el.value='';});
     document.getElementById('c-type').value='particulier';
     portalWrap.style.display='none';
     document.getElementById('mc-blocage-wrap').style.display='none';
+    var agWrapNew=document.getElementById('mc-avisgoogle-wrap');if(agWrapNew)agWrapNew.style.display='none';
   }
   openModal('modal-client');
 }
@@ -6771,6 +6945,8 @@ function renderClients(){
       :'<span class="badge" style="background:#F1F5F9;color:#475569">👤 Particulier</span>';
     var telLink=c.tel?('<a href="tel:'+esc(c.tel.replace(/\s/g,''))+'" style="color:var(--primary);text-decoration:none" title="Appeler '+esc(c.tel)+'">📞 '+esc(c.tel)+'</a>'):'';
     var noteBadge=c.notes?' <span title="'+esc(c.notes)+'" style="cursor:help">⚠️</span>':'';
+    var nbAvisG=avisGoogleDuClient(c.id).length;
+    if(nbAvisG)noteBadge+=' <span title="'+nbAvisG+' avis Google rattaché(s)" style="cursor:help;font-size:11px;color:#4285F4;font-weight:700">⭐'+nbAvisG+'</span>';
     return '<tr><td><strong>'+esc(c.nom)+'</strong>'+noteBadge+'<br><span style="font-size:11px;color:var(--muted)">'+esc(c.numeroClient||'')+'</span></td><td>'+typeBadge+'</td><td>'+esc(c.contact)+'</td><td>'+esc(c.email)+'</td><td>'+telLink+'</td><td>'+esc((c.cp+' '+c.ville).trim())+'</td><td style="display:flex;gap:4px"><button class="btn btn-ghost btn-sm" title="Historique des emails" onclick="openHistoriqueEmailsModal('+c.id+')">📜'+((c.emailsHistorique&&c.emailsHistorique.length)?'<span style="background:var(--primary);color:#fff;border-radius:8px;font-size:9px;padding:1px 5px;margin-left:3px">'+c.emailsHistorique.length+'</span>':'')+'</button><button class="btn btn-ghost btn-sm" title="Envoyer un email" onclick="openEmailClientModal('+c.id+')">✉️</button><button class="btn btn-ghost btn-sm" title="Créer un contrat d\'entretien" onclick="creerContratDepuisClient('+c.id+')">📝</button><button class="btn btn-ghost btn-sm" title="Générer une attestation" onclick="openAttestationModal('+c.id+')">📄</button><button class="btn btn-ghost btn-sm" onclick="openClientModal('+c.id+')">✏️</button><button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteClient('+c.id+')">🗑</button></td></tr>';
   }).join('');
 }
@@ -6992,6 +7168,16 @@ function openDocModal(type,id){
     var showClientSig=(type==='devis')&&!!editDId;
     clientSigWrap.style.display=showClientSig?'block':'none';
   }
+  // Case "code d'avis" : uniquement pertinente pour une facture. Charge la valeur deja
+  // enregistree si on modifie une facture existante, sinon coche par defaut.
+  var avisOptWrap=document.getElementById('doc-avis-opt-wrap');
+  if(avisOptWrap){
+    avisOptWrap.style.display=(type==='facture')?'block':'none';
+    if(type==='facture'){
+      var docPourAvis=editDId?db.documents.find(function(x){return x.id===editDId;}):null;
+      document.getElementById('doc-avis-visible').checked=docPourAvis?(docPourAvis.avisCodeVisible!==false):true;
+    }
+  }
   openModal('modal-doc');
   setTimeout(function(){
     initSig('doc');
@@ -7125,6 +7311,10 @@ function finaliserSaveDoc(cId,numero,docAvant){
   var promoPct=parseFloat(document.getElementById('doc-promo-pct').value)||0;
   var ht=sousTotal-(sousTotal*promoPct/100);
   var obj={type:curType,numero:numero,date:document.getElementById('doc-date').value,d2:document.getElementById('doc-d2').value,clientId:cId,clientsAssocies:JSON.parse(JSON.stringify(docClientsAssocies)),objet:document.getElementById('doc-objet').value,notes:document.getElementById('doc-notes').value,chAdr:document.getElementById('doc-ch-adr').value,chCp:document.getElementById('doc-ch-cp').value,chVille:document.getElementById('doc-ch-ville').value,lignes:JSON.parse(JSON.stringify(docLines)),statut:curType==='devis'?'en-cours':'emise',sousTotalHT:sousTotal,promoCode:promoCode,promoPourcentage:promoPct,totalHT:ht,signature:getSig('doc')||''};
+  if(curType==='facture'){
+    var chkAvisSave=document.getElementById('doc-avis-visible');
+    obj.avisCodeVisible=chkAvisSave?chkAvisSave.checked:true;
+  }
   var docFinal;
   if(editDId){
     var i=db.documents.findIndex(function(x){return x.id===editDId;});
@@ -7538,7 +7728,7 @@ function showPv(id){
   var avisUrlHref=avisUrlRaw&&!/^https?:\/\//i.test(avisUrlRaw)?'https://'+avisUrlRaw:avisUrlRaw;
   var avisMsg=avisUrlRaw?'Rendez-vous sur le site ci-dessous et saisissez le code pour laisser votre avis :':'Communiquez ce code sur la page d\'avis de votre artisan :';
   var avisLink=avisUrlRaw?'<a class="pv-avis-link" href="'+esc(avisUrlHref)+'" target="_blank" rel="noopener">'+esc(avisUrlRaw)+' →</a>':'';
-  var avisBlock=(!isD&&doc.codeAvis)?
+  var avisBlock=(!isD&&doc.codeAvis&&doc.avisCodeVisible!==false)?
     '<div class="pv-avis">'+
     '<div class="pv-avis-title">⭐ Votre avis compte pour nous !</div>'+
     '<div class="pv-avis-msg">'+esc(avisMsg)+'</div>'+
@@ -8346,6 +8536,22 @@ function supprimerCodeAvisLibre(code){
   renderCodesAvisList();
 }
 
+function demanderAvis(idx,canal){
+  var e=(window._avisEntries||[])[idx];if(!e)return;
+  var url=(db.params&&db.params.avisPageUrl)||'';
+  if(!url){alert("Enregistrez d'abord l'URL de la page d'avis (en haut de cette page).");return;}
+  var prenom=(e.nom||'').split(' ')[0];
+  var msg='Bonjour'+(prenom?' '+prenom:'')+',\n\nMerci de m\'avoir fait confiance pour vos travaux. Votre avis compte beaucoup pour moi et aide d\'autres personnes à choisir un artisan.\n\nPour le laisser (1 minute) : '+url+'\nVotre code : '+e.code+'\n\nMerci d\'avance !';
+  if(canal==='mail'){
+    location.href='mailto:'+encodeURIComponent(e.email||'')+'?subject='+encodeURIComponent('Votre avis sur mon intervention')+'&body='+encodeURIComponent(msg);
+  }else{
+    var num=(e.tel||'').replace(/[^\d+]/g,'');
+    if(num.charAt(0)==='0')num='33'+num.slice(1);
+    num=num.replace(/^\+/,'');
+    window.open('https://wa.me/'+num+'?text='+encodeURIComponent(msg),'_blank','noopener');
+  }
+}
+
 function renderCodesAvisList(){
   var container=document.getElementById('codes-avis-list');
   if(!container)return;
@@ -8354,20 +8560,21 @@ function renderCodesAvisList(){
 
   var entriesFacture=(db.documents||[]).filter(function(d){return d.codeAvis;}).map(function(d){
     var c=db.clients.find(function(x){return x.id===d.clientId;});
-    return {code:d.codeAvis,nom:c?c.nom:'',source:(d.type==='facture'?'Facture ':'Devis ')+d.numero,date:d.date,libre:false};
+    return {code:d.codeAvis,nom:c?c.nom:'',email:c?(c.email||''):'',tel:c?(c.tel||c.telephone||''):'',source:(d.type==='facture'?'Facture ':'Devis ')+d.numero,date:d.date,libre:false};
   });
   var entriesLibres=db.codesAvisLibres.map(function(c){
     return {code:c.code,nom:c.nom||'',source:'Code libre',date:c.date,libre:true};
   });
 
   var all=entriesFacture.concat(entriesLibres).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  window._avisEntries=all;
 
   if(!all.length){
     container.innerHTML='<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px">Aucun code généré pour le moment.</div>';
     return;
   }
 
-  container.innerHTML=all.map(function(e){
+  container.innerHTML=all.map(function(e,idx){
     var utilise=codesUtilises.indexOf(e.code)!==-1;
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--border);border-radius:8px;padding:9px 12px;flex-wrap:wrap">'+
       '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+
@@ -8377,6 +8584,7 @@ function renderCodesAvisList(){
         '<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:8px;background:'+(utilise?'#DCFCE7;color:#15803D':'#EFF6FF;color:#1A56DB')+'">'+(utilise?'✓ Utilisé':'⏳ En attente')+'</span>'+
       '</div>'+
       '<div style="display:flex;gap:6px">'+
+        (utilise?'':'<button class="btn btn-ghost btn-sm" title="Envoyer la demande d\'avis par email" onclick="demanderAvis('+idx+',\'mail\')">✉️ Email</button><button class="btn btn-ghost btn-sm" title="Envoyer la demande d\'avis par WhatsApp" onclick="demanderAvis('+idx+',\'wa\')">💬 WhatsApp</button>')+
         '<button class="btn btn-ghost btn-sm" onclick="showCodeModal(\''+e.code+'\')">👁️ Voir</button>'+
         (e.libre?'<button class="btn btn-ghost btn-sm" onclick="supprimerCodeAvisLibre(\''+e.code+'\')">🗑️</button>':'')+
       '</div>'+
@@ -8404,8 +8612,10 @@ function initAvisPage(){
   if(db.params.avisPageUrl)urlInput.value=db.params.avisPageUrl;
   updateAvisUrlDisplay();
   startAvisListener();
+  startAvisGoogleListener();
   renderAvisList();
   renderCodesAvisList();
+  renderAvisGoogleAdmin();
   // Marque tous les avis actuels comme vus (masque le badge de notification)
   var list=(db.avisClients&&db.avisClients.liste)||[];
   db.params.avisVus=list.length;
@@ -8502,6 +8712,227 @@ function renderAvisList(){
       (a.commentaire?'<div style="font-size:13px;color:var(--text)">'+esc(a.commentaire)+'</div>':'<div style="font-size:12px;color:var(--muted);font-style:italic">Aucun commentaire laissé.</div>')+
     '</div>';
   }).join('');
+}
+
+// ═══ AVIS GOOGLE ═════════════════════════════════════════
+// Les avis Google sont saisis ici à la main (Google n'offre pas d'export public sans clé API)
+// et stockés dans la collection Firestore "avisGoogle" (lecture publique pour la vitrine,
+// écriture réservée à la personne connectée — voir le bloc de règles dans vitrine.html).
+// Le rattachement à une fiche client reste PRIVE : il est stocké dans db.avisGoogleLiens
+// ({idAvis: idClient}) et n'est jamais publié sur la vitrine.
+var fbAvisGoogleUnsubscribe=null;
+var avisGoogleListe=[];
+var agEditId=null;
+
+function prefixeComptePourAvisGoogle(){return DOC_ACTIF.substring(0,6).toUpperCase();}
+
+function startAvisGoogleListener(){
+  if(!FIREBASE_ENABLED||!fbUser)return;
+  if(fbAvisGoogleUnsubscribe)return;
+  fbAvisGoogleUnsubscribe=fbDb.collection('avisGoogle').where('comptePrefixe','==',prefixeComptePourAvisGoogle()).onSnapshot(function(snap){
+    var liste=[];
+    snap.forEach(function(doc){var d=doc.data();d.id=doc.id;liste.push(d);});
+    avisGoogleListe=liste;
+    renderAvisGoogleAdmin();
+    if(typeof renderClients==='function'&&document.getElementById('clients-list'))renderClients();
+    var modalClient=document.getElementById('modal-client');
+    if(editCId&&modalClient&&modalClient.classList.contains('open'))renderAvisGoogleClientModal(editCId);
+  },function(e){
+    console.error('Erreur listener avis Google:',e);
+    var el=document.getElementById('avis-google-resume');
+    if(el)el.innerHTML='<span style="color:var(--danger)">Impossible de lire les avis Google (règles Firestore à ajouter pour la collection « avisGoogle »).</span>';
+  });
+}
+
+function etoilesAvisGoogle(n){n=parseInt(n)||0;return '⭐'.repeat(n)+'☆'.repeat(Math.max(0,5-n));}
+function clientIdDeAvisGoogle(avisId){
+  var liens=db.avisGoogleLiens||{};
+  var v=liens[avisId];
+  return v?parseInt(v):null;
+}
+function avisGoogleDuClient(clientId){
+  return avisGoogleListe.filter(function(a){return clientIdDeAvisGoogle(a.id)===clientId;});
+}
+function erreurAvisGoogle(e){
+  console.error('Erreur avis Google:',e);
+  var msg=(e&&e.code==='permission-denied')
+    ?"Firestore refuse l'écriture : ajoutez le bloc de règles pour la collection « avisGoogle » (lecture publique, écriture si connecté) dans Firestore > Règles. Le bloc est fourni en commentaire dans vitrine.html."
+    :('Erreur : '+((e&&e.message)||'inconnue'));
+  alert(msg);
+}
+
+// Remplit les listes déroulantes de clients (formulaire principal)
+function remplirSelectClientsAvisGoogle(){
+  var sel=document.getElementById('ag-client');
+  if(!sel)return;
+  var cur=sel.value;
+  var clients=(db.clients||[]).slice().sort(function(a,b){return String(a.nom||'').localeCompare(String(b.nom||''));});
+  sel.innerHTML='<option value="">— Aucun —</option>'+clients.map(function(c){return '<option value="'+c.id+'">'+esc(String(c.nom||''))+'</option>';}).join('');
+  sel.value=cur;
+}
+// Si le nom saisi correspond exactement à un client, on le pré-sélectionne
+function suggererClientAvisGoogle(){
+  var sel=document.getElementById('ag-client');
+  var nom=document.getElementById('ag-nom').value.trim().toLowerCase();
+  if(!sel||!nom||sel.value)return;
+  var c=(db.clients||[]).find(function(x){return String(x.nom||'').trim().toLowerCase()===nom;});
+  if(c)sel.value=String(c.id);
+}
+
+function enregistrerAvisGoogle(){
+  if(bloquerSiLectureSeule())return;
+  if(!FIREBASE_ENABLED||!fbUser){alert('Connexion Firebase requise pour publier un avis Google sur la vitrine.');return;}
+  var nom=document.getElementById('ag-nom').value.trim();
+  var note=parseInt(document.getElementById('ag-note').value)||5;
+  var date=document.getElementById('ag-date').value||new Date().toISOString().split('T')[0];
+  var comm=document.getElementById('ag-comm').value.trim();
+  var clientId=parseInt(document.getElementById('ag-client').value)||null;
+  if(!nom){alert("Indiquez le nom de l'auteur de l'avis (tel qu'il apparaît sur Google).");return;}
+  var data={nomClient:nom,note:note,commentaire:comm,date:date};
+  var promesse;
+  var etaitModification=!!agEditId;
+  if(agEditId){
+    var idEdit=agEditId;
+    promesse=fbDb.collection('avisGoogle').doc(idEdit).update(data).then(function(){return idEdit;});
+  }else{
+    data.comptePrefixe=prefixeComptePourAvisGoogle();
+    data.source='google';
+    data.creePar=(fbUser&&fbUser.email)||'';
+    promesse=fbDb.collection('avisGoogle').add(data).then(function(ref){return ref.id;});
+  }
+  promesse.then(function(id){
+    if(!db.avisGoogleLiens)db.avisGoogleLiens={};
+    if(clientId)db.avisGoogleLiens[id]=clientId;else delete db.avisGoogleLiens[id];
+    sDB();
+    annulerEditionAvisGoogle();
+    renderAvisGoogleAdmin();
+    if(typeof enregistrerActionAdmin==='function')enregistrerActionAdmin(etaitModification?'Avis Google modifié':'Avis Google ajouté',nom);
+  }).catch(erreurAvisGoogle);
+}
+
+function modifierAvisGoogle(id){
+  var a=avisGoogleListe.find(function(x){return x.id===id;});
+  if(!a)return;
+  agEditId=id;
+  remplirSelectClientsAvisGoogle();
+  document.getElementById('ag-nom').value=a.nomClient||'';
+  document.getElementById('ag-note').value=String(a.note||5);
+  document.getElementById('ag-date').value=a.date||'';
+  document.getElementById('ag-comm').value=a.commentaire||'';
+  document.getElementById('ag-client').value=String(clientIdDeAvisGoogle(id)||'');
+  document.getElementById('ag-btn-save').textContent='💾 Enregistrer la modification';
+  document.getElementById('ag-btn-cancel').style.display='';
+  document.getElementById('card-avis-google').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function annulerEditionAvisGoogle(){
+  agEditId=null;
+  ['ag-nom','ag-comm'].forEach(function(i){var el=document.getElementById(i);if(el)el.value='';});
+  var n=document.getElementById('ag-note');if(n)n.value='5';
+  var d=document.getElementById('ag-date');if(d)d.value=new Date().toISOString().split('T')[0];
+  var c=document.getElementById('ag-client');if(c)c.value='';
+  var b=document.getElementById('ag-btn-save');if(b)b.textContent="➕ Ajouter l'avis Google";
+  var bc=document.getElementById('ag-btn-cancel');if(bc)bc.style.display='none';
+}
+function supprimerAvisGoogle(id){
+  if(bloquerSiLectureSeule())return;
+  if(!confirm('Supprimer cet avis Google ? Il disparaîtra aussi de votre site vitrine.'))return;
+  fbDb.collection('avisGoogle').doc(id).delete().then(function(){
+    if(db.avisGoogleLiens){delete db.avisGoogleLiens[id];sDB();}
+    if(agEditId===id)annulerEditionAvisGoogle();
+  }).catch(erreurAvisGoogle);
+}
+function rattacherAvisGoogle(avisId,clientIdStr){
+  if(!db.avisGoogleLiens)db.avisGoogleLiens={};
+  var cid=parseInt(clientIdStr)||null;
+  if(cid)db.avisGoogleLiens[avisId]=cid;else delete db.avisGoogleLiens[avisId];
+  sDB();
+  renderAvisGoogleAdmin();
+  var modalClient=document.getElementById('modal-client');
+  if(editCId&&modalClient&&modalClient.classList.contains('open'))renderAvisGoogleClientModal(editCId);
+  if(typeof renderClients==='function')renderClients();
+}
+
+function renderAvisGoogleAdmin(){
+  var container=document.getElementById('avis-google-list');
+  if(!container)return;
+  remplirSelectClientsAvisGoogle();
+  var dateEl=document.getElementById('ag-date');
+  if(dateEl&&!dateEl.value&&!agEditId)dateEl.value=new Date().toISOString().split('T')[0];
+  var resume=document.getElementById('avis-google-resume');
+  if(resume){
+    if(avisGoogleListe.length){
+      var moy=avisGoogleListe.reduce(function(s,a){return s+(a.note||0);},0)/avisGoogleListe.length;
+      resume.textContent=avisGoogleListe.length+' avis Google — note moyenne '+moy.toFixed(1)+' / 5';
+    }else resume.textContent='Aucun avis Google saisi pour le moment.';
+  }
+  if(!avisGoogleListe.length){container.innerHTML='';return;}
+  var clients=(db.clients||[]).slice().sort(function(a,b){return String(a.nom||'').localeCompare(String(b.nom||''));});
+  container.innerHTML=avisGoogleListe.slice().sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));}).map(function(a){
+    var cid=clientIdDeAvisGoogle(a.id);
+    var opts='<option value="">— Non rattaché —</option>'+clients.map(function(c){return '<option value="'+c.id+'"'+(c.id===cid?' selected':'')+'>'+esc(String(c.nom||''))+'</option>';}).join('');
+    return '<div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">'+
+        '<div><span style="font-size:15px">'+etoilesAvisGoogle(a.note)+'</span> <strong style="font-size:13px;margin-left:6px">'+esc(String(a.nomClient||''))+'</strong></div>'+
+        '<div style="font-size:11px;color:var(--muted)">'+(a.date?fmtDate(a.date):'')+'</div>'+
+      '</div>'+
+      (a.commentaire?'<div style="font-size:13px;margin-bottom:8px">'+esc(String(a.commentaire))+'</div>':'<div style="font-size:12px;color:var(--muted);font-style:italic;margin-bottom:8px">Aucun commentaire.</div>')+
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+        '<label style="font-size:11px;color:var(--muted)">Fiche client :</label>'+
+        '<select style="flex:1;min-width:160px;max-width:260px" onchange="rattacherAvisGoogle(\''+a.id+'\',this.value)">'+opts+'</select>'+
+        '<button class="btn btn-ghost btn-sm" onclick="modifierAvisGoogle(\''+a.id+'\')">✏️</button>'+
+        '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="supprimerAvisGoogle(\''+a.id+'\')">🗑</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+// ── Bloc "Avis Google" dans la fiche client (modal) ──
+function renderAvisGoogleClientModal(clientId){
+  var wrap=document.getElementById('mc-avisgoogle-wrap');
+  if(!wrap)return;
+  wrap.style.display='block';
+  var liste=document.getElementById('mc-avisgoogle-list');
+  var attaches=avisGoogleDuClient(clientId);
+  liste.innerHTML=attaches.length?attaches.map(function(a){
+    return '<div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:8px 10px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:13px">'+etoilesAvisGoogle(a.note)+'</span><span style="font-size:11px;color:var(--muted)">'+(a.date?fmtDate(a.date):'')+'</span></div>'+
+      (a.commentaire?'<div style="font-size:12.5px;margin:4px 0">'+esc(String(a.commentaire))+'</div>':'')+
+      '<button class="btn btn-ghost btn-sm" onclick="rattacherAvisGoogle(\''+a.id+'\',\'\')">✖ Détacher</button>'+
+    '</div>';
+  }).join(''):'<div style="font-size:12px;color:var(--muted)">Aucun avis Google rattaché à ce client.</div>';
+  var libres=avisGoogleListe.filter(function(a){return !clientIdDeAvisGoogle(a.id);});
+  var sel=document.getElementById('mc-avisgoogle-select');
+  sel.innerHTML=libres.length
+    ?libres.map(function(a){return '<option value="'+a.id+'">'+esc(String(a.nomClient||''))+' — '+(a.note||0)+'/5'+(a.date?' — '+fmtDate(a.date):'')+'</option>';}).join('')
+    :'<option value="">(aucun avis Google non rattaché)</option>';
+  var d=document.getElementById('mcag-date');if(d&&!d.value)d.value=new Date().toISOString().split('T')[0];
+}
+function rattacherAvisGoogleDepuisClient(){
+  var id=document.getElementById('mc-avisgoogle-select').value;
+  if(!id||!editCId){alert('Aucun avis Google disponible à rattacher.');return;}
+  rattacherAvisGoogle(id,String(editCId));
+}
+function ajouterAvisGoogleDepuisClient(){
+  if(bloquerSiLectureSeule())return;
+  if(!FIREBASE_ENABLED||!fbUser){alert('Connexion Firebase requise pour publier un avis Google sur la vitrine.');return;}
+  var c=db.clients.find(function(x){return x.id===editCId;});
+  if(!c)return;
+  var data={
+    nomClient:c.nom||'',
+    note:parseInt(document.getElementById('mcag-note').value)||5,
+    commentaire:document.getElementById('mcag-comm').value.trim(),
+    date:document.getElementById('mcag-date').value||new Date().toISOString().split('T')[0],
+    comptePrefixe:prefixeComptePourAvisGoogle(),
+    source:'google',
+    creePar:(fbUser&&fbUser.email)||''
+  };
+  fbDb.collection('avisGoogle').add(data).then(function(ref){
+    if(!db.avisGoogleLiens)db.avisGoogleLiens={};
+    db.avisGoogleLiens[ref.id]=editCId;
+    sDB();
+    document.getElementById('mcag-comm').value='';
+    if(typeof enregistrerActionAdmin==='function')enregistrerActionAdmin('Avis Google ajouté',c.nom||'');
+  }).catch(erreurAvisGoogle);
 }
 
 // ═══ NOTIFICATIONS SUR CET APPAREIL ═════════════════════
@@ -9129,7 +9560,7 @@ function renderDemandes(){
 
 // ═══ PAGE SITE VITRINE (édition du contenu public depuis l'app) ══
 // Lit/écrit le document Firestore "siteConfig/main", lu en direct par vitrine.html.
-var SV_FIELDS=['nom','logoUrl','heroImageUrl','heroTitre','heroLabel','heroDesc','statClients','statAnnees','telephone','email','horaires1','horaires2','horairesCourt','mapEmbedUrl','zoneTexte','zoneVilles','footerDesc','facebookUrl','instagramUrl','copyright','footerZoneLabel','siret','hebergement','adresseLegale','metaDescription',
+var SV_FIELDS=['nom','logoUrl','heroImageUrl','heroTitre','heroLabel','heroDesc','statClients','statAnnees','statInterventions','googleAvisUrl','telephone','email','horaires1','horaires2','horairesCourt','mapEmbedUrl','zoneTexte','zoneVilles','footerDesc','facebookUrl','instagramUrl','copyright','footerZoneLabel','siret','hebergement','adresseLegale','metaDescription',
 'servicesLabel','servicesTitre','servicesSousTitre','galerieLabel','galerieTitre','avisLabel','avisTitre','avisSousTitre','devisLabel','devisTitre','devisSousTitre','devisPoint1','devisPoint2','devisPoint3','devisPoint4','zoneLabel','zoneTitre','contactLabel','contactTitre'];
 
 // ═══ EDITEUR DE SERVICES (liste dynamique) ══════════════
@@ -9185,6 +9616,12 @@ function initSiteVitrinePage(){
     }
     servicesEditeur=Array.isArray(cfg.services)?cfg.services.slice():[];
     renderServicesEditeur();
+    document.getElementById('sv-afficherStatClients').checked=cfg.afficherStatClients!==false;
+    document.getElementById('sv-afficherStatAnnees').checked=cfg.afficherStatAnnees!==false;
+    document.getElementById('sv-afficherCommentCaMarche').checked=cfg.afficherCommentCaMarche!==false;
+    document.getElementById('sv-afficherStatInterventions').checked=cfg.afficherStatInterventions!==false;
+    galerieCategoriesCustom=Array.isArray(cfg.galerieCategories)?cfg.galerieCategories.slice():[];
+    refreshPhotoCategorySelect();
   }).catch(function(e){console.error('Erreur chargement siteConfig:',e);});
   startGalerieAdminListener();
   startSiteStatsListener();
@@ -9202,6 +9639,10 @@ function saveSiteVitrine(){
     else data[k]=v;
   });
   data.services=servicesEditeur.filter(function(s){return s.titre&&s.titre.trim();});
+  data.afficherStatClients=document.getElementById('sv-afficherStatClients').checked;
+  data.afficherStatAnnees=document.getElementById('sv-afficherStatAnnees').checked;
+  data.afficherCommentCaMarche=document.getElementById('sv-afficherCommentCaMarche').checked;
+  data.afficherStatInterventions=document.getElementById('sv-afficherStatInterventions').checked;
   fbDb.collection('siteConfig').doc('main').set(data,{merge:true}).then(function(){
     var el=document.getElementById('sv-save-ok');
     el.style.display='inline';
@@ -9305,14 +9746,47 @@ function startGalerieAdminListener(){
     galerieAdminListe=[];
     snap.forEach(function(doc){galerieAdminListe.push(Object.assign({_id:doc.id},doc.data()));});
     renderGalerieAdmin();
+    refreshPhotoCategorySelect();
     renderSiteStats();
   },function(e){console.error('Erreur listener galerie:',e);});
+}
+
+var galerieCategoriesCustom=[];
+var CATS_PAR_DEFAUT=['Avant/Après','Peinture','Plâtrerie','Rénovation','Autre'];
+
+function refreshPhotoCategorySelect(){
+  var sel=document.getElementById('ph-categorie');
+  if(!sel)return;
+  var garde=sel.value;
+  var toutes=CATS_PAR_DEFAUT.slice();
+  galerieCategoriesCustom.concat(galerieAdminListe.map(function(p){return p.categorie;})).forEach(function(c){
+    if(c&&toutes.indexOf(c)<0)toutes.push(c);
+  });
+  sel.innerHTML=toutes.map(function(c){return '<option value="'+esc(c).replace(/"/g,'&quot;')+'">'+esc(c)+'</option>';}).join('')+
+    '<option value="__new__">➕ Nouvelle catégorie…</option>';
+  if(garde&&(toutes.indexOf(garde)>=0||garde==='__new__'))sel.value=garde;
+}
+
+function onPhotoCategorieChange(){
+  var isNew=document.getElementById('ph-categorie').value==='__new__';
+  var inp=document.getElementById('ph-newcat');
+  inp.style.display=isNew?'block':'none';
+  if(isNew)inp.focus();
 }
 
 function ajouterPhotoGalerie(){
   var url=document.getElementById('ph-url').value.trim();
   var cat=document.getElementById('ph-categorie').value;
   if(!url){alert('Veuillez coller une URL de photo.');return;}
+  if(cat==='__new__'){
+    cat=document.getElementById('ph-newcat').value.trim();
+    if(!cat){alert('Indiquez le nom de la nouvelle catégorie.');return;}
+    if(galerieCategoriesCustom.indexOf(cat)<0&&CATS_PAR_DEFAUT.indexOf(cat)<0){
+      galerieCategoriesCustom.push(cat);
+      // mémorisée dans la config du site pour que la vitrine l'affiche dans le bon ordre
+      fbDb.collection('siteConfig').doc('main').set({galerieCategories:galerieCategoriesCustom},{merge:true}).catch(function(e){console.error('Erreur sauvegarde catégorie:',e);});
+    }
+  }
   fbDb.collection('galerie').add({
     url:url,
     storagePath:null, // pas de fichier dans Firebase Storage : ajout par URL externe
@@ -9320,6 +9794,11 @@ function ajouterPhotoGalerie(){
     date:firebase.firestore.FieldValue.serverTimestamp()
   }).then(function(){
     document.getElementById('ph-url').value='';
+    document.getElementById('ph-newcat').value='';
+    document.getElementById('ph-categorie').value=cat;
+    onPhotoCategorieChange();
+    refreshPhotoCategorySelect();
+    document.getElementById('ph-categorie').value=cat;
   }).catch(function(e){
     console.error('Erreur ajout photo:',e);
     alert("Erreur lors de l'ajout de la photo. Vérifiez votre connexion internet et réessayez.");
@@ -9995,6 +10474,9 @@ function genererAttestationPDF(){
   y+=lignes.length*6+20;
 
   pdf.setFont(undefined,'bold');pdf.text('Signature :',ML,y);
+  if(db.params.signature){
+    try{pdf.addImage(db.params.signature,'PNG',ML,y+3,45,18,'','FAST');}catch(e){console.error('Erreur insertion signature:',e);}
+  }
 
   pdf.save((type==='tva'?'Attestation_TVA_':'Attestation_fin_travaux_')+(c.nom||'client').replace(/[^a-z0-9]+/gi,'_')+'.pdf');
   closeModal('modal-attestation');
@@ -10261,6 +10743,68 @@ function confirmerRetourMateriel(){
   closeModal('modal-retour-materiel');
   editMtRetourId=null;
   showPage('materiel');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SAUVEGARDE / REIMPORT DU MATERIEL : export d'un fichier JSON telechargeable (a garder sur
+// l'ordinateur), et reimport en cas de probleme (perte de donnees, erreur de manipulation).
+// Complementaire a la fusion protectrice ajoutee cote synchronisation — un vrai filet de
+// securite independant de Firestore.
+// ═══════════════════════════════════════════════════════════════════════
+function exporterMaterielJSON(){
+  var contenu=JSON.stringify({
+    type:'sauvegarde_materiel_nico',
+    dateExport:new Date().toISOString(),
+    materiel:db.materiel||[]
+  },null,2);
+  var blob=new Blob([contenu],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;
+  a.download='Sauvegarde_materiel_'+new Date().toISOString().split('T')[0]+'.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importerMaterielJSON(fichier){
+  if(!fichier)return;
+  var reader=new FileReader();
+  reader.onload=function(){
+    var data;
+    try{data=JSON.parse(reader.result);}catch(e){alert('⚠️ Fichier invalide — ce n\'est pas une sauvegarde JSON reconnue.');return;}
+    var materielImporte=data.materiel||(Array.isArray(data)?data:null);
+    if(!materielImporte){alert('⚠️ Ce fichier ne contient pas de liste de matériel reconnaissable.');return;}
+
+    var choix=prompt(
+      materielImporte.length+' outil(s) trouvé(s) dans cette sauvegarde'+(data.dateExport?(' (exportée le '+new Date(data.dateExport).toLocaleDateString('fr-FR')+')'):'')+'.\n\n'+
+      'Tapez "FUSIONNER" pour ajouter uniquement les outils manquants (sans toucher à ceux déjà présents) — recommandé.\n'+
+      'Tapez "REMPLACER" pour écraser complètement la liste actuelle par celle de la sauvegarde — à utiliser seulement en cas de perte de données confirmée.\n\n'+
+      'Laissez vide ou annulez pour ne rien faire.'
+    );
+    if(!choix)return;
+    choix=choix.trim().toUpperCase();
+
+    if(choix==='REMPLACER'){
+      if(!confirm('⚠️ Ceci va REMPLACER complètement la liste actuelle de matériel ('+((db.materiel||[]).length)+' outil(s)) par celle de la sauvegarde ('+materielImporte.length+' outil(s)). Cette action est irréversible. Continuer ?'))return;
+      db.materiel=materielImporte;
+      sDB();renderMateriel();
+      alert('✅ Liste de matériel remplacée par la sauvegarde ('+materielImporte.length+' outil(s)).');
+    }else if(choix==='FUSIONNER'){
+      if(!db.materiel)db.materiel=[];
+      var localParId={};
+      db.materiel.forEach(function(m){localParId[m.id]=true;});
+      var ajoutes=0;
+      materielImporte.forEach(function(m){
+        if(!localParId[m.id]){db.materiel.push(m);ajoutes++;}
+      });
+      sDB();renderMateriel();
+      alert('✅ '+ajoutes+' outil(s) manquant(s) ajouté(s) depuis la sauvegarde. Les outils déjà présents n\'ont pas été modifiés.');
+    }else{
+      alert('Réimport annulé (réponse non reconnue).');
+    }
+    document.getElementById('mt-import-file').value='';
+  };
+  reader.readAsText(fichier);
 }
 
 function toggleToutMateriel(cb){
@@ -11028,7 +11572,7 @@ function chargerMesFichesPaie(){
     var salarieId=snapSal.docs[0].id;
     fbDb.collection('paie').where('salarieId','==',salarieId).get().then(function(snapPaie){
       _mesFichesPaie=[];
-      snapPaie.forEach(function(doc){_mesFichesPaie.push(Object.assign({_id:doc.id},doc.data()));});
+      snapPaie.forEach(function(doc){var dPaie=doc.data();if(dPaie.statut==='brouillon')return;_mesFichesPaie.push(Object.assign({_id:doc.id},dPaie));});
       _mesFichesPaie.sort(function(a,b){return (b.periode||'').localeCompare(a.periode||'');});
       renderMesFichesPaie();
     }).catch(function(e){el.innerHTML='<div class="empty">Erreur lors du chargement : '+esc(e.message)+'</div>';});
@@ -11062,19 +11606,60 @@ function ouvrirApercuPaieGDF(i){
   document.getElementById('mfp-apercu-pdf-btn').onclick=function(){genererPdfMaFichePaieGDF(i);};
   openModal('modal-apercu-paie');
 }
+function rowsPaieDetailleesGDF(d){
+  var brut=parseFloat(d.brut)||0,cs=parseFloat(d.chargesSalariales)||0;
+  var lignes=Array.isArray(d.lignes)?d.lignes:[];
+  var rows=[];
+  lignes.filter(function(l){return l.type!=='retenue';}).forEach(function(l){rows.push({label:l.libelle||'',base:l.base,taux:l.taux,gain:parseFloat(l.montant)||0,kind:l.kind});});
+  rows.push({label:'SALAIRE BRUT',gain:brut,bold:true});
+  if(cs)rows.push({label:'Cotisations salariales',retenue:cs});
+  rows.push({label:'NET IMPOSABLE',gain:brut-cs,bold:true});
+  lignes.filter(function(l){return l.type==='retenue';}).forEach(function(l){rows.push({label:l.libelle||'Retenue',retenue:parseFloat(l.montant)||0});});
+  return rows;
+}
+function infosPaieTexteGDF(d){
+  var out=[];
+  var lignes=Array.isArray(d.lignes)?d.lignes:[];
+  function somme(k){return Math.round(lignes.filter(function(l){return l.kind===k&&l.type!=='retenue';}).reduce(function(s,l){return s+(parseFloat(l.base)||0);},0)*100)/100;}
+  var hn=somme('heures'),hs=somme('sup'),hr=somme('regul');
+  if(hn)out.push('Heures normales : '+hn+' h');
+  if(hs)out.push('Heures supplémentaires : '+hs+' h');
+  if(hr)out.push('Heures du mois précédent régularisées : '+hr+' h');
+  if(parseFloat(d.absencesHeures))out.push('Absences : '+d.absencesHeures+' h');
+  if(parseFloat(d.congesPris))out.push('Congés payés pris : '+d.congesPris+' j');
+  if(d.datePaiement){var q=String(d.datePaiement).split('-');out.push('Paiement le '+(q.length===3?q[2]+'/'+q[1]+'/'+q[0]:d.datePaiement)+(d.modePaiement?' ('+d.modePaiement+')':''));}
+  return out;
+}
+function tableauDetailPaieHTMLGDF(d,fmtE){
+  var det=rowsPaieDetailleesGDF(d);
+  return '<table style="width:100%;font-size:12.5px;margin-bottom:12px;border-collapse:collapse">'+
+    '<tr style="font-size:10.5px;color:var(--muted);text-align:right"><th style="text-align:left;padding:4px 0;font-weight:600">Désignation</th><th style="font-weight:600">Base</th><th style="font-weight:600">Taux</th><th style="font-weight:600">Gains</th><th style="font-weight:600">Retenues</th></tr>'+
+    det.map(function(r){
+      var st='padding:5px 0;border-top:1px solid var(--border)'+(r.bold?';font-weight:700':'')+(r.kind==='regul'?';background:#FFFBEB':'');
+      return '<tr style="text-align:right"><td style="text-align:left;'+st+'">'+esc(String(r.label||''))+'</td>'+
+        '<td style="'+st+'">'+((r.base!==undefined&&r.base!==null&&r.base!=='')?esc(String(r.base))+' h':'')+'</td>'+
+        '<td style="'+st+'">'+((r.taux!==undefined&&r.taux!==null&&r.taux!=='')?fmtE(r.taux):'')+'</td>'+
+        '<td style="'+st+'">'+((r.gain!==undefined&&r.gain!==null)?fmtE(r.gain):'')+'</td>'+
+        '<td style="'+st+'">'+((r.retenue!==undefined&&r.retenue!==null)?'- '+fmtE(r.retenue):'')+'</td></tr>';
+    }).join('')+
+  '</table>';
+}
 function construireApercuFichePaieHTMLGDF(d){
   var fmtE=function(n){return fmt(n)+' €';};
   var brut=parseFloat(d.brut)||0,chargesSal=parseFloat(d.chargesSalariales)||0,chargesPat=parseFloat(d.chargesPatronales)||0;
   var netImposable=brut-chargesSal;
   return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px">'+
-    '<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Période : '+esc(fmtPeriodePaieGDF(d.periode))+'</div>'+
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:'+(infosPaieTexteGDF(d).length?'4px':'10px')+'">Période : '+esc(fmtPeriodePaieGDF(d.periode))+(d.poste?' · '+esc(d.poste):'')+'</div>'+
+    (infosPaieTexteGDF(d).length?'<div style="font-size:11px;color:var(--muted);margin-bottom:10px">'+esc(infosPaieTexteGDF(d).join('  ·  '))+'</div>':'')+
+    ((d.lignes&&d.lignes.length)?tableauDetailPaieHTMLGDF(d,fmtE):
     '<table style="width:100%;font-size:13px;margin-bottom:12px">'+
       '<tr><td style="padding:5px 0">Salaire brut</td><td style="text-align:right">'+fmtE(brut)+'</td></tr>'+
       '<tr><td style="padding:5px 0">Cotisations salariales</td><td style="text-align:right">- '+fmtE(chargesSal)+'</td></tr>'+
       '<tr style="font-weight:700;border-top:1px solid var(--border)"><td style="padding:5px 0">Net imposable</td><td style="text-align:right">'+fmtE(netImposable)+'</td></tr>'+
-    '</table>'+
+    '</table>')+
     '<div style="background:var(--accent);color:#fff;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:'+(chargesPat||d.notes?'10px':'0')+'">'+
       '<span>NET À PAYER</span><span style="font-size:16px">'+fmtE(d.net!==undefined&&d.net!==null&&d.net!==''?d.net:netImposable)+'</span></div>'+
+    (d.cumuls?'<div style="font-size:11px;color:var(--muted);padding:8px 10px;margin-bottom:10px;border:1px solid var(--border);border-radius:8px"><strong>Cumuls '+esc(String(d.cumuls.annee||''))+'</strong> — Brut : '+fmtE(d.cumuls.brut)+' · Net : '+fmtE(d.cumuls.net)+' · Heures : '+esc(String(d.cumuls.heures||0))+' h</div>':'')+
     (chargesPat?'<div style="font-size:10.5px;color:var(--muted);padding-top:8px;border-top:1px solid var(--border);margin-bottom:'+(d.notes?'8px':'0')+'">Pour information — cotisations patronales : '+fmtE(chargesPat)+'</div>':'')+
     (d.notes?'<div style="font-size:11.5px;font-style:italic;color:var(--muted)">Observations : '+esc(d.notes)+'</div>':'')+
     '</div>';
@@ -11101,15 +11686,46 @@ function construirePdfFichePaieGDF(d){
   pdf.setFontSize(7.5);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text('Période',bX+4,Y+19);
   pdf.setFont('helvetica','bold');pdf.setFontSize(9.5);pdf.setTextColor.apply(pdf,noir);pdf.text(fmtPeriodePaieGDF(d.periode),bX+bW-4,Y+19,{align:'right'});
   pdf.setFontSize(7.5);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text('Émis le',bX+4,Y+26);
-  pdf.setFont('helvetica','bold');pdf.setFontSize(8.5);pdf.setTextColor.apply(pdf,noir);pdf.text(new Date().toLocaleDateString('fr-FR'),bX+bW-4,Y+26,{align:'right'});
+  pdf.setFont('helvetica','bold');pdf.setFontSize(8.5);pdf.setTextColor.apply(pdf,noir);pdf.text(((d.datePublication&&d.datePublication.toDate)?d.datePublication.toDate():new Date()).toLocaleDateString('fr-FR'),bX+bW-4,Y+26,{align:'right'});
   Y=Math.max(iy+6,Y+bH+8);
   pdf.setFontSize(8);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);pdf.text('SALARIÉ',ML,Y);
   pdf.setDrawColor.apply(pdf,gc);pdf.setLineWidth(0.3);pdf.line(ML,Y+2,MR,Y+2);
   Y+=8;
   pdf.setFontSize(11.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);pdf.text(esc(d.salarie||''),ML,Y);
+  if(d.poste){Y+=5.5;pdf.setFontSize(8.5);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text(esc(d.poste),ML,Y);}
+  var infosPaieG=infosPaieTexteGDF(d);
+  if(infosPaieG.length){
+    pdf.setFontSize(8);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);
+    var infosLignesG=pdf.splitTextToSize(infosPaieG.join('   ·   '),CW);
+    Y+=5;pdf.text(infosLignesG,ML,Y);Y+=(infosLignesG.length-1)*4;
+  }
   Y+=10;
   var brut=parseFloat(d.brut)||0,chargesSal=parseFloat(d.chargesSalariales)||0,chargesPat=parseFloat(d.chargesPatronales)||0;
   var netImposable=brut-chargesSal;
+  if(d.lignes&&d.lignes.length){
+    var detG=rowsPaieDetailleesGDF(d);
+    var corpsG=detG.map(function(r){
+      return [r.label,
+        (r.base!==undefined&&r.base!==null&&r.base!=='')?String(r.base):'',
+        (r.taux!==undefined&&r.taux!==null&&r.taux!=='')?fmtE2(r.taux):'',
+        (r.gain!==undefined&&r.gain!==null)?fmtE2(r.gain):'',
+        (r.retenue!==undefined&&r.retenue!==null)?('- '+fmtE2(r.retenue)):''];
+    });
+    pdf.autoTable({
+      startY:Y,head:[['Désignation','Base (h)','Taux','Gains','Retenues']],body:corpsG,
+      margin:{left:ML,right:W-MR},
+      styles:{fontSize:8.8,cellPadding:{top:2.6,bottom:2.6,left:4,right:4},textColor:noir,lineColor:[230,230,230],lineWidth:0.2},
+      headStyles:{fillColor:[245,245,245],textColor:noir,fontStyle:'bold',fontSize:8.2,lineColor:[200,200,200],lineWidth:0.3},
+      columnStyles:{0:{cellWidth:'auto'},1:{cellWidth:20,halign:'right'},2:{cellWidth:24,halign:'right'},3:{cellWidth:30,halign:'right'},4:{cellWidth:30,halign:'right'}},
+      didParseCell:function(data){
+        if(data.section!=='body')return;
+        var r=detG[data.row.index];
+        if(r&&r.bold){data.cell.styles.fontStyle='bold';data.cell.styles.fillColor=[249,250,251];}
+        else if(r&&r.kind==='regul'){data.cell.styles.fillColor=[255,251,235];}
+      }
+    });
+    Y=pdf.lastAutoTable.finalY+6;
+  }else{
   var rows=[['Salaire brut',fmtE2(brut)],['Cotisations salariales',(chargesSal?'- ':'')+fmtE2(chargesSal)],['Net imposable',fmtE2(netImposable)]];
   pdf.autoTable({
     startY:Y,head:[['Élément de rémunération','Montant']],body:rows,
@@ -11120,12 +11736,26 @@ function construirePdfFichePaieGDF(d){
     didParseCell:function(data){if(data.section==='body'&&data.row.index===2){data.cell.styles.fontStyle='bold';data.cell.styles.fillColor=[249,250,251];}}
   });
   Y=pdf.lastAutoTable.finalY+6;
+  }
   var netH=17;
+  if(Y+netH+10>H-30){pdf.addPage();Y=20;}
   pdf.setFillColor.apply(pdf,accent);pdf.roundedRect(ML,Y,CW,netH,2,2,'F');
   pdf.setFontSize(12);pdf.setFont('helvetica','bold');pdf.setTextColor(255,255,255);
   pdf.text('NET À PAYER',ML+6,Y+netH/2+1.3,{baseline:'middle'});
   pdf.setFontSize(15);pdf.text(fmtE2(d.net!==undefined&&d.net!==null&&d.net!==''?d.net:netImposable),MR-6,Y+netH/2+1.3,{align:'right',baseline:'middle'});
   Y+=netH+10;
+  if(d.cumuls){
+    var cHG=16,cw3G=CW/3;
+    if(Y+cHG>H-24){pdf.addPage();Y=20;}
+    pdf.setFillColor(249,250,251);pdf.setDrawColor.apply(pdf,gc);pdf.setLineWidth(0.3);pdf.rect(ML,Y,CW,cHG,'FD');
+    pdf.setFontSize(7);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);
+    pdf.text('CUMULS ANNUELS '+d.cumuls.annee+' (jusqu\'à cette période)',ML+4,Y+5);
+    [['Brut cumulé',fmtE2(d.cumuls.brut)],['Net à payer cumulé',fmtE2(d.cumuls.net)],['Heures cumulées',(d.cumuls.heures||0)+' h']].forEach(function(c,k){
+      pdf.setFontSize(7.5);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text(c[0],ML+4+k*cw3G,Y+10);
+      pdf.setFontSize(9);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);pdf.text(c[1],ML+4+k*cw3G,Y+14);
+    });
+    Y+=cHG+8;
+  }
   if(d.notes){
     pdf.setFontSize(8);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);pdf.text('OBSERVATIONS',ML,Y);Y+=5;
     pdf.setFontSize(9);pdf.setFont('helvetica','italic');pdf.setTextColor.apply(pdf,noir);
@@ -11665,7 +12295,7 @@ function buildDocPDF(id,withStamp){
   Y=sY+38;
 
   // CODE AVIS CLIENT (facture uniquement) — relie a la page publique d'avis et a l'appli
-  if(!isD&&doc.codeAvis){
+  if(!isD&&doc.codeAvis&&doc.avisCodeVisible!==false){
     var aH=18;
     if(Y+aH>250)Y=250-aH; // evite de deborder en bas de page si le document est tres rempli
     pdf.setFillColor(255,251,235);pdf.setDrawColor(245,158,11);pdf.setLineWidth(0.5);pdf.roundedRect(ML,Y,CW,aH,2,2,'FD');
@@ -12064,13 +12694,14 @@ function chargerMesDemandesDocuments(){
       return db2-da;
     });
     if(!liste.length){el.innerHTML='<div style="color:var(--muted)">Aucune demande envoyée pour le moment.</div>';return;}
-    var typeLabel={attestation_travail:'Attestation de travail',bulletin_paie:'Bulletin de paie',autre:'Autre'};
+    var typeLabel={attestation_travail:'Attestation de travail',attestation_salaire:'Attestation de salaire',bulletin_paie:'Bulletin de paie',autre:'Autre'};
     var statutBadge={nouvelle:'<span class="badge" style="background:#FEF3C7;color:#92400E">🟠 En attente</span>',traitee:'<span class="badge" style="background:#DCFCE7;color:#15803D">✅ Traitée</span>'};
     el.innerHTML=liste.map(function(d){
       var date=d.date&&d.date.toDate?d.date.toDate().toLocaleDateString('fr-FR'):'—';
       return '<div style="padding:6px 0;border-bottom:1px solid var(--border)">'+
         '<div>'+esc(typeLabel[d.type]||d.type)+(d.periode?(' — '+esc(d.periode)):'')+' '+(statutBadge[d.statut]||statutBadge.nouvelle)+'</div>'+
         '<div style="font-size:11px;color:var(--muted)">Demandée le '+date+(d.reponseAdmin?('<br>Réponse : '+esc(d.reponseAdmin)):'')+'</div>'+
+        (d.documentGenereBase64?'<a href="'+d.documentGenereBase64+'" download="'+esc(d.documentGenereNom||'document.pdf')+'" style="font-size:12px;color:var(--primary);font-weight:600">📥 Télécharger le document</a>':'')+
       '</div>';
     }).join('');
   }).catch(function(e){console.error('Erreur chargement mes demandes:',e);el.innerHTML='<div style="color:var(--danger)">Erreur de chargement.</div>';});
@@ -14908,6 +15539,7 @@ setTimeout(applyTableLabels,200);
         <div class="fg"><label>Type de document</label>
           <select id="dd-type">
             <option value="attestation_travail">Attestation de travail</option>
+            <option value="attestation_salaire">Attestation de salaire</option>
             <option value="bulletin_paie">Bulletin de paie</option>
             <option value="autre">Autre (préciser ci-dessous)</option>
           </select>
