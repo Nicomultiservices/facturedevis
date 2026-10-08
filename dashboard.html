@@ -9,6 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root{
   --bg:#0B1220; --panel:#111A2C; --panel2:#0E1626; --border:#22304A;
@@ -680,7 +681,7 @@ main{max-width:1150px; flex:1; min-width:0; margin:0; padding:20px;}
           </div>
         </div>
         <div id="mat-dash-resultat" style="margin-bottom:14px;font-size:.78rem"></div>
-        <table class="doc-preview-table"><thead><tr><th>Réf.</th><th>Nom</th><th>N° série</th><th>Statut</th><th>Détenu par</th><th>Chantier</th><th>Retour prévu</th><th>Prochain contrôle</th></tr></thead><tbody id="mat-dash-liste"></tbody></table>
+        <table class="doc-preview-table"><thead><tr><th>Réf.</th><th>Nom</th><th>N° série</th><th>Statut</th><th>Détenu par</th><th>Chantier</th><th>Retour prévu</th><th>Prochain contrôle</th><th>Action</th></tr></thead><tbody id="mat-dash-liste"></tbody></table>
       </div>
     </div>
     <!-- ═══ FIN VUE MATERIEL ═══ -->
@@ -763,6 +764,10 @@ main{max-width:1150px; flex:1; min-width:0; margin:0; padding:20px;}
                 <input type="text" class="ctrl-select" id="new-user-poste" placeholder="Ex : Artisan multi-services" style="width:100%">
               </div>
               <button class="btn-sm2" onclick="creerNouvelUtilisateurDash()">Créer le compte</button>
+              <label style="display:flex;align-items:center;gap:6px;font-size:.7rem;margin-top:8px">
+                <input type="checkbox" id="new-user-envoyer-email" checked>
+                Envoyer les identifiants par email avec un message de bienvenue
+              </label>
               <p id="new-user-status" style="font-size:.7rem;margin-top:8px;display:none"></p>
             </div>
 
@@ -841,6 +846,76 @@ main{max-width:1150px; flex:1; min-width:0; margin:0; padding:20px;}
               <button class="btn-sm2" onclick="savePortailBouton()">💾 Enregistrer</button>
             </div>
           </div>
+          <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px">
+            <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">🖼️ Fond d'écran du portail (URL d'une image, ou vide pour revenir au fond par défaut)</label>
+            <div class="ctrl-actions-row">
+              <input type="text" class="ctrl-select" id="portail-fond-url" placeholder="https://... (lien direct vers une image)" style="flex:1">
+              <button class="btn-sm2" onclick="savePortailFondEcran()">💾 Appliquer</button>
+            </div>
+            <label style="font-size:.72rem;color:var(--muted);display:block;margin:8px 0 4px">Affichage</label>
+            <select class="ctrl-select" id="portail-fond-mode" style="width:100%">
+              <option value="cover">Remplir l'écran (recadrée si besoin)</option>
+              <option value="contain">Toute l'image visible (sans recadrage)</option>
+              <option value="stretch">Étirer pour remplir exactement (peut déformer)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Identifiants & bienvenue salaries : permet d'envoyer (ou renvoyer) par email les
+             identifiants de connexion + un message de bienvenue personnalisable, pour chaque
+             salarie present dans la collection 'salaries' (partagee avec compta.html et
+             gestion-devis-factures.html). -->
+        <div class="panel" id="ctrl-panel-identifiants" style="display:none">
+          <h2>✉️ Identifiants & bienvenue salariés</h2>
+          <p style="font-size:.72rem;color:var(--muted);margin-bottom:12px">Créez un accès à l'outil pour un salarié déjà présent dans votre fiche paie, ou renvoyez-lui un lien pour définir/réinitialiser son mot de passe — avec un message de bienvenue personnalisable envoyé automatiquement.</p>
+          <div class="fg">
+            <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">Message de bienvenue (personnalisable — {prenom}, {email} et {motdepasse} seront remplacés automatiquement)</label>
+            <textarea id="identifiants-message-modele" class="ctrl-select" style="width:100%;min-height:110px;font-family:inherit;font-size:.76rem;resize:vertical">Bonjour {prenom},
+
+Bienvenue chez NICO MULTISERVICES ! Voici vos identifiants de connexion pour accéder aux outils de l'entreprise :
+
+Adresse email : {email}
+Mot de passe provisoire : {motdepasse}
+
+Nous vous conseillons de garder ces identifiants en lieu sûr et de les communiquer à personne.
+
+N'hésitez pas à vous rapprocher de nous pour toute question sur la prise en main des outils.
+
+Bienvenue dans l'équipe !
+
+NICO MULTISERVICES</textarea>
+          </div>
+          <div id="identifiants-liste" style="margin-top:12px"></div>
+          <div class="ctrl-actions-row" style="margin-top:12px">
+            <button class="btn-sm2" onclick="chargerIdentifiantsSalaries()">🔄 Actualiser la liste</button>
+            <button class="btn-sm2" onclick="envoyerIdentifiantsTousSalaries()">✉️ Envoyer à tous les salariés sans compte</button>
+          </div>
+          <div id="identifiants-status" style="font-size:.72rem;margin-top:8px"></div>
+        </div>
+
+        <!-- Demandes de documents en libre-service : envoyees par les salaries depuis le
+             bouton "📄 Mes documents" de gestion-devis-factures.html. -->
+        <div class="panel" id="ctrl-panel-demandesdoc" style="display:none">
+          <h2>📄 Demandes de documents <span class="cnt" id="demandesdoc-count">0</span></h2>
+          <p style="font-size:.72rem;color:var(--muted);margin-bottom:12px">Attestations de travail, bulletins de paie et autres documents demandés par vos salariés depuis leur espace.</p>
+          <div id="demandesdoc-liste"></div>
+        </div>
+
+        <!-- Interrupteurs de sites : coupure totale (page blanche), distincte du mode
+             maintenance classique (qui affiche un message d'attente + chat). Ici, rien n'est
+             affiche du tout — a utiliser pour une coupure d'urgence ou une intervention
+             lourde, pas pour une maintenance normale communiquee au client/salarie. -->
+        <div class="panel" id="ctrl-panel-interrupteurs" style="display:none">
+          <h2>🔌 Interrupteurs de sites</h2>
+          <p style="font-size:.72rem;color:var(--muted);margin-bottom:12px">Éteint complètement un site : ses visiteurs voient une page entièrement blanche, sans aucun message. Différent du mode maintenance (qui affiche un message d'attente) — à utiliser pour une coupure d'urgence, pas une maintenance planifiée normale.</p>
+          <div id="interrupteurs-liste"></div>
+          <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px">
+            <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">🔐 Code requis pour ouvrir le Dashboard depuis le portail (protection supplémentaire, en plus de la connexion normale)</label>
+            <div class="ctrl-actions-row">
+              <input type="text" class="ctrl-select" id="portail-dashboard-code" placeholder="Ex : 4821" style="flex:1">
+              <button class="btn-sm2" onclick="savePortailDashboardCode()">💾 Enregistrer</button>
+            </div>
+          </div>
         </div>
 
         <!-- Zone dangereuse : suppression complete des donnees. Reservee aux administrateurs
@@ -850,6 +925,7 @@ main{max-width:1150px; flex:1; min-width:0; margin:0; padding:20px;}
         <div class="panel" id="ctrl-panel-dangerzone" style="display:none;border:1px solid #DC2626">
           <h2 style="color:#DC2626">🗑️ Zone dangereuse</h2>
           <p style="font-size:.72rem;color:var(--muted);margin-bottom:12px">Supprime <strong>définitivement</strong> toutes les données métier : clients, devis, factures, planning, matériel, contrats, litiges, salariés et paie. Les comptes de connexion (email/mot de passe) ne sont PAS supprimés — vous pourrez toujours vous reconnecter sur une base vide.</p>
+
           <button class="btn-sm2 danger" onclick="ouvrirSuppressionTotale()">🗑️ Supprimer toutes les données</button>
         </div>
 
@@ -1156,6 +1232,9 @@ var FIREBASE_CONFIG={
 };
 var fbApp=firebase.initializeApp(FIREBASE_CONFIG);
 var fbAuth=firebase.auth();
+// Isole la session de connexion a CETTE page uniquement (pas de partage automatique avec
+// gestion-devis-factures.html, portail.html, etc. meme ouverts dans un autre onglet).
+fbAuth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(function(e){console.error('Erreur configuration persistance session:',e);});
 var fbDb=firebase.firestore();
 
 // ═══ TRACABILITE GLOBALE (voir vitrine.html pour le detail du fonctionnement). ═══
@@ -1450,6 +1529,7 @@ function startAllListeners(){
   listenDemandesDevis();
   listenContacts();
   listenIncidentsChantierDash();
+  listenDemandesDocumentsDash();
   listenAvis();
   listenMessagesClients();
   listenDocumentsPublics();
@@ -1517,7 +1597,10 @@ var PANNEAUX_PERSONNALISABLES=[
   {id:'ctrl-panel-groupes',label:'🗂️ Bases de données par compte'},
   {id:'ctrl-panel-vueclient',label:'👁️ Mode vue client (lecture seule)'},
   {id:'ctrl-panel-portail',label:'🔗 Portail applications'},
+  {id:'ctrl-panel-interrupteurs',label:'🔌 Interrupteurs de sites'},
   {id:'ctrl-panel-dangerzone',label:'🗑️ Zone dangereuse'},
+  {id:'ctrl-panel-identifiants',label:'✉️ Identifiants & bienvenue salariés'},
+  {id:'ctrl-panel-demandesdoc',label:'📄 Demandes de documents'},
   {id:'ctrl-panel-resetmdp',label:'✉️ Réinitialisation de mot de passe'},
   {id:'ctrl-panel-testemail',label:'✉️ Test d\'envoi email'},
   {id:'ctrl-panel-restructure',label:'☠️ Zone dangereuse — Restructurer Firestore'},
@@ -1804,7 +1887,10 @@ function checkAdminEtInitControles(){
       document.getElementById('ctrl-panel-groupes').style.display='block';
       document.getElementById('ctrl-panel-vueclient').style.display='block';
       document.getElementById('ctrl-panel-portail').style.display='block';
+      document.getElementById('ctrl-panel-interrupteurs').style.display='block';
       document.getElementById('ctrl-panel-dangerzone').style.display='block';
+      document.getElementById('ctrl-panel-identifiants').style.display='block';
+      document.getElementById('ctrl-panel-demandesdoc').style.display='block';
       document.getElementById('ctrl-panel-resetmdp').style.display='block';
       document.getElementById('ctrl-panel-dbexplorer').style.display='block';
       document.getElementById('ctrl-panel-maintenance-compta').style.display='block';
@@ -1822,7 +1908,9 @@ function checkAdminEtInitControles(){
       chargerListeAdminsDashboard();
       chargerListeComptesVueClient();
       verifierNouveauxUtilisateurs();
+      chargerIdentifiantsSalaries();
       chargerPortailListe();
+      chargerInterrupteursDash();
       chargerListeRoleComptaDashboard();
       chargerJournalAdminDashboard();
       chargerHistoriquePannesDash();
@@ -1855,7 +1943,10 @@ function checkAdminEtInitControles(){
       document.getElementById('ctrl-panel-groupes').style.display='none';
       document.getElementById('ctrl-panel-vueclient').style.display='none';
       document.getElementById('ctrl-panel-portail').style.display='none';
+      document.getElementById('ctrl-panel-interrupteurs').style.display='none';
       document.getElementById('ctrl-panel-dangerzone').style.display='none';
+      document.getElementById('ctrl-panel-identifiants').style.display='none';
+      document.getElementById('ctrl-panel-demandesdoc').style.display='none';
       document.getElementById('ctrl-panel-resetmdp').style.display='none';
       document.getElementById('ctrl-panel-testemail').style.display='none';
       document.getElementById('ctrl-panel-restructure').style.display='none';
@@ -2034,7 +2125,7 @@ function renderMaintenanceComptaDash(cfg){
 }
 function activerMaintenanceComptaDash(){
   var msg=(document.getElementById('compta-maint-msg')&&document.getElementById('compta-maint-msg').value)||'';
-  fbDb.collection('siteConfig').doc('comptaMaintenance').set({actif:true,message:msg},{merge:true}).then(function(){
+  fbDb.collection('siteConfig').doc('comptaMaintenance').set({actif:true,message:msg,depuis:firebase.firestore.FieldValue.serverTimestamp()},{merge:true}).then(function(){
     enregistrerActionAdminDash('Application Comptabilité — maintenance activée',msg);
   }).catch(function(e){alert('Erreur : '+e.message);});
 }
@@ -2068,7 +2159,7 @@ function renderFichesPaieDash(liste){
   el.innerHTML='<table class="doc-preview-table"><thead><tr><th>Salarié</th><th>Période</th><th style="text-align:right">Net</th><th>Date</th><th></th></tr></thead><tbody>'+
     liste.map(function(d,i){
       var dt=d.date&&d.date.toDate?d.date.toDate():null;
-      return '<tr><td>'+esc(d.salarie||'')+'</td><td>'+esc(d.periode||'')+'</td><td class="num">'+fmtE(d.net)+'</td><td>'+(dt?dt.toLocaleDateString('fr-FR'):'—')+'</td>'+
+      return '<tr><td>'+esc(d.salarie||'')+'</td><td>'+esc(d.periode||'')+(d.statut==='brouillon'?' <span style="font-size:.6rem;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:10px;padding:2px 7px">Brouillon</span>':'')+'</td><td class="num">'+fmtE(d.net)+'</td><td>'+(dt?dt.toLocaleDateString('fr-FR'):'—')+'</td>'+
         '<td><button class="btn-sm2" style="padding:3px 9px;font-size:.68rem" onclick="ouvrirApercuPaieDash('+i+')">👁 Aperçu</button></td></tr>';
     }).join('')+
     '</tbody></table>';
@@ -2098,7 +2189,7 @@ function ecouterSalariesDash(){
 function majWidgetPaieDash(fichesPaie){
   var el=document.getElementById('paie-dash-body');
   if(!el)return;
-  fichesPaie=fichesPaie||[];
+  fichesPaie=(fichesPaie||[]).filter(function(d){return d.statut!=='brouillon';});
   var fmtE=function(n){return (parseFloat(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/\s/g,' ')+' €';};
 
   var now=new Date();
@@ -2378,6 +2469,7 @@ var html5QrScannerDash=null;
 
 var _eventsDash=[];
 var _materielDashPrecedent=null; // snapshot precedent, pour detecter les nouvelles prises
+var _paramsDash={}; // db.params (nom/adresse/siret/signature...) — reutilise pour generer des PDF signes
 
 function ecouterMaterielDash(){
   fbDb.collection('users').doc(DOC_ACTIF).onSnapshot(function(doc){
@@ -2387,6 +2479,7 @@ function ecouterMaterielDash(){
       _materielDashPrecedent=nouveauMateriel;
       _materielDash=nouveauMateriel;
       _eventsDash=doc.data().db.events||[];
+      _paramsDash=doc.data().db.params||{};
       renderMaterielDash();
       majAlertesMaterielDash();
     }
@@ -2461,11 +2554,111 @@ function majAlertesChantiersRetardDash(){
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// RETOUR MATERIEL DEPUIS LE DASHBOARD : marque un outil comme rendu directement depuis le
+// dashboard (plutot que depuis agenda-chantier.html ou gestion-devis-factures.html), puis
+// envoie automatiquement un email a l'employe qui l'avait en sa possession, listant l'outil
+// concerne et rappelant de bien retourner tout le materiel encore en sa possession si ce
+// n'est pas deja fait.
+// ═══════════════════════════════════════════════════════════════════════
+function retournerMaterielDepuisDash(materielId){
+  var m=(_materielDash||[]).find(function(x){return x.id===materielId;});
+  if(!m||!m.detenuPar)return;
+  if(!confirm('Marquer "'+m.nom+'" comme rendu, et envoyer un email de notification à '+m.detenuPar+' ?'))return;
+
+  var nomDetenteur=m.detenuPar;
+  var nomOutil=(m.ref?m.ref+' — ':'')+m.nom;
+  var today=new Date().toISOString().split('T')[0];
+
+  // Lecture-modification-ecriture du tableau db.materiel (champ array, pas de sous-collection)
+  fbDb.collection('users').doc(DOC_ACTIF).get().then(function(doc){
+    var db=doc.data().db||{};
+    var materiel=db.materiel||[];
+    var i=materiel.findIndex(function(x){return x.id===materielId;});
+    if(i===-1)throw new Error('Outil introuvable dans la base.');
+    var item=materiel[i];
+    // Cloture la derniere entree d'historique en cours (celle sans dateRendu)
+    if(item.historique&&item.historique.length){
+      for(var h=item.historique.length-1;h>=0;h--){
+        if(!item.historique[h].dateRendu){
+          item.historique[h].dateRendu=today;
+          item.historique[h].etatRetour='bon état';
+          item.historique[h].commentaireRetour='Marqué comme rendu depuis le dashboard par '+(fbUser?fbUser.email:'un administrateur')+'.';
+          break;
+        }
+      }
+    }
+    item.detenuPar=null;
+    item.dateRetourPrevue=null;
+    materiel[i]=item;
+    return fbDb.collection('users').doc(DOC_ACTIF).update({'db.materiel':materiel,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  }).then(function(){
+    enregistrerActionAdminDash('Outil rendu depuis le dashboard',nomOutil+' — '+nomDetenteur);
+    ajouterALaFileAttenteRetourMateriel(nomDetenteur,nomOutil);
+  }).catch(function(e){
+    console.error('Erreur retour matériel depuis dashboard:',e);
+    alert('⚠️ Erreur lors du retour de l\'outil. Vérifiez votre connexion et réessayez.');
+  });
+}
+
+// File d'attente de regroupement : si plusieurs outils sont rendus via le dashboard pour la
+// MEME personne en quelques secondes (cas frequent : on traite plusieurs outils d'affilee),
+// on les rassemble dans UN SEUL email plutot que d'en envoyer un par outil. Le delai se
+// reinitialise a chaque nouvel outil ajoute pour la meme personne.
+var _fileAttenteRetourMaterielDash={};
+function ajouterALaFileAttenteRetourMateriel(nomEmploye,nomOutil){
+  if(!_fileAttenteRetourMaterielDash[nomEmploye])_fileAttenteRetourMaterielDash[nomEmploye]={outils:[],timer:null};
+  var file=_fileAttenteRetourMaterielDash[nomEmploye];
+  file.outils.push(nomOutil);
+  if(file.timer)clearTimeout(file.timer);
+  file.timer=setTimeout(function(){
+    var outilsAEnvoyer=file.outils.slice();
+    delete _fileAttenteRetourMaterielDash[nomEmploye];
+    envoyerNotificationRetourMaterielDash(nomEmploye,outilsAEnvoyer);
+  },4000); // 4s : laisse le temps de traiter plusieurs outils d'affilee pour la meme personne
+}
+
+// Envoie l'email de notification a l'employe (retrouve via sa fiche salarie, deja chargee
+// dans _salariesIdentifiantsCache) avec la liste des outils rendus en son nom + un rappel.
+function envoyerNotificationRetourMaterielDash(nomEmploye,listeOutils){
+  var salarie=(_salariesIdentifiantsCache||[]).find(function(s){return s.nom===nomEmploye;});
+  if(!salarie||!salarie.email){
+    console.warn('Aucun email trouvé pour '+nomEmploye+' — notification non envoyée.');
+    return;
+  }
+  var cfg=(_lastCfgControles&&_lastCfgControles.emailjsConfig)||{};
+  initEmailJSDash(cfg);
+  if(!_emailjsReadyDash){
+    console.warn('EmailJS non configuré — notification de retour matériel non envoyée.');
+    return;
+  }
+  var prenom=(salarie.prenom||salarie.nom.split(' ')[0]||'');
+  var listeTexte=listeOutils.map(function(o){return '- '+o;}).join('\n');
+  var corps='Bonjour '+prenom+',\n\n'+
+    'Nous vous informons que '+(listeOutils.length>1?'les outils suivants ont été marqués':'l\'outil suivant a été marqué')+' comme rendus dans notre système, en votre nom :\n\n'+
+    listeTexte+'\n\n'+
+    '⚠️ N\'oubliez pas de retourner physiquement ce matériel sur site ou à l\'atelier si ce n\'est pas déjà fait — cette notification confirme uniquement la mise à jour de notre suivi, pas la remise physique de l\'outil.\n\n'+
+    'Merci de votre vigilance !\n\n'+
+    'NICO MULTISERVICES';
+  var form=document.getElementById('ej-hidden-form');
+  form.to_email.value=salarie.email;
+  form.to_name.value=prenom||salarie.email;
+  form.cc_email.value='';
+  form.subject.value='🧰 Matériel rendu — rappel de retour';
+  form.message.value=corps;
+  form.from_name.value='NICO MULTISERVICES';
+  emailjs.sendForm(cfg.serviceId,cfg.templateId,form).then(function(){
+    enregistrerActionAdminDash('Notification retour matériel envoyée',salarie.email);
+  }).catch(function(e){
+    console.error('Erreur envoi notification retour matériel:',e);
+  });
+}
+
 function renderMaterielDash(){
   var tb=document.getElementById('mat-dash-liste');if(!tb)return;
   document.getElementById('mat-dash-count').textContent=_materielDash.length;
   var list=_materielDash.slice().sort(function(a,b){return (a.ref||'').localeCompare(b.ref||'');});
-  if(!list.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:16px">Aucun outil enregistré.</td></tr>';return;}
+  if(!list.length){tb.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:16px">Aucun outil enregistré.</td></tr>';return;}
   var today=new Date().toISOString().split('T')[0];
   tb.innerHTML=list.map(function(m){
     var statutBadge=m.detenuPar?'<span class="badge" style="background:#FEF3C7;color:#92400E">🔧 En cours</span>':'<span class="badge" style="background:#DCFCE7;color:#15803D">✅ Disponible</span>';
@@ -2482,7 +2675,8 @@ function renderMaterielDash(){
       var couleur=jours<0?'#DC2626':(jours<=30?'#EA580C':'inherit');
       controleTxt='<span style="color:'+couleur+(jours<=30?';font-weight:700':'')+'">'+(jours<=30?(jours<0?'🔴 ':'🟠 '):'')+fmtDate(m.prochainControle)+'</span>';
     }
-    return '<tr><td><strong>'+esc(m.ref||'—')+'</strong></td><td>'+esc(m.nom)+noteBadge+'</td><td>'+esc(m.serie||'—')+'</td><td>'+statutBadge+'</td><td>'+esc(m.detenuPar||'—')+'</td><td style="font-size:.68rem">'+chantier+'</td><td style="font-size:.68rem">'+retourTxt+'</td><td style="font-size:.68rem">'+controleTxt+'</td></tr>';
+    return '<tr><td><strong>'+esc(m.ref||'—')+'</strong></td><td>'+esc(m.nom)+noteBadge+'</td><td>'+esc(m.serie||'—')+'</td><td>'+statutBadge+'</td><td>'+esc(m.detenuPar||'—')+'</td><td style="font-size:.68rem">'+chantier+'</td><td style="font-size:.68rem">'+retourTxt+'</td><td style="font-size:.68rem">'+controleTxt+'</td>'+
+      '<td>'+(m.detenuPar?'<button class="btn-sm2" onclick="retournerMaterielDepuisDash('+m.id+')" title="Marque comme rendu et envoie un email de notification à '+esc(m.detenuPar)+'">↩️ Rendre</button>':'—')+'</td></tr>';
   }).join('');
 }
 
@@ -2687,27 +2881,67 @@ function ouvrirApercuPaieDash(i){
 function closeApercuPaieDash(){
   document.getElementById('apercu-paie-modal').classList.remove('open');
 }
+function rowsPaieDetailleesDash(d){
+  var brut=parseFloat(d.brut)||0,cs=parseFloat(d.chargesSalariales)||0;
+  var lignes=Array.isArray(d.lignes)?d.lignes:[];
+  var rows=[];
+  lignes.filter(function(l){return l.type!=='retenue';}).forEach(function(l){rows.push({label:l.libelle||'',base:l.base,taux:l.taux,gain:parseFloat(l.montant)||0,kind:l.kind});});
+  rows.push({label:'SALAIRE BRUT',gain:brut,bold:true});
+  if(cs)rows.push({label:'Cotisations salariales',retenue:cs});
+  rows.push({label:'NET IMPOSABLE',gain:brut-cs,bold:true});
+  lignes.filter(function(l){return l.type==='retenue';}).forEach(function(l){rows.push({label:l.libelle||'Retenue',retenue:parseFloat(l.montant)||0});});
+  return rows;
+}
+function infosPaieTexteDash(d){
+  var out=[];
+  var lignes=Array.isArray(d.lignes)?d.lignes:[];
+  function somme(k){return Math.round(lignes.filter(function(l){return l.kind===k&&l.type!=='retenue';}).reduce(function(s,l){return s+(parseFloat(l.base)||0);},0)*100)/100;}
+  var hn=somme('heures'),hs=somme('sup'),hr=somme('regul');
+  if(hn)out.push('Heures normales : '+hn+' h');
+  if(hs)out.push('Heures supplémentaires : '+hs+' h');
+  if(hr)out.push('Heures du mois précédent régularisées : '+hr+' h');
+  if(parseFloat(d.absencesHeures))out.push('Absences : '+d.absencesHeures+' h');
+  if(parseFloat(d.congesPris))out.push('Congés payés pris : '+d.congesPris+' j');
+  if(d.datePaiement){var q=String(d.datePaiement).split('-');out.push('Paiement le '+(q.length===3?q[2]+'/'+q[1]+'/'+q[0]:d.datePaiement)+(d.modePaiement?' ('+d.modePaiement+')':''));}
+  return out;
+}
+function tableauDetailPaieHTMLDash(d,fmtE){
+  var det=rowsPaieDetailleesDash(d);
+  return '<table class="doc-preview-table" style="margin-bottom:14px"><thead><tr><th>Désignation</th><th style="text-align:right">Base</th><th style="text-align:right">Taux</th><th style="text-align:right">Gains</th><th style="text-align:right">Retenues</th></tr></thead><tbody>'+
+    det.map(function(r){
+      var st=(r.bold?'font-weight:700;':'')+(r.kind==='regul'?'background:rgba(245,158,11,.12);':'');
+      return '<tr><td style="'+st+'">'+esc(String(r.label||''))+'</td>'+
+        '<td class="num" style="'+st+'">'+((r.base!==undefined&&r.base!==null&&r.base!=='')?esc(String(r.base))+' h':'')+'</td>'+
+        '<td class="num" style="'+st+'">'+((r.taux!==undefined&&r.taux!==null&&r.taux!=='')?fmtE(r.taux):'')+'</td>'+
+        '<td class="num" style="'+st+'">'+((r.gain!==undefined&&r.gain!==null)?fmtE(r.gain):'')+'</td>'+
+        '<td class="num" style="'+st+'">'+((r.retenue!==undefined&&r.retenue!==null)?'- '+fmtE(r.retenue):'')+'</td></tr>';
+    }).join('')+
+  '</tbody></table>';
+}
 // Rendu HTML d'un aperçu de bulletin de paie (sans generation de PDF), reutilisable partout
 // ou l'on affiche une fiche de paie en lecture seule (dashboard, espace employe...).
 function construireApercuFichePaieHTML(d){
   var fmtE=function(n){return (parseFloat(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';};
   var brut=parseFloat(d.brut)||0,chargesSal=parseFloat(d.chargesSalariales)||0,chargesPat=parseFloat(d.chargesPatronales)||0;
   var netImposable=brut-chargesSal;
-  var dt=d.date&&d.date.toDate?d.date.toDate():null;
+  var dt=d.datePublication&&d.datePublication.toDate?d.datePublication.toDate():(d.date&&d.date.toDate?d.date.toDate():null);
   return '<div style="background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:18px">'+
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:8px">'+
       '<div><div style="font-size:.9rem;font-weight:700">'+esc(d.salarie||'')+'</div>'+
-        '<div style="font-size:.7rem;color:var(--muted)">Période : '+esc(fmtPeriodePaieDash(d.periode))+(dt?' · Émise le '+dt.toLocaleDateString('fr-FR'):'')+'</div></div>'+
+        '<div style="font-size:.7rem;color:var(--muted)">Période : '+esc(fmtPeriodePaieDash(d.periode))+(d.poste?' · '+esc(d.poste):'')+(d.statut==='brouillon'?' · <strong style="color:#B45309">⚠️ BROUILLON — non visible par le salarié</strong>':(dt?' · Émise le '+dt.toLocaleDateString('fr-FR'):''))+'</div>'+
+        (infosPaieTexteDash(d).length?'<div style="font-size:.68rem;color:var(--muted);margin-top:3px">'+esc(infosPaieTexteDash(d).join('  ·  '))+'</div>':'')+'</div>'+
       '<span style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);border:1px solid var(--accent);border-radius:20px;padding:3px 10px">Bulletin de paie</span>'+
     '</div>'+
+    ((d.lignes&&d.lignes.length)?tableauDetailPaieHTMLDash(d,fmtE):
     '<table class="doc-preview-table" style="margin-bottom:14px">'+
       '<tbody>'+
         '<tr><td>Salaire brut</td><td class="num">'+fmtE(brut)+'</td></tr>'+
         '<tr><td>Cotisations salariales</td><td class="num">- '+fmtE(chargesSal)+'</td></tr>'+
         '<tr><td style="font-weight:700">Net imposable</td><td class="num" style="font-weight:700">'+fmtE(netImposable)+'</td></tr>'+
-      '</tbody></table>'+
+      '</tbody></table>')+
     '<div style="background:var(--accent);color:#062812;border-radius:9px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:14px">'+
       '<span>NET À PAYER</span><span style="font-size:1.15rem">'+fmtE(d.net!==undefined&&d.net!==null&&d.net!==''?d.net:netImposable)+'</span></div>'+
+    (d.cumuls?('<div style="font-size:.7rem;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:14px"><strong>Cumuls '+esc(String(d.cumuls.annee||''))+'</strong> — Brut : '+fmtE(d.cumuls.brut)+' · Net : '+fmtE(d.cumuls.net)+' · Heures : '+esc(String(d.cumuls.heures||0))+' h</div>'):'')+
     (chargesPat?('<div style="font-size:.68rem;color:var(--muted);border-top:1px solid var(--border);padding-top:10px;margin-bottom:'+(d.notes?'10px':'0')+'">'+
       'Pour information (charges employeur, non déduites du salarié) — Cotisations patronales : '+fmtE(chargesPat)+' · Coût total employeur : '+fmtE(brut+chargesPat)+'</div>'):'')+
     (d.notes?('<div style="font-size:.72rem;font-style:italic;color:var(--muted)">Observations : '+esc(d.notes)+'</div>'):'')+
@@ -2815,10 +3049,11 @@ function declencherPanneGeneraleDash(){
     fbDb.collection('siteConfig').doc('main').set({
       modeMaintenance:true,messageMaintenance:message,maintenanceExpiration:null,
       blocageConsultation:true,verrouillageExpiration:expirationConsult,
-      maintenanceAppActive:true,maintenanceAppMessage:message,maintenanceAppCode:code,maintenanceAppExpiration:null,
-      maintenanceAgendaActive:true,maintenanceAgendaMessage:message,maintenanceAgendaCode:code,maintenanceAgendaExpiration:null
+      maintenanceAppActive:true,maintenanceAppMessage:message,maintenanceAppCode:code,maintenanceAppExpiration:null,maintenanceAppDepuis:firebase.firestore.FieldValue.serverTimestamp(),
+      maintenanceAgendaActive:true,maintenanceAgendaMessage:message,maintenanceAgendaCode:code,maintenanceAgendaExpiration:null,maintenanceAgendaDepuis:firebase.firestore.FieldValue.serverTimestamp(),
+      modeMaintenanceDepuis:firebase.firestore.FieldValue.serverTimestamp()
     },{merge:true}),
-    fbDb.collection('siteConfig').doc('comptaMaintenance').set({actif:true,message:message,expiration:null},{merge:true})
+    fbDb.collection('siteConfig').doc('comptaMaintenance').set({actif:true,message:message,expiration:null,depuis:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})
   ]).then(function(){
     enregistrerActionAdminDash('🚨 Panne générale déclenchée','Tous les sites en maintenance — code : '+code);
     envoyerNotificationPanneDash('🚨 Panne générale déclenchée','Une panne générale vient d\'être déclenchée sur tous les sites (sauf le dashboard) par '+(fbUser?fbUser.email:'un administrateur')+'.\n\nMessage affiché aux visiteurs : '+message+'\n\nCode de déverrouillage (app de gestion / agenda chantier) : '+code+'\n\nPour tout réactiver, rendez-vous dans le dashboard → Contrôle & sections → Panne générale.');
@@ -2988,7 +3223,8 @@ function toggleMaintenanceAgenda(activer){
       maintenanceAgendaActive:true,
       maintenanceAgendaMessage:message||'🚧 Agenda momentanément indisponible\n\nL\'agenda chantier est actuellement en maintenance. Merci de repasser bientôt.',
       maintenanceAgendaCode:code,
-      maintenanceAgendaExpiration:expiration
+      maintenanceAgendaExpiration:expiration,
+      maintenanceAgendaDepuis:firebase.firestore.FieldValue.serverTimestamp()
     },{merge:true}).then(function(){
       enregistrerActionAdminDash('Agenda Chantier bloqué','Code de déverrouillage défini');
     }).catch(function(e){console.error('Erreur activation maintenance agenda:',e);alert('Erreur lors de l\'activation.');renderControlesMaintenance(_lastCfgControles);});
@@ -3245,6 +3481,64 @@ function chargerVueClient(){
 // site/application. Stockes dans la collection Firestore "portailBoutons". ═══
 var editPortailId=null;
 
+// ═══════════════════════════════════════════════════════════════════════
+// INTERRUPTEURS DE SITES : coupure totale (page blanche) d'un site, stockee dans
+// siteConfig/main.sitesEteints.<cle>. Distinct du mode maintenance classique (message
+// d'attente + chat) — ici rien n'est affiche du tout cote visiteur.
+// ═══════════════════════════════════════════════════════════════════════
+var SITES_INTERRUPTEUR=[
+  {cle:'app',label:'📋 Gestion devis & factures'},
+  {cle:'agenda',label:'🔨 Agenda chantier'},
+  {cle:'compta',label:'💰 Comptabilité'},
+  {cle:'consultation',label:'👁️ Espace client (consultation)'},
+  {cle:'portail',label:'🔗 Portail'}
+];
+
+function chargerInterrupteursDash(){
+  fbDb.collection('siteConfig').doc('main').get().then(function(doc){
+    var sitesEteints=(doc.exists&&doc.data().sitesEteints)||{};
+    renderInterrupteursDash(sitesEteints);
+    document.getElementById('portail-dashboard-code').value=(doc.exists&&doc.data().portailDashboardCode)||'';
+  }).catch(function(e){console.error('Erreur chargement interrupteurs:',e);});
+}
+
+function savePortailDashboardCode(){
+  var code=document.getElementById('portail-dashboard-code').value.trim();
+  fbDb.collection('siteConfig').doc('main').set({portailDashboardCode:code},{merge:true}).then(function(){
+    enregistrerActionAdminDash('Code d\'accès Dashboard (portail) modifié','');
+    alert(code?'✅ Code enregistré. Il sera demandé pour ouvrir le Dashboard depuis le portail.':'✅ Code retiré — le Dashboard sera de nouveau accessible sans code depuis le portail.');
+  }).catch(function(e){console.error('Erreur sauvegarde code:',e);alert('⚠️ Erreur lors de l\'enregistrement.');});
+}
+
+function renderInterrupteursDash(sitesEteints){
+  var el=document.getElementById('interrupteurs-liste');
+  if(!el)return;
+  el.innerHTML=SITES_INTERRUPTEUR.map(function(s){
+    var eteint=!!sitesEteints[s.cle];
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">'+
+      '<span style="font-size:.82rem">'+s.label+(eteint?' <span style="color:#DC2626;font-weight:700">— ÉTEINT</span>':'')+'</span>'+
+      '<button class="btn-sm2'+(eteint?'':' danger')+'" onclick="basculerInterrupteurDash(\''+s.cle+'\','+(!eteint)+')">'+(eteint?'🟢 Rallumer':'🔴 Éteindre')+'</button>'+
+    '</div>';
+  }).join('');
+}
+
+function basculerInterrupteurDash(cle,vaEteindre){
+  var libelle=(SITES_INTERRUPTEUR.find(function(s){return s.cle===cle;})||{}).label||cle;
+  var message=vaEteindre
+    ? ('⚠️ Ceci va rendre "'+libelle+'" totalement inaccessible : ses visiteurs verront une page BLANCHE, sans aucun message d\'explication. Confirmez-vous ?')
+    : ('Rallumer "'+libelle+'" et le rendre de nouveau accessible normalement ?');
+  if(!confirm(message))return;
+  var champ={};
+  champ['sitesEteints.'+cle]=vaEteindre;
+  fbDb.collection('siteConfig').doc('main').update(champ).then(function(){
+    enregistrerActionAdminDash(vaEteindre?'Site éteint':'Site rallumé',libelle);
+    chargerInterrupteursDash();
+  }).catch(function(e){
+    console.error('Erreur bascule interrupteur:',e);
+    alert('⚠️ Erreur lors de la modification. Vérifiez votre connexion.');
+  });
+}
+
 function chargerPortailListe(){
   fbDb.collection('portailBoutons').orderBy('ordre','asc').onSnapshot(function(snap){
     var el=document.getElementById('portail-liste');
@@ -3263,6 +3557,20 @@ function chargerPortailListe(){
       '</div>';
     }).join('');
   },function(e){console.error('Erreur chargement portail:',e);});
+
+  fbDb.collection('siteConfig').doc('portail').get().then(function(doc){
+    document.getElementById('portail-fond-url').value=doc.exists?(doc.data().fondEcranUrl||''):'';
+    document.getElementById('portail-fond-mode').value=doc.exists?(doc.data().fondEcranMode||'cover'):'cover';
+  }).catch(function(e){console.error('Erreur chargement fond écran portail:',e);});
+}
+
+function savePortailFondEcran(){
+  var url=document.getElementById('portail-fond-url').value.trim();
+  var mode=document.getElementById('portail-fond-mode').value;
+  fbDb.collection('siteConfig').doc('portail').set({fondEcranUrl:url,fondEcranMode:mode},{merge:true}).then(function(){
+    enregistrerActionAdminDash('Fond d\'écran du portail modifié',url||'(réinitialisé)');
+    alert(url?'✅ Fond d\'écran appliqué.':'✅ Fond d\'écran réinitialisé.');
+  }).catch(function(e){console.error('Erreur sauvegarde fond écran portail:',e);alert('⚠️ Erreur lors de l\'enregistrement.');});
 }
 
 function editerPortailBouton(id,icone,label,url){
@@ -3389,8 +3697,13 @@ function creerNouvelUtilisateurDash(){
     .then(function(nouvelUid){
       var libelleRole=roleChoisi==='admin'?'administrateur':roleChoisi==='compta'?'comptabilité':'employé/artisan';
       statusEl.style.color='var(--accent)';
-      statusEl.textContent='✓ Compte créé : '+email+' ('+libelleRole+')'+(estEmploye?' — fiche salarié ajoutée automatiquement':'')+'. Communiquez-lui ces identifiants pour sa première connexion.';
+      statusEl.textContent='✓ Compte créé : '+email+' ('+libelleRole+')'+(estEmploye?' — fiche salarié ajoutée automatiquement':'')+'.';
       enregistrerActionAdminDash('Nouvel utilisateur créé',email+' ('+nouvelUid+') — rôle '+libelleRole);
+      if(document.getElementById('new-user-envoyer-email').checked){
+        envoyerEmailIdentifiantsDash(email,password,estEmploye?nomSalarie:'',libelleRole,statusEl);
+      }else{
+        statusEl.textContent+=' Communiquez-lui ces identifiants pour sa première connexion.';
+      }
       document.getElementById('new-user-email').value='';
       document.getElementById('new-user-password').value='';
       document.getElementById('new-user-nom').value='';
@@ -3411,6 +3724,214 @@ function creerNouvelUtilisateurDash(){
         appSecondaire.delete().catch(function(e){console.error('Erreur suppression app secondaire:',e);});
       });
     });
+}
+
+// ═══ ENVOI DES IDENTIFIANTS PAR EMAIL (message de bienvenue) ═══ Le mot de passe n'est
+// disponible qu'a l'instant de la creation (jamais stocke ensuite, par securite) — cet
+// envoi ne peut donc se faire qu'immediatement apres creerNouvelUtilisateurDash(). Pour un
+// compte existant, utilisez plutot le panneau "Reinitialisation de mot de passe" (lien
+// officiel Firebase), qui ne revele jamais le mot de passe a l'administrateur.
+function envoyerEmailIdentifiantsDash(email,password,nomSalarie,libelleRole,statusEl){
+  var cfg=(_lastCfgControles&&_lastCfgControles.emailjsConfig)||{};
+  initEmailJSDash(cfg);
+  if(!_emailjsReadyDash){
+    statusEl.innerHTML+=' <span style="color:#B91C1C">⚠️ Email non envoyé : EmailJS n\'est pas configuré (voir gestion-devis-factures.html → Paramètres). Communiquez ces identifiants manuellement.</span>';
+    return;
+  }
+  var prenomAffiche=nomSalarie?nomSalarie.split(' ')[0]:'';
+  var corps='Bonjour'+(prenomAffiche?(' '+prenomAffiche):'')+',\n\n'+
+    'Bienvenue chez NICO MULTISERVICES ! Voici vos identifiants de connexion pour accéder aux outils de l\'entreprise :\n\n'+
+    'Adresse email : '+email+'\n'+
+    'Mot de passe provisoire : '+password+'\n\n'+
+    'Nous vous conseillons de garder ces identifiants en lieu sûr. Vous pourrez les utiliser pour vous connecter à Gestion devis & factures, Agenda Chantier'+(libelleRole==='comptabilité'?' et à la Comptabilité':'')+(libelleRole==='administrateur'?', l\'Agenda Chantier, la Comptabilité et le Centre de monitoring':'')+'.\n\n'+
+    'N\'hésitez pas à vous rapprocher de nous si vous avez la moindre question pour votre prise en main.\n\n'+
+    'Bienvenue dans l\'équipe !\n\n'+
+    'NICO MULTISERVICES';
+  var form=document.getElementById('ej-hidden-form');
+  form.to_email.value=email;
+  form.to_name.value=nomSalarie||email;
+  form.cc_email.value='';
+  form.subject.value='Bienvenue chez NICO MULTISERVICES — vos identifiants de connexion';
+  form.message.value=corps;
+  form.from_name.value='NICO MULTISERVICES';
+  emailjs.sendForm(cfg.serviceId,cfg.templateId,form).then(function(){
+    statusEl.innerHTML+=' <span style="color:#15803D">✅ Identifiants envoyés par email à '+esc(email)+'.</span>';
+  }).catch(function(e){
+    console.error('Erreur envoi identifiants:',e);
+    statusEl.innerHTML+=' <span style="color:#B91C1C">⚠️ Échec de l\'envoi de l\'email ('+esc(e.text||e.message||'erreur inconnue')+'). Communiquez ces identifiants manuellement.</span>';
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// IDENTIFIANTS & BIENVENUE SALARIES : pour chaque fiche de la collection 'salaries'
+// (utilisee par compta.html pour la paie), permet de creer un compte de connexion (s'il
+// n'existe pas encore) et d'envoyer un email avec les identifiants + un message de
+// bienvenue personnalisable. Le lien entre une fiche salarie et son compte de connexion se
+// fait via le champ authUid (ajoute sur la fiche salarie des qu'un compte est cree).
+// ═══════════════════════════════════════════════════════════════════════
+var _salariesIdentifiantsCache=[];
+
+function chargerIdentifiantsSalaries(){
+  fbDb.collection('salaries').orderBy('nom','asc').get().then(function(snap){
+    _salariesIdentifiantsCache=[];
+    snap.forEach(function(doc){_salariesIdentifiantsCache.push(Object.assign({id:doc.id},doc.data()));});
+    renderIdentifiantsListe();
+  }).catch(function(e){console.error('Erreur chargement salariés (identifiants):',e);});
+}
+
+function renderIdentifiantsListe(){
+  var el=document.getElementById('identifiants-liste');
+  if(!el)return;
+  if(!_salariesIdentifiantsCache.length){el.innerHTML='<div style="font-size:.76rem;color:var(--muted)">Aucun salarié enregistré (créez d\'abord sa fiche depuis la Comptabilité).</div>';return;}
+  el.innerHTML=_salariesIdentifiantsCache.map(function(s){
+    var aUnCompte=!!s.authUid;
+    var statutBadge=aUnCompte?'<span style="color:#15803D;font-size:.68rem">✓ Compte lié</span>':'<span style="color:#92400E;font-size:.68rem">— Aucun compte</span>';
+    var actionBtn=aUnCompte
+      ?'<button class="btn-sm2" onclick="renvoyerLienConnexionSalarie(\''+esc(s.id)+'\')">🔑 Envoyer un lien de réinitialisation</button>'
+      :'<button class="btn-sm2" onclick="creerCompteEtEnvoyerBienvenue(\''+esc(s.id)+'\')">✉️ Créer son compte + envoyer bienvenue</button>';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">'+
+      '<div><div style="font-size:.8rem;font-weight:700">'+esc(s.nom||'—')+'</div>'+
+      '<div style="font-size:.68rem;color:var(--muted)">'+esc(s.email||'Aucun email renseigné')+' · '+statutBadge+'</div></div>'+
+      (s.email?actionBtn:'<span style="font-size:.68rem;color:var(--danger)">Renseignez un email sur sa fiche salarié d\'abord</span>')+
+    '</div>';
+  }).join('');
+}
+
+function genererMotDePasseIdentifiants(){
+  var chars='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  var pass='';
+  for(var i=0;i<10;i++)pass+=chars.charAt(Math.floor(Math.random()*chars.length));
+  return pass;
+}
+
+function envoyerMessageBienvenueSalarie(email,prenom,motdepasse,statusEl){
+  var cfg=(_lastCfgControles&&_lastCfgControles.emailjsConfig)||{};
+  initEmailJSDash(cfg);
+  if(!_emailjsReadyDash){
+    if(statusEl)statusEl.innerHTML='<span style="color:#B91C1C">⚠️ EmailJS n\'est pas configuré (voir gestion-devis-factures.html → Paramètres). Communiquez ces identifiants manuellement : '+esc(email)+' / '+esc(motdepasse)+'</span>';
+    return Promise.reject('emailjs-non-configure');
+  }
+  var modele=document.getElementById('identifiants-message-modele').value;
+  var corps=modele.replace(/\{prenom\}/g,prenom||'').replace(/\{email\}/g,email).replace(/\{motdepasse\}/g,motdepasse);
+  var form=document.getElementById('ej-hidden-form');
+  form.to_email.value=email;
+  form.to_name.value=prenom||email;
+  form.cc_email.value='';
+  form.subject.value='Bienvenue chez NICO MULTISERVICES — vos identifiants de connexion';
+  form.message.value=corps;
+  form.from_name.value='NICO MULTISERVICES';
+  return emailjs.sendForm(cfg.serviceId,cfg.templateId,form);
+}
+
+// Cree un compte de connexion pour un salarie existant (fiche sans authUid), lie sa fiche
+// au nouveau compte, et lui envoie le message de bienvenue avec ses identifiants.
+function creerCompteEtEnvoyerBienvenue(salarieId){
+  if(!isAdminDash)return;
+  var s=_salariesIdentifiantsCache.find(function(x){return x.id===salarieId;});
+  if(!s||!s.email)return;
+  var statusEl=document.getElementById('identifiants-status');
+  statusEl.style.color='var(--muted)';
+  statusEl.textContent='Création du compte pour '+s.nom+'…';
+
+  var motdepasse=genererMotDePasseIdentifiants();
+  var appSecondaire=firebase.initializeApp(FIREBASE_CONFIG,'creation-salarie-'+Date.now());
+  var authSecondaire=appSecondaire.auth();
+
+  authSecondaire.createUserWithEmailAndPassword(s.email,motdepasse)
+    .then(function(cred){
+      var nouvelUid=cred.user.uid;
+      return Promise.all([
+        fbDb.collection('salaries').doc(salarieId).update({authUid:nouvelUid}),
+        fbDb.collection('userProfiles').doc(nouvelUid).set({email:s.email,nomComplet:s.nom,creeParDashboard:true,date:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})
+      ]);
+    })
+    .then(function(){
+      enregistrerActionAdminDash('Compte créé pour salarié',s.email+' ('+s.nom+')');
+      var prenom=(s.nom||'').split(' ')[0];
+      return envoyerMessageBienvenueSalarie(s.email,prenom,motdepasse,statusEl);
+    })
+    .then(function(){
+      statusEl.style.color='#15803D';
+      statusEl.textContent='✅ Compte créé et message de bienvenue envoyé à '+s.email+'.';
+      chargerIdentifiantsSalaries();
+    })
+    .catch(function(e){
+      if(e==='emailjs-non-configure')return; // deja gere dans envoyerMessageBienvenueSalarie
+      console.error('Erreur création compte salarié:',e);
+      statusEl.style.color='var(--danger)';
+      if(e.code==='auth/email-already-in-use')statusEl.textContent='❌ Un compte existe déjà avec cet email — vérifiez côté Administrateurs.';
+      else statusEl.textContent='❌ Erreur : '+(e.message||e.code||e||'inconnue');
+    })
+    .finally(function(){
+      authSecondaire.signOut().catch(function(){}).finally(function(){
+        appSecondaire.delete().catch(function(){});
+      });
+    });
+}
+
+// Pour un salarie qui a DEJA un compte : impossible de recuperer son mot de passe existant
+// (Firebase ne le stocke pas en clair), donc on envoie l'email de reinitialisation natif de
+// Firebase Auth (le salarie choisit alors lui-meme un nouveau mot de passe via un lien
+// securise), complete par le message de bienvenue personnalise envoye separement.
+function renvoyerLienConnexionSalarie(salarieId){
+  var s=_salariesIdentifiantsCache.find(function(x){return x.id===salarieId;});
+  if(!s||!s.email)return;
+  var statusEl=document.getElementById('identifiants-status');
+  statusEl.style.color='var(--muted)';
+  statusEl.textContent='Envoi en cours pour '+s.nom+'…';
+
+  fbAuth.sendPasswordResetEmail(s.email)
+    .then(function(){
+      var prenom=(s.nom||'').split(' ')[0];
+      return envoyerMessageBienvenueSalarie(s.email,prenom,'(lien reçu par email séparément pour définir votre mot de passe)',statusEl);
+    })
+    .then(function(){
+      statusEl.style.color='#15803D';
+      statusEl.textContent='✅ Lien de réinitialisation + message de bienvenue envoyés à '+s.email+'.';
+    })
+    .catch(function(e){
+      if(e==='emailjs-non-configure')return;
+      console.error('Erreur envoi lien connexion:',e);
+      statusEl.style.color='var(--danger)';
+      statusEl.textContent='❌ Erreur : '+(e.message||e.code||e||'inconnue');
+    });
+}
+
+// Parcourt tous les salaries SANS compte et cree+envoie pour chacun, les uns apres les
+// autres (pas en parallele, pour eviter de saturer EmailJS et Firebase Auth).
+function envoyerIdentifiantsTousSalaries(){
+  if(!isAdminDash)return;
+  var sansCompte=_salariesIdentifiantsCache.filter(function(s){return s.email&&!s.authUid;});
+  if(!sansCompte.length){alert('Tous les salariés ayant un email renseigné ont déjà un compte.');return;}
+  if(!confirm('Créer un compte et envoyer un email de bienvenue à '+sansCompte.length+' salarié(s) ?'))return;
+  var statusEl=document.getElementById('identifiants-status');
+  var i=0;
+  var suivant=function(){
+    if(i>=sansCompte.length){statusEl.style.color='#15803D';statusEl.textContent='✅ Terminé : '+sansCompte.length+' salarié(s) traité(s).';return;}
+    var s=sansCompte[i];i++;
+    statusEl.style.color='var(--muted)';
+    statusEl.textContent='Traitement '+i+'/'+sansCompte.length+' : '+s.nom+'…';
+    var motdepasse=genererMotDePasseIdentifiants();
+    var appSecondaire=firebase.initializeApp(FIREBASE_CONFIG,'creation-salarie-bulk-'+Date.now()+'-'+i);
+    var authSecondaire=appSecondaire.auth();
+    authSecondaire.createUserWithEmailAndPassword(s.email,motdepasse)
+      .then(function(cred){
+        var nouvelUid=cred.user.uid;
+        return Promise.all([
+          fbDb.collection('salaries').doc(s.id).update({authUid:nouvelUid}),
+          fbDb.collection('userProfiles').doc(nouvelUid).set({email:s.email,nomComplet:s.nom,creeParDashboard:true,date:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})
+        ]);
+      })
+      .then(function(){return envoyerMessageBienvenueSalarie(s.email,(s.nom||'').split(' ')[0],motdepasse,null);})
+      .catch(function(e){console.error('Erreur bulk pour '+s.email+':',e);})
+      .finally(function(){
+        authSecondaire.signOut().catch(function(){}).finally(function(){
+          appSecondaire.delete().catch(function(){});
+          setTimeout(suivant,600); // petite pause entre chaque envoi
+        });
+      });
+  };
+  suivant();
 }
 
 function ajouterAdminDashboard(){
@@ -6092,6 +6613,218 @@ function listenIncidentsChantierDash(){
     renderFeed();
     renderAlerts();
   },function(e){console.error('Erreur listener incidentsChantier:',e);});
+}
+
+// ═══ DEMANDES DE DOCUMENTS EN LIBRE-SERVICE : ecoute en temps reel la collection
+// demandesDocuments (creee depuis gestion-devis-factures.html, bouton "📄 Mes documents")
+// et affiche un panneau dedie + une alerte pour les demandes non traitees. ═══
+var _demandesDocCacheDash={};
+function listenDemandesDocumentsDash(){
+  fbDb.collection('demandesDocuments').orderBy('date','desc').limit(100).onSnapshot(function(snap){
+    snap.docChanges().forEach(function(ch){
+      if(ch.type==='removed'){delete _demandesDocCacheDash[ch.doc.id];return;}
+      _demandesDocCacheDash[ch.doc.id]=Object.assign({id:ch.doc.id},ch.doc.data());
+    });
+    renderDemandesDocumentsDash();
+  },function(e){console.error('Erreur listener demandesDocuments:',e);});
+}
+
+function renderDemandesDocumentsDash(){
+  var el=document.getElementById('demandesdoc-liste');
+  var badgeEl=document.getElementById('demandesdoc-count');
+  var liste=Object.keys(_demandesDocCacheDash).map(function(k){return _demandesDocCacheDash[k];});
+  liste.sort(function(a,b){
+    var da=a.date&&a.date.toDate?a.date.toDate():new Date(0);
+    var db2=b.date&&b.date.toDate?b.date.toDate():new Date(0);
+    return db2-da;
+  });
+  var enAttente=liste.filter(function(d){return d.statut!=='traitee';});
+  if(badgeEl)badgeEl.textContent=enAttente.length;
+
+  Object.keys(alertItems).forEach(function(k){if(k.indexOf('demandedoc_')===0&&!_demandesDocCacheDash[k.replace('demandedoc_','')])delete alertItems[k];});
+  enAttente.forEach(function(d){
+    alertItems['demandedoc_'+d.id]={
+      id:'demandedoc_'+d.id,icon:'📄',
+      title:'Document demandé — '+(d.nomComplet||d.demandeParEmail||''),
+      sub:({attestation_travail:'Attestation de travail',attestation_salaire:'Attestation de salaire',bulletin_paie:'Bulletin de paie',autre:'Autre document'})[d.type]||d.type,
+      date:d.date&&d.date.toDate?d.date.toDate():new Date(),level:'warn'
+    };
+  });
+  renderAlerts();
+
+  if(!el)return;
+  if(!liste.length){el.innerHTML='<div style="font-size:.76rem;color:var(--muted)">Aucune demande de document pour le moment.</div>';return;}
+  var typeLabel={attestation_travail:'Attestation de travail',attestation_salaire:'Attestation de salaire',bulletin_paie:'Bulletin de paie',autre:'Autre'};
+  el.innerHTML=liste.map(function(d){
+    var date=d.date&&d.date.toDate?d.date.toDate().toLocaleDateString('fr-FR'):'—';
+    var traitee=d.statut==='traitee';
+    return '<div style="padding:10px 0;border-bottom:1px solid var(--border)">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'+
+        '<div><div style="font-size:.82rem;font-weight:700">'+esc(d.nomComplet||d.demandeParEmail||'')+'</div>'+
+        '<div style="font-size:.72rem;color:var(--muted)">'+esc(typeLabel[d.type]||d.type)+(d.periode?(' — '+esc(d.periode)):'')+' · '+date+'</div></div>'+
+        (traitee?'<span style="font-size:.68rem;color:#15803D">✓ Traitée</span>':'<span style="font-size:.68rem;color:#92400E">🟠 En attente</span>')+
+      '</div>'+
+      (d.commentaire?'<div style="font-size:.74rem;margin-top:4px;color:#374151">'+esc(d.commentaire)+'</div>':'')+
+      (!traitee?
+        '<div class="ctrl-actions-row" style="margin-top:8px">'+
+          (d.type==='attestation_travail'?'<button class="btn-sm2" onclick="genererAttestationTravailDash(\''+d.id+'\')">📄 Générer et signer l\'attestation</button>':'')+
+          (d.type==='attestation_salaire'?'<button class="btn-sm2" onclick="genererAttestationSalaireDash(\''+d.id+'\')">📄 Générer et signer l\'attestation</button>':'')+
+          '<input type="text" class="ctrl-select" id="ddr-note-'+d.id+'" placeholder="Note de réponse (optionnel)" style="flex:1">'+
+          '<button class="btn-sm2" onclick="marquerDemandeDocumentTraitee(\''+d.id+'\')">✓ Marquer traitée</button>'+
+        '</div>'
+      :(d.reponseAdmin?'<div style="font-size:.72rem;color:var(--muted);margin-top:4px">Note : '+esc(d.reponseAdmin)+'</div>':'')
+      )+
+    '</div>';
+  }).join('');
+}
+
+// Genere automatiquement l'attestation de travail PDF pour une demande, avec la signature
+// enregistree de l'entreprise (db.params.signature, dessinee une fois dans gestion-devis-
+// factures.html > Parametres > Mon entreprise), a partir de la fiche salarie correspondante
+// (collection 'salaries', deja chargee via chargerIdentifiantsSalaries). Marque
+// automatiquement la demande comme traitee une fois le PDF genere.
+function genererAttestationTravailDash(demandeId){
+  var demande=_demandesDocCacheDash[demandeId];
+  if(!demande)return;
+  var salarie=(_salariesIdentifiantsCache||[]).find(function(s){return s.email&&demande.demandeParEmail&&s.email.toLowerCase()===demande.demandeParEmail.toLowerCase();});
+  if(!salarie){
+    alert('⚠️ Aucune fiche salarié trouvée pour '+(demande.demandeParEmail||'')+'. Vérifiez que son email est bien renseigné sur sa fiche (Comptabilité > Salariés).');
+    return;
+  }
+  if(typeof window.jspdf==='undefined'){alert('⚠️ Générateur de PDF non chargé. Rechargez la page et réessayez.');return;}
+
+  var p=_paramsDash||{};
+  var pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+  var ML=20,MR=190,y=25;
+
+  pdf.setFontSize(11);pdf.setFont(undefined,'bold');pdf.text(p.nom||'Mon Entreprise',ML,y);y+=5;
+  pdf.setFontSize(9);pdf.setFont(undefined,'normal');pdf.setTextColor(80);
+  [p.adresse,p.ville,p.siret?'SIRET : '+p.siret:'',p.tel,p.email].filter(Boolean).forEach(function(l){pdf.text(l,ML,y);y+=4.5;});
+  pdf.setTextColor(20);
+  y+=10;
+  pdf.text('Fait à '+(p.ville||'')+', le '+new Date().toLocaleDateString('fr-FR'),MR,25,{align:'right'});
+
+  pdf.setFontSize(15);pdf.setFont(undefined,'bold');
+  pdf.text('ATTESTATION DE TRAVAIL',105,y,{align:'center'});
+  y+=14;
+
+  var nomComplet=(salarie.prenom?salarie.prenom+' ':'')+(salarie.nom||'');
+  var texte='Je soussigné(e), '+(p.nom||'Mon Entreprise')+(p.siret?(', SIRET n° '+p.siret):'')+
+    ', atteste que '+nomComplet+
+    (salarie.dateNaissance?(', né(e) le '+fmtDateFrDash(salarie.dateNaissance)):'')+
+    ', est employé(e) au sein de mon entreprise'+(salarie.dateEntree?(' depuis le '+fmtDateFrDash(salarie.dateEntree)):'')+
+    (salarie.poste?(' en qualité de '+salarie.poste):'')+
+    (salarie.typeContrat?(', sous contrat de type '+salarie.typeContrat):'')+
+    ', et fait partie des effectifs de l\'entreprise à la date de ce jour.\n\n'+
+    'Cette attestation est délivrée à l\'intéressé(e) pour valoir ce que de droit.';
+  pdf.setFontSize(11);pdf.setFont(undefined,'normal');
+  var lignes=pdf.splitTextToSize(texte,MR-ML);
+  pdf.text(lignes,ML,y,{lineHeightFactor:1.6});
+  y+=lignes.length*6+20;
+
+  pdf.setFont(undefined,'bold');pdf.text('Signature :',ML,y);
+  if(p.signature){
+    try{pdf.addImage(p.signature,'PNG',ML,y+3,45,18,'','FAST');}catch(e){console.error('Erreur insertion signature:',e);}
+  }else{
+    pdf.setFont(undefined,'normal');pdf.setFontSize(9);pdf.setTextColor(150);
+    pdf.text('(Aucune signature enregistrée — configurez-en une dans gestion-devis-factures.html > Paramètres)',ML,y+10);
+    pdf.setTextColor(20);
+  }
+
+  finaliserGenerationAttestation(pdf,demandeId,nomComplet,'Attestation_travail_'+nomComplet.replace(/[^a-z0-9]+/gi,'_')+'.pdf','Attestation de travail générée et signée automatiquement le '+new Date().toLocaleDateString('fr-FR')+'.','Attestation de travail générée automatiquement');
+}
+
+// Genere l'attestation de salaire : cite le dernier salaire net enregistre dans la collection
+// 'paie' pour ce salarie (le plus recent par periode), s'il en existe une — sinon la genere
+// sans montant plutot que d'en inventer un.
+function genererAttestationSalaireDash(demandeId){
+  var demande=_demandesDocCacheDash[demandeId];
+  if(!demande)return;
+  var salarie=(_salariesIdentifiantsCache||[]).find(function(s){return s.email&&demande.demandeParEmail&&s.email.toLowerCase()===demande.demandeParEmail.toLowerCase();});
+  if(!salarie){
+    alert('⚠️ Aucune fiche salarié trouvée pour '+(demande.demandeParEmail||'')+'. Vérifiez que son email est bien renseigné sur sa fiche (Comptabilité > Salariés).');
+    return;
+  }
+  if(typeof window.jspdf==='undefined'){alert('⚠️ Générateur de PDF non chargé. Rechargez la page et réessayez.');return;}
+
+  fbDb.collection('paie').where('salarieId','==',salarie.id).get().then(function(snap){
+    var toutesFiches=[];
+    snap.forEach(function(doc){toutesFiches.push(doc.data());});
+    toutesFiches.sort(function(a,b){return (b.periode||'').localeCompare(a.periode||'');});
+    var derniereFiche=toutesFiches.length?toutesFiches[0]:null;
+    var p=_paramsDash||{};
+    var pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+    var ML=20,MR=190,y=25;
+
+    pdf.setFontSize(11);pdf.setFont(undefined,'bold');pdf.text(p.nom||'Mon Entreprise',ML,y);y+=5;
+    pdf.setFontSize(9);pdf.setFont(undefined,'normal');pdf.setTextColor(80);
+    [p.adresse,p.ville,p.siret?'SIRET : '+p.siret:'',p.tel,p.email].filter(Boolean).forEach(function(l){pdf.text(l,ML,y);y+=4.5;});
+    pdf.setTextColor(20);
+    y+=10;
+    pdf.text('Fait à '+(p.ville||'')+', le '+new Date().toLocaleDateString('fr-FR'),MR,25,{align:'right'});
+
+    pdf.setFontSize(15);pdf.setFont(undefined,'bold');
+    pdf.text('ATTESTATION DE SALAIRE',105,y,{align:'center'});
+    y+=14;
+
+    var nomComplet=(salarie.prenom?salarie.prenom+' ':'')+(salarie.nom||'');
+    var texte='Je soussigné(e), '+(p.nom||'Mon Entreprise')+(p.siret?(', SIRET n° '+p.siret):'')+
+      ', atteste que '+nomComplet+
+      ' est employé(e) au sein de mon entreprise'+(salarie.dateEntree?(' depuis le '+fmtDateFrDash(salarie.dateEntree)):'')+
+      (salarie.poste?(' en qualité de '+salarie.poste):'')+
+      (salarie.typeContrat?(', sous contrat de type '+salarie.typeContrat):'')+
+      '.\n\n'+
+      (derniereFiche
+        ?('Le dernier salaire net perçu s\'élève à '+fmtEurDash(derniereFiche.net)+', au titre de la période '+(derniereFiche.periode||'')+'.')
+        :'Aucune fiche de paie n\'est pour le moment enregistrée dans notre système pour préciser un montant.')
+      +'\n\n'+
+      'Cette attestation est délivrée à l\'intéressé(e), à sa demande, pour valoir ce que de droit (dossier logement, prêt, ou autre démarche).';
+    pdf.setFontSize(11);pdf.setFont(undefined,'normal');
+    var lignes=pdf.splitTextToSize(texte,MR-ML);
+    pdf.text(lignes,ML,y,{lineHeightFactor:1.6});
+    y+=lignes.length*6+20;
+
+    pdf.setFont(undefined,'bold');pdf.text('Signature :',ML,y);
+    if(p.signature){
+      try{pdf.addImage(p.signature,'PNG',ML,y+3,45,18,'','FAST');}catch(e){console.error('Erreur insertion signature:',e);}
+    }
+
+    finaliserGenerationAttestation(pdf,demandeId,nomComplet,'Attestation_salaire_'+nomComplet.replace(/[^a-z0-9]+/gi,'_')+'.pdf','Attestation de salaire générée et signée automatiquement le '+new Date().toLocaleDateString('fr-FR')+(derniereFiche?'.':' (sans montant : aucune fiche de paie enregistrée).'),'Attestation de salaire générée automatiquement');
+  }).catch(function(e){console.error('Erreur récupération fiche de paie:',e);alert('⚠️ Erreur lors de la récupération de la dernière fiche de paie.');});
+}
+
+function fmtEurDash(n){return (parseFloat(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
+
+// Telecharge le PDF cote admin, le stocke aussi en base64 dans la demande (pour que le
+// salarie puisse le retelecharger depuis "Mes documents", cote gestion-devis-factures.html
+// ET cote portail.html), et marque la demande comme traitee. Un PDF simple (texte + petite
+// signature) reste largement sous la limite de 1 Mo par document Firestore.
+function finaliserGenerationAttestation(pdf,demandeId,nomAffiche,nomFichier,noteReponse,libelleJournal){
+  pdf.save(nomFichier);
+  var base64=pdf.output('datauristring');
+  fbDb.collection('demandesDocuments').doc(demandeId).update({
+    statut:'traitee',reponseAdmin:noteReponse,traiteePar:fbUser?fbUser.email:'',
+    dateTraitement:firebase.firestore.FieldValue.serverTimestamp(),
+    documentGenereBase64:base64,documentGenereNom:nomFichier
+  }).then(function(){
+    enregistrerActionAdminDash(libelleJournal,nomAffiche);
+  }).catch(function(e){
+    console.error('Erreur mise à jour demande après génération:',e);
+    alert('⚠️ Le PDF a été téléchargé, mais son enregistrement pour que le salarié puisse le retélécharger a échoué (fichier peut-être trop volumineux). Vérifiez les règles Firestore ou transmettez-le manuellement.');
+  });
+}
+
+function marquerDemandeDocumentTraitee(id){
+  var noteEl=document.getElementById('ddr-note-'+id);
+  var note=noteEl?noteEl.value.trim():'';
+  fbDb.collection('demandesDocuments').doc(id).update({
+    statut:'traitee',reponseAdmin:note,traiteePar:fbUser?fbUser.email:'',dateTraitement:firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){
+    enregistrerActionAdminDash('Demande de document traitée',id);
+  }).catch(function(e){
+    console.error('Erreur traitement demande document:',e);
+    alert('⚠️ Erreur. Vérifiez les règles Firestore sur "demandesDocuments".');
+  });
 }
 
 // ── 3. Messages de contact (formulaire vitrine) ──
