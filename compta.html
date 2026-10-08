@@ -1,0 +1,2383 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Comptabilité — NICO MULTISERVICES</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<style>
+:root{
+  --bg:#F5F2ED;--surface:#FFF;--border:#E2DCD1;
+  --primary:#1E2A3A;--primary-dark:#141D28;
+  --accent:#0D9F6E;--accent-dark:#0A7D57;
+  --copper:#C2703D;--copper-dark:#A25A2E;--copper-light:#FBEBE0;
+  --danger:#C0473F;--warn:#B4682A;
+  --text:#232420;--muted:#7A7367;
+  --shadow:0 2px 10px rgba(35,36,32,.06),0 1px 2px rgba(35,36,32,.04);--r:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+.topnav{background:linear-gradient(180deg,#1E2A3A 0%,#141D28 100%);color:#A8A296;box-shadow:0 3px 15px rgba(0,0,0,.15);position:sticky;top:0;z-index:50;}
+.topnav-row1{display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid #2C3B4E;flex-wrap:wrap;}
+.topnav-brand{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.brand-icon{width:34px;height:34px;background:linear-gradient(135deg,#C2703D,#0D9F6E);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+.topnav-brand h2{color:#F5F2ED;font-size:13.5px;font-weight:700;line-height:1.2;}
+.topnav-brand span{font-size:10px;color:#6B7686;display:block;}
+.topnav-row2{display:flex;gap:4px;padding:0 12px;overflow-x:auto;}
+.tab-item{padding:11px 14px;font-size:12.5px;font-weight:600;color:#A8A296;cursor:pointer;white-space:nowrap;border-bottom:2.5px solid transparent;transition:all .15s;}
+.tab-item:hover{color:#F0A876;}
+.tab-item.active{color:#F0A876;border-bottom-color:#C2703D;}
+.sync-user{margin-left:auto;font-size:11.5px;color:#A8A296;cursor:pointer;}
+.container{max-width:1100px;margin:0 auto;padding:20px 16px 60px;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:18px;margin-bottom:16px;}
+.panel h2{font-size:14.5px;margin-bottom:10px;color:var(--primary);}
+.panel p.hint{font-size:.72rem;color:var(--muted);margin-bottom:12px;}
+.view{display:none;}
+.view.active{display:block;}
+.fg{margin-bottom:12px;}
+.fg label{display:block;font-size:.7rem;color:var(--muted);margin-bottom:4px;font-weight:600;}
+.fg input,.fg select,.fg textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:#FAF8F4;}
+.row{display:flex;gap:10px;flex-wrap:wrap;}
+.row>.fg{flex:1;min-width:150px;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:8px;border:none;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:var(--accent-dark);}
+.btn-outline{background:#fff;border:1px solid var(--border);color:var(--text);}
+.btn-outline:hover{background:var(--copper-light);}
+.btn-danger{background:transparent;color:var(--danger);border:1px solid var(--danger);}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);}
+th{color:var(--muted);font-weight:700;font-size:.68rem;text-transform:uppercase;}
+tr:hover{background:#FAF8F4;}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px;}
+.stat-card{background:#FAF8F4;border:1px solid var(--border);border-radius:10px;padding:12px;}
+.stat-card .val{font-size:19px;font-weight:800;color:var(--primary);}
+.stat-card .lbl{font-size:.68rem;color:var(--muted);margin-top:2px;}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.65rem;font-weight:700;}
+.badge-ok{background:#E3F5EC;color:var(--accent-dark);}
+.badge-warn{background:#FDF0E4;color:var(--warn);}
+.badge-danger{background:#FBEAE9;color:var(--danger);}
+.progress-bar{height:8px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:6px;}
+.progress-fill{height:100%;background:var(--accent);}
+.auth-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:200;}
+.auth-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:28px;width:100%;max-width:360px;text-align:center;}
+.auth-logo{font-size:34px;margin-bottom:8px;}
+.auth-title{font-size:16px;font-weight:800;color:var(--primary);margin-bottom:4px;}
+.auth-subtitle{font-size:12px;color:var(--muted);margin-bottom:18px;}
+.auth-error{display:none;background:#FBEAE9;color:var(--danger);font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:12px;text-align:left;}
+.auth-refused{display:none;background:#FBEAE9;color:var(--danger);font-size:12.5px;padding:12px;border-radius:8px;margin-top:12px;text-align:left;}
+.empty{font-size:12.5px;color:var(--muted);padding:14px;text-align:center;}
+
+/* ═══ MOBILE ═══ */
+@media(max-width:680px){
+  .container{padding:10px;}
+  .panel{padding:14px;}
+  .stats-grid{grid-template-columns:1fr 1fr;}
+
+  /* Tableaux transformes en cartes empilees */
+  table:not([style]){border:none;}
+  table:not([style]) thead{display:none;}
+  table:not([style]) tbody{display:block;}
+  table:not([style]) tr{display:block;background:#fff;border:1px solid var(--border);border-radius:10px;margin-bottom:10px;padding:10px 12px;}
+  table:not([style]) td{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border:none;border-bottom:1px solid #F1F5F9;text-align:right;}
+  table:not([style]) td:last-child{border-bottom:none;}
+  table:not([style]) td:before{content:attr(data-label);font-weight:600;font-size:11px;color:var(--muted);text-align:left;margin-right:8px;white-space:nowrap;}
+}
+
+</style>
+</head>
+<body>
+
+<div class="auth-screen" id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">🧮</div>
+    <div class="auth-title">Comptabilité</div>
+    <div class="auth-subtitle">NICO MULTISERVICES — accès réservé admin / comptabilité</div>
+    <div class="auth-error" id="auth-error"></div>
+    <div class="fg" style="text-align:left"><label>Email</label><input type="email" id="auth-email" placeholder="vous@exemple.fr" onkeypress="if(event.key==='Enter')handleAuthSubmit()"></div>
+    <div class="fg" style="text-align:left"><label>Mot de passe</label><input type="password" id="auth-password" placeholder="••••••••" onkeypress="if(event.key==='Enter')handleAuthSubmit()"></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px" onclick="handleAuthSubmit()">Se connecter</button>
+    <div class="auth-refused" id="auth-refused">Ce compte n'a pas accès à l'application comptabilité.</div>
+  </div>
+</div>
+
+<div id="app-root" style="display:none">
+<div class="topnav">
+  <div class="topnav-row1">
+    <div class="topnav-brand">
+      <div class="brand-icon">🧮</div>
+      <div><h2>Comptabilité</h2><span>NICO MULTISERVICES</span></div>
+    </div>
+    <span class="sync-user" id="sync-user-email" onclick="handleLogout()" title="Se déconnecter"></span>
+  </div>
+  <div class="topnav-row2">
+    <div class="tab-item active" data-view="vue-tableau-bord" onclick="showView('vue-tableau-bord')">📊 Tableau de bord</div>
+    <div class="tab-item" data-view="vue-journal" onclick="showView('vue-journal')">📒 Journal</div>
+    <div class="tab-item" data-view="vue-depenses" onclick="showView('vue-depenses')">💸 Dépenses</div>
+    <div class="tab-item" data-view="vue-encaissements" onclick="showView('vue-encaissements')">💰 Encaissements</div>
+    <div class="tab-item" data-view="vue-urssaf" onclick="showView('vue-urssaf')">🏛️ URSSAF</div>
+    <div class="tab-item" data-view="vue-paie" onclick="showView('vue-paie')">🧑‍💼 Paie</div>
+    <div class="tab-item" data-view="vue-salaries" onclick="showView('vue-salaries')">👥 Salariés</div>
+    <div class="tab-item" data-view="vue-export" onclick="showView('vue-export')">📤 Exports</div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- TABLEAU DE BORD -->
+  <div class="view active" id="vue-tableau-bord">
+    <div class="panel" id="maintenance-banner" style="display:none;background:var(--copper-light);border-color:var(--copper)">
+      <strong>🔧 Application en maintenance.</strong> <span id="maintenance-banner-msg"></span>
+    </div>
+    <div class="panel">
+      <h2>Chiffre d'affaires vs plafond micro-entreprise</h2>
+      <p class="hint">Basé sur les factures marquées payées dans Gestion Devis &amp; Factures. Plafond 2026 indicatif — vérifiez le seuil exact applicable à votre activité.</p>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="val" id="tb-ca-annee">—</div><div class="lbl">CA encaissé (année en cours)</div></div>
+        <div class="stat-card"><div class="val" id="tb-ca-pourcent">—</div><div class="lbl">% du plafond</div></div>
+        <div class="stat-card"><div class="val" id="tb-ca-restant">—</div><div class="lbl">Marge avant plafond</div></div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="tb-ca-bar" style="width:0%"></div></div>
+      <div class="row" style="margin-top:12px">
+        <div class="fg" style="max-width:220px">
+          <label>Plafond applicable (€)</label>
+          <input type="number" id="tb-plafond" value="77700" onchange="dbSetPlafond(this.value)">
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Vue rapide</h2>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="val" id="tb-depenses-mois">—</div><div class="lbl">Dépenses (mois en cours)</div></div>
+        <div class="stat-card"><div class="val" id="tb-factures-attente">—</div><div class="lbl">Factures en attente d'encaissement</div></div>
+        <div class="stat-card"><div class="val" id="tb-resultat-mois">—</div><div class="lbl">Résultat (mois en cours)</div></div>
+        <div class="stat-card"><div class="val" id="tb-tresorerie">—</div><div class="lbl">Trésorerie estimée (encaissé − dépensé − URSSAF dû)</div></div>
+      </div>
+    </div>
+
+    <div class="panel" id="alertes-panel" style="display:none">
+      <h2>⚠️ Alertes</h2>
+      <div id="alertes-liste"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Évolution mensuelle — recettes vs dépenses (12 derniers mois)</h2>
+      <div id="graphique-evolution"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Comparatif année en cours vs année précédente</h2>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="val" id="tb-ca-cette-annee">—</div><div class="lbl" id="tb-lbl-cette-annee">CA cette année</div></div>
+        <div class="stat-card"><div class="val" id="tb-ca-annee-precedente">—</div><div class="lbl" id="tb-lbl-annee-precedente">CA année précédente</div></div>
+        <div class="stat-card"><div class="val" id="tb-evolution-ca">—</div><div class="lbl">Évolution</div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Répartition des dépenses par catégorie (année en cours)</h2>
+      <div id="repartition-depenses"></div>
+    </div>
+  </div>
+
+  <!-- JOURNAL RECETTES / DEPENSES -->
+  <div class="view" id="vue-journal">
+    <div class="panel">
+      <h2>Journal des recettes et dépenses</h2>
+      <p class="hint">Registre obligatoire pour une micro-entreprise. Alimenté automatiquement par les factures payées ; les dépenses sont saisies dans l'onglet Dépenses.</p>
+      <div class="row">
+        <div class="fg"><label>Recherche (libellé)</label><input type="text" id="jr-recherche" placeholder="ex: EDF, client Dupont…" oninput="chargerJournal()"></div>
+      </div>
+      <div class="row">
+        <div class="fg"><label>Du</label><input type="date" id="jr-du"></div>
+        <div class="fg"><label>Au</label><input type="date" id="jr-au"></div>
+        <div class="fg" style="max-width:160px;display:flex;align-items:flex-end"><button class="btn btn-outline" onclick="chargerJournal()">Filtrer</button></div>
+      </div>
+      <div id="journal-table"></div>
+    </div>
+  </div>
+
+  <!-- DEPENSES -->
+  <div class="view" id="vue-depenses">
+    <div class="panel">
+      <h2>Nouvelle dépense</h2>
+      <div class="row">
+        <div class="fg"><label>Date</label><input type="date" id="dep-date"></div>
+        <div class="fg"><label>Montant TTC (€)</label><input type="number" step="0.01" id="dep-montant"></div>
+        <div class="fg">
+          <label>Catégorie</label>
+          <select id="dep-categorie">
+            <option>Fournitures / matériel</option>
+            <option>Carburant / déplacement</option>
+            <option>Assurance</option>
+            <option>Téléphone / internet</option>
+            <option>Cotisations URSSAF</option>
+            <option>Frais bancaires</option>
+            <option>Sous-traitance</option>
+            <option>Salaires / paie</option>
+            <option>Autre</option>
+          </select>
+        </div>
+      </div>
+      <div class="fg"><label>Description</label><input type="text" id="dep-description" placeholder="ex: Achat visserie chez Bricomarché"></div>
+      <div class="fg"><label>Justificatif (image ou PDF)</label><input type="file" id="dep-justificatif" accept="image/*,.pdf"></div>
+      <button class="btn btn-primary" onclick="enregistrerDepense()">💾 Enregistrer la dépense</button>
+    </div>
+    <div class="panel">
+      <h2>Dépenses enregistrées</h2>
+      <div class="row">
+        <div class="fg"><label>Recherche</label><input type="text" id="dep-recherche" placeholder="ex: Bricomarché…" oninput="chargerDepenses()"></div>
+        <div class="fg"><label>Filtrer par catégorie</label>
+          <select id="dep-filtre-categorie" onchange="chargerDepenses()">
+            <option value="">Toutes catégories</option>
+          </select>
+        </div>
+      </div>
+      <div id="depenses-table"></div>
+    </div>
+  </div>
+
+  <!-- ENCAISSEMENTS -->
+  <div class="view" id="vue-encaissements">
+    <div class="panel">
+      <h2>Rapprochement — factures encaissées / non encaissées</h2>
+      <p class="hint">Liste des factures issues de Gestion Devis &amp; Factures. Cochez pour marquer une facture comme encaissée (synchronisé avec l'application de gestion).</p>
+      <div id="encaissements-table"></div>
+    </div>
+    <div class="panel">
+      <h2>💵 Chèques & espèces reçus</h2>
+      <p class="hint">Paiements enregistrés hors virement bancaire (chèque, espèces, carte, autre) — utile pour préparer vos remises en banque et vérifier qu'aucun chèque/espèce n'est resté en attente de dépôt.</p>
+      <div class="stats-grid" style="margin-bottom:14px">
+        <div class="stat-card"><div class="val" id="ce-total-cheques">—</div><div class="lbl">Total chèques (période)</div></div>
+        <div class="stat-card"><div class="val" id="ce-total-especes">—</div><div class="lbl">Total espèces (période)</div></div>
+        <div class="stat-card"><div class="val" id="ce-total-autre">—</div><div class="lbl">Autres modes hors virement</div></div>
+      </div>
+      <div class="row">
+        <div class="fg"><label>Filtrer par mode</label>
+          <select id="ce-filtre-mode" onchange="chargerChequesEspeces()">
+            <option value="">Tous (hors virement)</option>
+            <option value="Chèque">Chèque uniquement</option>
+            <option value="Espèces">Espèces uniquement</option>
+          </select>
+        </div>
+        <div class="fg"><label>Depuis le</label><input type="date" id="ce-filtre-date" onchange="chargerChequesEspeces()"></div>
+      </div>
+      <div id="cheques-especes-table"></div>
+    </div>
+  </div>
+
+  <!-- URSSAF -->
+  <div class="view" id="vue-urssaf">
+    <div class="panel">
+      <h2>Cotisations URSSAF</h2>
+      <p class="hint">Calcul indicatif basé sur le CA encaissé et un taux de cotisation que vous renseignez (variable selon votre activité : vente, prestation de services, libérale...).</p>
+      <div class="row">
+        <div class="fg" style="max-width:220px"><label>Taux de cotisation (%)</label><input type="number" step="0.01" id="ur-taux" value="21.2" onchange="dbSetTauxUrssaf(this.value)"></div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="val" id="ur-ca-trimestre">—</div><div class="lbl">CA encaissé (trimestre en cours)</div></div>
+        <div class="stat-card"><div class="val" id="ur-cotisation-due">—</div><div class="lbl">Cotisation estimée due</div></div>
+      </div>
+      <h2 style="margin-top:16px">Échéances / versements enregistrés</h2>
+      <div class="row">
+        <div class="fg"><label>Date de versement</label><input type="date" id="ur-date-versement"></div>
+        <div class="fg"><label>Montant versé (€)</label><input type="number" step="0.01" id="ur-montant-verse"></div>
+        <div class="fg" style="display:flex;align-items:flex-end"><button class="btn btn-primary" onclick="enregistrerVersementUrssaf()">Enregistrer le versement</button></div>
+      </div>
+      <div id="urssaf-table"></div>
+    </div>
+  </div>
+
+  <!-- PAIE -->
+  <div class="view" id="vue-paie">
+    <div class="panel" id="pa-bloc-indisponible" style="display:none;background:var(--copper-light);border-color:var(--copper);text-align:center;padding:40px 20px">
+      <div style="font-size:34px;margin-bottom:10px">🔧</div>
+      <h2 style="margin-bottom:8px">Section momentanément indisponible</h2>
+      <p class="hint" id="pa-bloc-indisponible-msg" style="max-width:420px;margin:0 auto">Cette section est en maintenance.</p>
+    </div>
+    <div id="pa-bloc-actif">
+    <div class="panel" id="pa-form-panel">
+      <h2 id="pa-form-titre">Nouvelle fiche de paie</h2>
+      <p class="hint">Saisie libre — l'application archive, génère le PDF et calcule les cumuls, elle ne calcule pas les charges sociales automatiquement (à vérifier auprès de votre logiciel de paie / expert-comptable). Une fiche est d'abord enregistrée en <strong>brouillon</strong> (invisible pour le salarié) : vous pouvez la modifier à volonté, puis la <strong>publier</strong>.</p>
+      <div class="row">
+        <div class="fg">
+          <label>Salarié</label>
+          <select id="pa-salarie-id" onchange="remplirEmailSalarie();calculerHeuresPointeesPaie();detecterHeuresManquantesPaie()"><option value="">— Sélectionner (voir onglet Salariés) —</option></select>
+        </div>
+        <div class="fg"><label>Période</label><input type="month" id="pa-periode" onchange="calculerHeuresPointeesPaie();detecterHeuresManquantesPaie()"></div>
+      </div>
+      <div class="panel" id="pa-heures-bloc" style="background:var(--bg,#F8FAFC);border:1px solid var(--border,#E2E8F0);padding:10px 14px;margin:10px 0;display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div style="font-size:12.5px" id="pa-heures-resume">Aucune heure pointée trouvée pour ce salarié/cette période.</div>
+          <button type="button" class="btn btn-outline btn-sm" style="padding:4px 10px;font-size:11px" onclick="calculerHeuresPointeesPaie();detecterHeuresManquantesPaie()">🔄 Récupérer les heures pointées</button>
+        </div>
+        <div id="pa-heures-detail" style="margin-top:6px;font-size:11.5px;color:var(--muted)"></div>
+      </div>
+      <div class="panel" id="pa-regul-bloc" style="background:#FFFBEB;border:1px solid #FDE68A;padding:10px 14px;margin:10px 0;display:none">
+        <div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:4px">⏱ Heures manquantes du mois précédent</div>
+        <div id="pa-regul-resume" style="font-size:12.5px"></div>
+        <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap" id="pa-regul-actions"></div>
+      </div>
+      <h3 style="font-size:12.5px;margin:14px 0 8px;color:var(--primary)">Détail de la rémunération</h3>
+      <div id="pa-lignes"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 14px">
+        <button type="button" class="btn btn-outline" style="padding:5px 10px;font-size:11px" onclick="ajouterLignePaie('heures')">＋ Heures normales</button>
+        <button type="button" class="btn btn-outline" style="padding:5px 10px;font-size:11px" onclick="ajouterLignePaie('sup')">＋ Heures sup. (+25 %)</button>
+        <button type="button" class="btn btn-outline" style="padding:5px 10px;font-size:11px" onclick="ajouterLignePaie('prime')">＋ Prime</button>
+        <button type="button" class="btn btn-outline" style="padding:5px 10px;font-size:11px" onclick="ajouterLignePaie('indemnite')">＋ Indemnité (panier, déplacement…)</button>
+        <button type="button" class="btn btn-outline" style="padding:5px 10px;font-size:11px" onclick="ajouterLignePaie('regul')">＋ Heures du mois précédent</button>
+        <button type="button" class="btn btn-outline" style="padding:5px 10px;font-size:11px" onclick="ajouterLignePaie('retenue')">＋ Retenue (acompte, avance…)</button>
+      </div>
+      <div class="row">
+        <div class="fg"><label>Salaire brut (€)</label><input type="number" step="0.01" id="pa-brut" oninput="calculerNetPaie()"></div>
+        <div class="fg"><label>Charges salariales (€)</label><input type="number" step="0.01" id="pa-charges-sal" oninput="calculerNetPaie()"></div>
+        <div class="fg"><label>Charges patronales (€)</label><input type="number" step="0.01" id="pa-charges-pat"></div>
+        <div class="fg"><label>Net à payer (€)</label><input type="number" step="0.01" id="pa-net"></div>
+      </div>
+      <div class="row">
+        <div class="fg"><label>Date de paiement</label><input type="date" id="pa-date-paiement"></div>
+        <div class="fg"><label>Mode de paiement</label><select id="pa-mode-paiement"><option>Virement bancaire</option><option>Chèque</option><option>Espèces</option></select></div>
+        <div class="fg"><label>Congés payés pris (jours)</label><input type="number" step="0.5" min="0" id="pa-conges"></div>
+        <div class="fg"><label>Absences (heures)</label><input type="number" step="0.25" min="0" id="pa-absences"></div>
+      </div>
+      <div class="fg"><label>Notes</label><input type="text" id="pa-notes" placeholder="Primes, heures sup., absences…"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-outline" onclick="enregistrerFichePaie(false)">💾 Enregistrer en brouillon</button>
+        <button class="btn btn-primary" onclick="enregistrerFichePaie(true)">📤 Enregistrer et publier</button>
+        <button class="btn btn-danger" id="pa-btn-annuler" style="display:none" onclick="reinitialiserFormPaie()">Annuler la modification</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Fiches de paie enregistrées</h2>
+      <div class="row">
+        <div class="fg"><label>Filtrer par salarié</label><select id="pa-filtre-salarie" onchange="chargerPaie()"><option value="">Tous</option></select></div>
+      </div>
+      <div id="paie-table"></div>
+    </div>
+    </div>
+  </div>
+
+  <!-- SALARIES -->
+  <div class="view" id="vue-salaries">
+    <div class="panel">
+      <h2>Nouveau salarié</h2>
+      <div class="row">
+        <div class="fg"><label>Nom complet</label><input type="text" id="sa-nom" placeholder="Nom Prénom (utilisé partout dans les outils)"></div>
+        <div class="fg"><label>Prénom seul (pour le registre)</label><input type="text" id="sa-prenom" placeholder="Prénom"></div>
+      </div>
+      <div class="row">
+        <div class="fg"><label>Email</label><input type="email" id="sa-email" placeholder="salarie@exemple.fr"></div>
+        <div class="fg"><label>Poste / qualification</label><input type="text" id="sa-poste" placeholder="ex: Ouvrier polyvalent"></div>
+      </div>
+      <div class="row">
+        <div class="fg"><label>Taux horaire brut (€/h)</label><input type="number" step="0.01" min="0" id="sa-taux-horaire" placeholder="ex: 14.50"></div>
+        <div class="fg"><label>Type de contrat</label>
+          <select id="sa-type-contrat">
+            <option value="CDI">CDI</option>
+            <option value="CDD">CDD</option>
+            <option value="Apprentissage">Apprentissage</option>
+            <option value="Intérim">Intérim</option>
+            <option value="Stage">Stage</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="fg"><label>Date de naissance</label><input type="date" id="sa-date-naissance"></div>
+        <div class="fg"><label>Sexe</label>
+          <select id="sa-sexe">
+            <option value="F">Femme</option>
+            <option value="M">Homme</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="fg"><label>Nationalité</label><input type="text" id="sa-nationalite" placeholder="ex: Française"></div>
+        <div class="fg"><label>Date d'entrée (embauche)</label><input type="date" id="sa-date-entree"></div>
+      </div>
+      <div class="row">
+        <div class="fg"><label>Date de sortie (si applicable)</label><input type="date" id="sa-date-sortie"></div>
+        <div class="fg"></div>
+      </div>
+      <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">Ces informations (obligatoires pour le registre unique du personnel — art. L1221-13 du Code du travail) peuvent être complétées plus tard si vous ne les avez pas toutes sous la main.</div>
+      <button class="btn btn-primary" onclick="enregistrerSalarie()">💾 Enregistrer le salarié</button>
+    </div>
+    <div class="panel">
+      <h2>Salariés enregistrés</h2>
+      <div id="salaries-table"></div>
+    </div>
+    <div class="panel" id="fiche-salarie-panel" style="display:none">
+      <h2 id="fiche-salarie-titre">Fiche salarié</h2>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="val" id="fs-cumul-brut">—</div><div class="lbl">Cumul brut (année en cours)</div></div>
+        <div class="stat-card"><div class="val" id="fs-cumul-net">—</div><div class="lbl">Cumul net (année en cours)</div></div>
+        <div class="stat-card"><div class="val" id="fs-nb-fiches">—</div><div class="lbl">Fiches de paie émises</div></div>
+      </div>
+      <div id="fiche-salarie-historique"></div>
+      <button class="btn btn-outline" style="margin-top:10px" onclick="document.getElementById('fiche-salarie-panel').style.display='none'">Fermer</button>
+    </div>
+    <div class="panel">
+      <h2>📋 Registre unique du personnel</h2>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Document obligatoire pour tout employeur (art. L1221-13 du Code du travail), listant chronologiquement tous les salariés employés. Complétez les fiches salariés ci-dessus (nom, prénom, date de naissance, nationalité, type de contrat, date d'entrée) pour qu'il soit exploitable en cas de contrôle.</p>
+      <div id="registre-personnel-table"></div>
+      <button class="btn btn-primary" style="margin-top:10px" onclick="genererRegistrePersonnelPDF()">📄 Générer le PDF du registre</button>
+    </div>
+  </div>
+
+  <!-- EXPORTS -->
+  <div class="view" id="vue-export">
+    <div class="panel">
+      <h2>Exports comptables</h2>
+      <p class="hint">Pour transmission à un expert-comptable ou archivage.</p>
+      <div class="row">
+        <div class="fg"><label>Du</label><input type="date" id="ex-du"></div>
+        <div class="fg"><label>Au</label><input type="date" id="ex-au"></div>
+      </div>
+      <div class="row">
+        <button class="btn btn-outline" onclick="exporterJournalCSV()">📄 Journal (CSV)</button>
+        <button class="btn btn-outline" onclick="exporterDepensesCSV()">📄 Dépenses (CSV)</button>
+        <button class="btn btn-outline" onclick="exporterJournalPDF()">📕 Journal (PDF)</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Rapport annuel simplifié</h2>
+      <p class="hint">Bilan récapitulatif pour la déclaration micro-entreprise (CA encaissé, dépenses, cotisations versées).</p>
+      <div class="row">
+        <div class="fg" style="max-width:160px"><label>Année</label><input type="number" id="ra-annee" placeholder="2026"></div>
+        <div class="fg" style="display:flex;align-items:flex-end"><button class="btn btn-outline" onclick="genererRapportAnnuelPDF()">📕 Générer le rapport (PDF)</button></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>☁️ Archivage légal (Google Drive)</h2>
+      <p class="hint">Les factures, devis, journal comptable, dépenses et bulletins de paie doivent être conservés 10 ans. Cette fonction envoie une archive complète de l'année vers Google Drive, dans un dossier « Archives comptables NICO MULTISERVICES / {année} ». Une archive automatique est également générée chaque 1er janvier pour l'année écoulée.</p>
+      <div id="archive-gdrive-statut" style="font-size:.78rem;margin-bottom:12px;color:var(--muted)">Non connecté à Google Drive.</div>
+      <div class="row">
+        <button class="btn btn-outline" onclick="gdriveArchiveConnecter()">🔗 Connecter Google Drive</button>
+        <div class="fg" style="max-width:160px"><label>Année à archiver</label><input type="number" id="arch-annee" placeholder="2026"></div>
+        <div class="fg" style="display:flex;align-items:flex-end"><button class="btn btn-primary" onclick="archiverAnneeVersGoogleDrive()">☁️ Archiver maintenant</button></div>
+      </div>
+      <div id="archive-progression" style="font-size:.75rem;color:var(--muted);margin-top:8px"></div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// COMPTA.JS — Application comptabilité NICO MULTISERVICES
+// Connectee au meme projet Firebase que gestion-devis-factures.html / dashboard.html.
+// Acces reserve aux comptes "admin" (collection admins/{uid}) ou "compta"
+// (userRoles/{uid}.role === 'compta'). Toute action est journalisee dans
+// adminLog, la meme collection que les autres applications de la suite.
+//
+// IMPORTANT : les fonctions appelees directement depuis les onclick du HTML
+// (handleAuthSubmit, handleLogout, showAuthError) sont definies en tout premier,
+// avant meme l'initialisation de Firebase : ainsi, meme si Firebase echoue a
+// se charger (reseau, CDN bloque, etc.), ces fonctions existent toujours et
+// affichent un message d'erreur clair au lieu d'un "is not defined".
+// ═══════════════════════════════════════════════════════════════════════
+
+var fbApp=null,fbAuth=null,fbDb=null,fbUser=null;
+var isAdmin=false,userRole=null; // userRole: 'admin' | 'compta' | null (acces refuse)
+
+function showAuthError(msg){
+  var el=document.getElementById('auth-error');
+  if(el){el.textContent=msg;el.style.display='block';}
+}
+function handleAuthSubmit(){
+  if(!fbAuth){showAuthError('Connexion à Firebase impossible (vérifiez votre connexion internet, puis rechargez la page).');return;}
+  var email=document.getElementById('auth-email').value.trim();
+  var password=document.getElementById('auth-password').value.trim();
+  if(!email||!password){showAuthError('Veuillez remplir tous les champs.');return;}
+  document.getElementById('auth-error').style.display='none';
+  document.getElementById('auth-refused').style.display='none';
+  fbAuth.signInWithEmailAndPassword(email,password)
+    .then(function(cred){fbUser=cred.user;verifierAccesEtDemarrer();})
+    .catch(function(err){
+      var msg='Erreur : '+err.message;
+      if(err.code==='auth/user-not-found')msg='Utilisateur introuvable.';
+      else if(err.code==='auth/wrong-password')msg='Mot de passe incorrect.';
+      else if(err.code==='auth/invalid-email')msg='Email invalide.';
+      showAuthError(msg);
+    });
+}
+function handleLogout(){
+  if(!fbAuth){location.reload();return;}
+  fbAuth.signOut().then(function(){location.reload();});
+}
+
+// ═══ INITIALISATION FIREBASE (protegee : si elle echoue, l'ecran de connexion
+// reste utilisable et affiche un message d'erreur au lieu de planter) ═══
+var FIREBASE_CONFIG={
+  apiKey:"AIzaSyCg6ZhR0-LYxynuuABQNc1RMqu2E8IaFc4",
+  authDomain:"facturedevis-2684d.firebaseapp.com",
+  projectId:"facturedevis-2684d",
+  storageBucket:"facturedevis-2684d.firebasestorage.app",
+  messagingSenderId:"702834434238",
+  appId:"1:702834434238:web:03650c40921bbe61577eef"
+};
+// Meme document partage que les autres applications de la suite (devis/factures/depenses
+// deja saisis y sont stockes) : on lit/ecrit users/{DOC_PARTAGE_UID}.
+var DOC_PARTAGE_UID='V61nytHZpuVvDh72Ra4ClFy2bJg1';
+
+try{
+  if(typeof firebase==='undefined'){
+    throw new Error('SDK Firebase non chargé (vérifiez votre connexion internet).');
+  }
+  fbApp=firebase.initializeApp(FIREBASE_CONFIG);
+  fbAuth=firebase.auth();
+  // Isole la session de connexion a CETTE page uniquement (pas de partage automatique avec
+  // gestion-devis-factures.html, dashboard.html, etc. meme ouverts dans un autre onglet).
+  fbAuth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(function(e){console.error('Erreur configuration persistance session:',e);});
+  fbDb=firebase.firestore();
+}catch(e){
+  console.error('Erreur init Firebase:',e);
+  showAuthError('Erreur de chargement : '+e.message);
+}
+
+function esc(s){return (s===null||s===undefined)?'':String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+// ═══ MOBILE : labellise automatiquement les cellules de tableau avec leur en-tete ═══
+function labelliserTableauxMobile(){
+  document.querySelectorAll('table:not([style])').forEach(function(table){
+    var headers=Array.prototype.map.call(table.querySelectorAll('thead th'),function(th){return th.textContent.trim();});
+    if(!headers.length)return;
+    table.querySelectorAll('tbody tr').forEach(function(tr){
+      Array.prototype.forEach.call(tr.children,function(td,i){
+        if(headers[i]!==undefined)td.setAttribute('data-label',headers[i]);
+      });
+    });
+  });
+}
+var _mobileLabelObserverCompta=new MutationObserver(function(){
+  clearTimeout(window._mobileLabelTimeoutCompta);
+  window._mobileLabelTimeoutCompta=setTimeout(labelliserTableauxMobile,150);
+});
+document.addEventListener('DOMContentLoaded',function(){
+  var zone=document.querySelector('.container')||document.body;
+  _mobileLabelObserverCompta.observe(zone,{childList:true,subtree:true});
+  labelliserTableauxMobile();
+});
+// Serialise une valeur en JS (JSON.stringify) puis echappe les guillemets pour une insertion
+// sure dans un attribut HTML delimite par des doubles guillemets (onclick="...").
+// Sans cela, les doubles guillemets produits par JSON.stringify() coupent l'attribut en plein
+// milieu et cassent le onclick (=> "SyntaxError: Unexpected end of input" au clic sur le bouton).
+function aj(v){return JSON.stringify(v).replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function fmtEur(n){return (parseFloat(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/\s/g,' ')+' €';}
+function todayISO(){return new Date().toISOString().split('T')[0];}
+
+// Verifie le role (admin ou compta) ; refuse l'acces sinon. Un compte admin a toujours
+// aussi acces (equivalent role compta) — coherent avec gestion-devis-factures.html.
+function verifierAccesEtDemarrer(){
+  if(!fbUser){return;}
+  Promise.all([
+    fbDb.collection('admins').doc(fbUser.uid).get(),
+    fbDb.collection('userRoles').doc(fbUser.uid).get().catch(function(){return {exists:false};})
+  ]).then(function(res){
+    var docAdmin=res[0],docRole=res[1];
+    isAdmin=docAdmin.exists;
+    if(isAdmin)userRole='admin';
+    else if(docRole&&docRole.exists&&(docRole.data()||{}).role==='compta')userRole='compta';
+    else userRole=null;
+
+    if(!userRole){
+      document.getElementById('auth-refused').style.display='block';
+      fbAuth.signOut();
+      return;
+    }
+    document.getElementById('auth-screen').style.display='none';
+    document.getElementById('app-root').style.display='block';
+    document.getElementById('sync-user-email').textContent=fbUser.email;
+    enregistrerActionCompta('Connexion à l\'application comptabilité','');
+    ecouterMaintenanceCompta();
+    ecouterInterrupteurCompta();
+    demarrerApp();
+  }).catch(function(e){
+    console.error('Erreur vérification accès:',e);
+    showAuthError('Erreur de vérification des droits d\'accès.');
+  });
+}
+
+if(fbAuth){
+  fbAuth.onAuthStateChanged(function(user){
+    if(user){fbUser=user;verifierAccesEtDemarrer();}
+  });
+}else{
+  showAuthError('Firebase n\'a pas pu être initialisé (vérifiez la console du navigateur — F12).');
+}
+
+// ═══ JOURNALISATION (meme collection adminLog que les autres apps de la suite) ═══
+function enregistrerActionCompta(action,detail){
+  if(!fbDb||!fbUser)return;
+  fbDb.collection('adminLog').add({
+    action:action,detail:detail||'',
+    parEmail:fbUser.email,parUid:fbUser.uid,
+    date:firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(function(e){console.error('Erreur enregistrement journal admin:',e);});
+  if(fbDb){
+    fbDb.collection('traceGlobale').add({
+      type:'action_compta',detail:action+(detail?' — '+detail:''),
+      date:firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(function(){});
+  }
+}
+
+// ═══ INTERRUPTEUR "ETEINDRE LE SITE" (dashboard.html > 🔌 Interrupteurs de sites) : ecoute
+// separee sur siteConfig/main (partage avec les autres applis), independante du mecanisme
+// de maintenance classique de compta.html qui lui utilise siteConfig/comptaMaintenance. ═══
+function ecouterInterrupteurCompta(){
+  if(!fbDb)return;
+  fbDb.collection('siteConfig').doc('main').onSnapshot(function(doc){
+    var cfg=doc.exists?doc.data():{};
+    if(cfg.sitesEteints&&cfg.sitesEteints.compta){
+      document.documentElement.innerHTML='';
+      document.title='';
+    }
+  },function(e){console.error('Erreur écoute interrupteur compta:',e);});
+}
+
+// ═══ MODE MAINTENANCE (piloté depuis dashboard.html, meme mecanisme que les autres apps) ═══
+var _sectionsComptaBloquees={};
+function ecouterMaintenanceCompta(){
+  if(!fbDb)return;
+  fbDb.collection('siteConfig').doc('comptaMaintenance').onSnapshot(function(doc){
+    var cfg=doc.exists?doc.data():{};
+    var actif=!!cfg.actif;
+    var expiree=cfg.expiration&&new Date(cfg.expiration)<new Date();
+    var banner=document.getElementById('maintenance-banner');
+    if(actif&&!expiree){
+      banner.style.display='block';
+      document.getElementById('maintenance-banner-msg').textContent=cfg.message||'Certaines fonctions peuvent être temporairement indisponibles.';
+    }else{
+      banner.style.display='none';
+    }
+    // Blocage dedie a certaines sections de compta.html (ex : Fiches de paie), pilote depuis
+    // le meme document, champ "sections" — independant du bandeau de maintenance globale ci-dessus.
+    _sectionsComptaBloquees=cfg.sections||{};
+    appliquerBlocagePaie();
+  },function(e){console.error('Erreur écoute maintenance compta:',e);});
+}
+function appliquerBlocagePaie(){
+  var bloc=_sectionsComptaBloquees.paie;
+  var bloque=!!(bloc&&bloc.actif);
+  var vueActive=document.getElementById('vue-paie')&&document.getElementById('vue-paie').classList.contains('active');
+  document.getElementById('pa-bloc-indisponible').style.display=bloque?'block':'none';
+  document.getElementById('pa-bloc-actif').style.display=bloque?'none':'';
+  if(bloque)document.getElementById('pa-bloc-indisponible-msg').textContent=bloc.message||'Cette section est en maintenance.';
+  // Si l'utilisateur est deja sur l'onglet Fiches de paie au moment ou le blocage est active
+  // a distance, l'ecran "indisponible" s'affiche immediatement, sans devoir changer d'onglet.
+  if(vueActive&&bloque){/* deja affiche via le toggle ci-dessus */}
+}
+
+// ═══ NAVIGATION ═══
+function showView(id){
+  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('active');});
+  document.querySelectorAll('.tab-item').forEach(function(t){t.classList.remove('active');});
+  document.getElementById(id).classList.add('active');
+  document.querySelector('.tab-item[data-view="'+id+'"]').classList.add('active');
+  if(id==='vue-tableau-bord')chargerTableauBord();
+  if(id==='vue-journal')chargerJournal();
+  if(id==='vue-depenses')chargerDepenses();
+  if(id==='vue-encaissements'){chargerEncaissements();chargerChequesEspeces();}
+  if(id==='vue-urssaf')chargerUrssaf();
+  if(id==='vue-paie'){
+    appliquerBlocagePaie();
+    if(!(_sectionsComptaBloquees.paie&&_sectionsComptaBloquees.paie.actif)){chargerListeSalariesSelect();chargerPaie();}
+  }
+  if(id==='vue-salaries'){chargerSalaries();chargerRegistrePersonnel();}
+}
+
+function demarrerApp(){
+  chargerParametresCompta();
+  showView('vue-tableau-bord');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ACCES AUX DONNEES PARTAGEES (meme document users/{DOC_PARTAGE_UID} que
+// gestion-devis-factures.html : documents, clients, depenses). On lit ce
+// document en direct (onSnapshot) pour rester synchronise en permanence,
+// et on ecrit uniquement dans le tableau db.depenses (perimetre de cette
+// application) — jamais dans db.documents/db.clients, geres par l'appli
+// de gestion elle-meme.
+// ═══════════════════════════════════════════════════════════════════════
+var dbPartage={documents:[],clients:[],depenses:[],params:{},events:[]};
+var dbListenerActif=false;
+
+function ecouterDonneesPartagees(cb){
+  if(!fbDb)return;
+  fbDb.collection('users').doc(DOC_PARTAGE_UID).onSnapshot(function(doc){
+    var data=doc.exists?(doc.data()||{}):{};
+    dbPartage=data.db||{documents:[],clients:[],depenses:[],params:{},events:[]};
+    if(!dbPartage.documents)dbPartage.documents=[];
+    if(!dbPartage.clients)dbPartage.clients=[];
+    if(!dbPartage.depenses)dbPartage.depenses=[];
+    if(!dbPartage.params)dbPartage.params={};
+    if(!dbPartage.events)dbPartage.events=[];
+    dbListenerActif=true;
+    if(typeof cb==='function')cb();
+    rafraichirVueActive();
+  },function(e){console.error('Erreur lecture données partagées:',e);});
+}
+
+function rafraichirVueActive(){
+  var active=document.querySelector('.view.active');
+  if(!active)return;
+  showView(active.id);
+}
+
+// Ecrit db.depenses uniquement (ne touche a aucun autre champ de db, pour ne jamais
+// interferer avec ce que gestion-devis-factures.html a en cours d'edition ailleurs).
+function ecrireDepensesPartagees(nouvellesDepenses){
+  if(!fbDb)return Promise.reject('Firebase non initialisé');
+  return fbDb.collection('users').doc(DOC_PARTAGE_UID).set(
+    {db:Object.assign({},dbPartage,{depenses:nouvellesDepenses})},
+    {merge:true}
+  );
+}
+function nomClient(clientId){
+  var c=(dbPartage.clients||[]).find(function(x){return x.id===clientId;});
+  return c?(c.nom||''):'';
+}
+
+// ═══ PARAMETRES COMPTA (plafond micro-entreprise, taux URSSAF) — collection dediee ═══
+var paramsCompta={plafond:77700,tauxUrssaf:21.2};
+function chargerParametresCompta(){
+  if(!fbDb)return;
+  fbDb.collection('siteConfig').doc('compta').get().then(function(doc){
+    if(doc.exists){
+      var d=doc.data()||{};
+      if(d.plafond)paramsCompta.plafond=d.plafond;
+      if(d.tauxUrssaf)paramsCompta.tauxUrssaf=d.tauxUrssaf;
+    }
+    document.getElementById('tb-plafond').value=paramsCompta.plafond;
+    document.getElementById('ur-taux').value=paramsCompta.tauxUrssaf;
+    ecouterDonneesPartagees(function(){});
+  }).catch(function(e){
+    console.error('Erreur chargement paramètres compta:',e);
+    ecouterDonneesPartagees(function(){});
+  });
+}
+function dbSetPlafond(v){
+  paramsCompta.plafond=parseFloat(v)||77700;
+  fbDb.collection('siteConfig').doc('compta').set({plafond:paramsCompta.plafond},{merge:true});
+  enregistrerActionCompta('Modification du plafond micro-entreprise',fmtEur(paramsCompta.plafond));
+  chargerTableauBord();
+}
+function dbSetTauxUrssaf(v){
+  paramsCompta.tauxUrssaf=parseFloat(v)||0;
+  fbDb.collection('siteConfig').doc('compta').set({tauxUrssaf:paramsCompta.tauxUrssaf},{merge:true});
+  enregistrerActionCompta('Modification du taux de cotisation URSSAF',paramsCompta.tauxUrssaf+'%');
+  chargerUrssaf();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TABLEAU DE BORD
+// ═══════════════════════════════════════════════════════════════════════
+function facturesPayees(){
+  return (dbPartage.documents||[]).filter(function(d){return d.type==='facture'&&d.statut==='payee';});
+}
+function dateEncaissement(d){
+  return (d.receipt&&d.receipt.date)||d.date||'';
+}
+function chargerTableauBord(){
+  var anneeActuelle=new Date().getFullYear();
+  var facturesAnnee=facturesPayees().filter(function(d){
+    var dt=dateEncaissement(d);
+    return dt&&new Date(dt).getFullYear()===anneeActuelle;
+  });
+  var caAnnee=facturesAnnee.reduce(function(s,d){return s+(parseFloat(d.receipt&&d.receipt.amount)||parseFloat(d.totalHT)||0);},0);
+  var pourcent=paramsCompta.plafond?Math.min(100,(caAnnee/paramsCompta.plafond*100)):0;
+
+  document.getElementById('tb-ca-annee').textContent=fmtEur(caAnnee);
+  document.getElementById('tb-ca-pourcent').textContent=pourcent.toFixed(1)+'%';
+  document.getElementById('tb-ca-restant').textContent=fmtEur(Math.max(0,paramsCompta.plafond-caAnnee));
+  var bar=document.getElementById('tb-ca-bar');
+  bar.style.width=pourcent+'%';
+  bar.style.background=pourcent>=90?'var(--danger)':pourcent>=70?'var(--warn)':'var(--accent)';
+
+  var moisActuel=new Date().toISOString().substring(0,7);
+  var depensesMois=(dbPartage.depenses||[]).filter(function(d){return (d.date||'').substring(0,7)===moisActuel;});
+  var totalDepensesMois=depensesMois.reduce(function(s,d){return s+(parseFloat(d.montant)||0);},0);
+  var facturesMois=facturesAnnee.filter(function(d){return (dateEncaissement(d)||'').substring(0,7)===moisActuel;});
+  var caMois=facturesMois.reduce(function(s,d){return s+(parseFloat(d.receipt&&d.receipt.amount)||parseFloat(d.totalHT)||0);},0);
+  var facturesEnAttente=(dbPartage.documents||[]).filter(function(d){return d.type==='facture'&&d.statut!=='payee'&&d.statut!=='annulee';});
+
+  document.getElementById('tb-depenses-mois').textContent=fmtEur(totalDepensesMois);
+  document.getElementById('tb-factures-attente').textContent=facturesEnAttente.length;
+  document.getElementById('tb-resultat-mois').textContent=fmtEur(caMois-totalDepensesMois);
+
+  // Tresorerie estimee : CA encaisse (annee) - depenses (annee) - cotisations URSSAF dues (trimestre en cours, non versees)
+  var totalDepensesAnnee=(dbPartage.depenses||[]).filter(function(d){return (d.date||'').substring(0,4)===String(anneeActuelle);}).reduce(function(s,d){return s+(parseFloat(d.montant)||0);},0);
+  var debutTrim=debutTrimestre(new Date()).toISOString().split('T')[0];
+  var caTrimActuel=facturesPayees().filter(function(d){var dt=dateEncaissement(d);return dt&&dt>=debutTrim;}).reduce(function(s,d){return s+(parseFloat(d.receipt&&d.receipt.amount)||parseFloat(d.totalHT)||0);},0);
+  var cotisationDueEstimee=caTrimActuel*(paramsCompta.tauxUrssaf/100);
+  document.getElementById('tb-tresorerie').textContent=fmtEur(caAnnee-totalDepensesAnnee-cotisationDueEstimee);
+
+  chargerAlertes(facturesEnAttente,pourcent);
+  chargerComparatifAnnuel(anneeActuelle);
+  chargerGraphiqueEvolution();
+  chargerRepartitionDepenses(anneeActuelle);
+}
+
+// ═══ ALERTES ═══
+function chargerAlertes(facturesEnAttente,pourcentPlafond){
+  var alertes=[];
+  var maintenant=new Date();
+  facturesEnAttente.forEach(function(d){
+    var jours=d.date?Math.floor((maintenant-new Date(d.date))/86400000):0;
+    if(jours>=45){
+      alertes.push({niveau:'danger',texte:'Facture '+(d.numero||'')+' ('+nomClient(d.clientId)+') impayée depuis '+jours+' jours.'});
+    }else if(jours>=30){
+      alertes.push({niveau:'warn',texte:'Facture '+(d.numero||'')+' ('+nomClient(d.clientId)+') impayée depuis '+jours+' jours.'});
+    }
+  });
+  if(pourcentPlafond>=90){
+    alertes.push({niveau:'danger',texte:'Chiffre d\'affaires à '+pourcentPlafond.toFixed(1)+'% du plafond micro-entreprise.'});
+  }else if(pourcentPlafond>=70){
+    alertes.push({niveau:'warn',texte:'Chiffre d\'affaires à '+pourcentPlafond.toFixed(1)+'% du plafond micro-entreprise, à surveiller.'});
+  }
+  // Echeance URSSAF : rappel dans les 10 derniers jours du trimestre
+  var finTrim=new Date(debutTrimestre(maintenant));
+  finTrim.setMonth(finTrim.getMonth()+3);
+  var joursAvantFin=Math.floor((finTrim-maintenant)/86400000);
+  if(joursAvantFin<=10&&joursAvantFin>=0){
+    alertes.push({niveau:'warn',texte:'Échéance de trimestre URSSAF dans '+joursAvantFin+' jour(s) — pensez à vérifier votre versement.'});
+  }
+
+  var panel=document.getElementById('alertes-panel');
+  var liste=document.getElementById('alertes-liste');
+  if(!alertes.length){panel.style.display='none';return;}
+  panel.style.display='block';
+  liste.innerHTML=alertes.map(function(a){
+    return '<div style="padding:8px 10px;border-radius:8px;margin-bottom:6px;background:'+(a.niveau==='danger'?'#FBEAE9':'#FDF0E4')+';color:'+(a.niveau==='danger'?'var(--danger)':'var(--warn)')+';font-size:.75rem">'+esc(a.texte)+'</div>';
+  }).join('');
+}
+
+// ═══ COMPARATIF ANNEE N vs N-1 ═══
+function chargerComparatifAnnuel(anneeActuelle){
+  var anneePrecedente=anneeActuelle-1;
+  var caFn=function(annee){
+    return facturesPayees().filter(function(d){var dt=dateEncaissement(d);return dt&&new Date(dt).getFullYear()===annee;})
+      .reduce(function(s,d){return s+(parseFloat(d.receipt&&d.receipt.amount)||parseFloat(d.totalHT)||0);},0);
+  };
+  var caCetteAnnee=caFn(anneeActuelle);
+  var caAnneePrec=caFn(anneePrecedente);
+  document.getElementById('tb-lbl-cette-annee').textContent='CA '+anneeActuelle;
+  document.getElementById('tb-lbl-annee-precedente').textContent='CA '+anneePrecedente;
+  document.getElementById('tb-ca-cette-annee').textContent=fmtEur(caCetteAnnee);
+  document.getElementById('tb-ca-annee-precedente').textContent=fmtEur(caAnneePrec);
+  var evolEl=document.getElementById('tb-evolution-ca');
+  if(caAnneePrec>0){
+    var evol=((caCetteAnnee-caAnneePrec)/caAnneePrec*100);
+    evolEl.textContent=(evol>=0?'+':'')+evol.toFixed(1)+'%';
+    evolEl.style.color=evol>=0?'var(--accent-dark)':'var(--danger)';
+  }else{
+    evolEl.textContent='—';
+    evolEl.style.color='';
+  }
+}
+
+// ═══ GRAPHIQUE EVOLUTION MENSUELLE (SVG simple, sans dependance externe) ═══
+function chargerGraphiqueEvolution(){
+  var mois=[];
+  var maintenant=new Date();
+  for(var i=11;i>=0;i--){
+    var d=new Date(maintenant.getFullYear(),maintenant.getMonth()-i,1);
+    mois.push(d.toISOString().substring(0,7));
+  }
+  var recettesParMois=mois.map(function(m){
+    return facturesPayees().filter(function(d){return (dateEncaissement(d)||'').substring(0,7)===m;})
+      .reduce(function(s,d){return s+(parseFloat(d.receipt&&d.receipt.amount)||parseFloat(d.totalHT)||0);},0);
+  });
+  var depensesParMois=mois.map(function(m){
+    return (dbPartage.depenses||[]).filter(function(d){return (d.date||'').substring(0,7)===m;})
+      .reduce(function(s,d){return s+(parseFloat(d.montant)||0);},0);
+  });
+  var maxVal=Math.max.apply(null,recettesParMois.concat(depensesParMois).concat([1]));
+
+  var W=760,H=200,padL=40,padB=24,barW=(W-padL-10)/mois.length;
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;font-family:inherit">';
+  // axes
+  svg+='<line x1="'+padL+'" y1="0" x2="'+padL+'" y2="'+(H-padB)+'" stroke="#E2DCD1"/>';
+  svg+='<line x1="'+padL+'" y1="'+(H-padB)+'" x2="'+W+'" y2="'+(H-padB)+'" stroke="#E2DCD1"/>';
+  mois.forEach(function(m,i){
+    var x=padL+i*barW;
+    var hR=(recettesParMois[i]/maxVal)*(H-padB-10);
+    var hD=(depensesParMois[i]/maxVal)*(H-padB-10);
+    svg+='<rect x="'+(x+2)+'" y="'+(H-padB-hR)+'" width="'+(barW/2-3)+'" height="'+hR+'" fill="#0D9F6E"/>';
+    svg+='<rect x="'+(x+barW/2)+'" y="'+(H-padB-hD)+'" width="'+(barW/2-3)+'" height="'+hD+'" fill="#C0473F"/>';
+    svg+='<text x="'+(x+barW/2)+'" y="'+(H-6)+'" font-size="8" fill="#7A7367" text-anchor="middle">'+m.substring(5,7)+'/'+m.substring(2,4)+'</text>';
+  });
+  svg+='</svg>';
+  svg+='<div style="font-size:.68rem;color:var(--muted);margin-top:6px"><span style="color:#0D9F6E">■</span> Recettes &nbsp; <span style="color:#C0473F">■</span> Dépenses</div>';
+  document.getElementById('graphique-evolution').innerHTML=svg;
+}
+
+// ═══ REPARTITION DES DEPENSES PAR CATEGORIE ═══
+function chargerRepartitionDepenses(anneeActuelle){
+  var depensesAnnee=(dbPartage.depenses||[]).filter(function(d){return (d.date||'').substring(0,4)===String(anneeActuelle);});
+  var totaux={};
+  depensesAnnee.forEach(function(d){
+    var cat=d.categorie||'Autre';
+    totaux[cat]=(totaux[cat]||0)+(parseFloat(d.montant)||0);
+  });
+  var total=Object.keys(totaux).reduce(function(s,k){return s+totaux[k];},0);
+  var el=document.getElementById('repartition-depenses');
+  if(!total){el.innerHTML='<div class="empty">Aucune dépense enregistrée cette année.</div>';return;}
+  var couleurs=['#0D9F6E','#C2703D','#1E2A3A','#B4682A','#7A7367','#0A7D57','#A25A2E'];
+  var html='';
+  Object.keys(totaux).sort(function(a,b){return totaux[b]-totaux[a];}).forEach(function(cat,i){
+    var pct=(totaux[cat]/total*100);
+    html+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:.72rem;margin-bottom:2px"><span>'+esc(cat)+'</span><span>'+fmtEur(totaux[cat])+' ('+pct.toFixed(1)+'%)</span></div>'+
+      '<div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%;background:'+couleurs[i%couleurs.length]+'"></div></div></div>';
+  });
+  el.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// JOURNAL RECETTES / DEPENSES
+// ═══════════════════════════════════════════════════════════════════════
+function chargerJournal(){
+  var du=document.getElementById('jr-du').value;
+  var au=document.getElementById('jr-au').value;
+  var recherche=(document.getElementById('jr-recherche').value||'').toLowerCase().trim();
+  var lignes=[];
+  facturesPayees().forEach(function(d){
+    var dt=dateEncaissement(d);
+    lignes.push({date:dt,type:'Recette',libelle:'Facture '+(d.numero||'')+' — '+nomClient(d.clientId),montant:parseFloat(d.receipt&&d.receipt.amount)||parseFloat(d.totalHT)||0});
+  });
+  (dbPartage.depenses||[]).forEach(function(d){
+    lignes.push({date:d.date,type:'Dépense',libelle:(d.categorie||'')+(d.libelle?' — '+d.libelle:''),montant:-(parseFloat(d.montant)||0)});
+  });
+  lignes=lignes.filter(function(l){
+    if(du&&l.date<du)return false;
+    if(au&&l.date>au)return false;
+    if(recherche&&l.libelle.toLowerCase().indexOf(recherche)===-1)return false;
+    return true;
+  }).sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
+
+  var el=document.getElementById('journal-table');
+  if(!lignes.length){el.innerHTML='<div class="empty">Aucune écriture sur cette période.</div>';return;}
+  var solde=0;
+  var html='<table><tr><th>Date</th><th>Type</th><th>Libellé</th><th style="text-align:right">Montant</th><th style="text-align:right">Solde cumulé</th></tr>';
+  lignes.forEach(function(l){
+    solde+=l.montant;
+    html+='<tr><td>'+esc(l.date||'')+'</td><td><span class="badge '+(l.type==='Recette'?'badge-ok':'badge-danger')+'">'+l.type+'</span></td><td>'+esc(l.libelle)+'</td><td style="text-align:right;white-space:nowrap">'+fmtEur(l.montant)+'</td><td style="text-align:right;white-space:nowrap">'+fmtEur(solde)+'</td></tr>';
+  });
+  html+='</table>';
+  el.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// DEPENSES (ecrites dans db.depenses, partage avec gestion-devis-factures.html)
+// ═══════════════════════════════════════════════════════════════════════
+function enregistrerDepense(){
+  var date=document.getElementById('dep-date').value||todayISO();
+  var montant=parseFloat(document.getElementById('dep-montant').value);
+  var categorie=document.getElementById('dep-categorie').value;
+  var description=document.getElementById('dep-description').value.trim();
+  if(!montant||montant<=0){alert('Indiquez un montant valide.');return;}
+
+  var fichier=document.getElementById('dep-justificatif').files[0];
+  var obj={id:Date.now(),date:date,montant:montant,categorie:categorie,libelle:description,fournisseur:'',notes:'',source:'compta'};
+
+  function finaliser(justificatifDataUrl){
+    if(justificatifDataUrl)obj.justificatif=justificatifDataUrl;
+    var nouvelles=(dbPartage.depenses||[]).concat([obj]);
+    ecrireDepensesPartagees(nouvelles).then(function(){
+      enregistrerActionCompta('Dépense enregistrée',categorie+' — '+fmtEur(montant));
+      document.getElementById('dep-montant').value='';
+      document.getElementById('dep-description').value='';
+      document.getElementById('dep-justificatif').value='';
+    }).catch(function(e){alert('Erreur d\'enregistrement : '+e.message);});
+  }
+
+  if(fichier&&fichier.size<900000){
+    var reader=new FileReader();
+    reader.onload=function(){finaliser(reader.result);};
+    reader.onerror=function(){finaliser(null);};
+    reader.readAsDataURL(fichier);
+  }else{
+    if(fichier)alert('Justificatif trop volumineux pour être joint (limite ~900 Ko) : dépense enregistrée sans le fichier.');
+    finaliser(null);
+  }
+}
+
+function chargerDepenses(){
+  var selCat=document.getElementById('dep-filtre-categorie');
+  var categories=Array.from(new Set((dbPartage.depenses||[]).map(function(d){return d.categorie;}).filter(Boolean)));
+  var filtreActuel=selCat.value;
+  selCat.innerHTML='<option value="">Toutes catégories</option>'+categories.map(function(c){return '<option value="'+esc(c)+'"'+(c===filtreActuel?' selected':'')+'>'+esc(c)+'</option>';}).join('');
+
+  var liste=(dbPartage.depenses||[]).slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  if(filtreActuel)liste=liste.filter(function(d){return d.categorie===filtreActuel;});
+  var recherche=(document.getElementById('dep-recherche').value||'').toLowerCase().trim();
+  if(recherche)liste=liste.filter(function(d){return ((d.libelle||'')+' '+(d.categorie||'')+' '+(d.notes||'')).toLowerCase().indexOf(recherche)!==-1;});
+
+  var el=document.getElementById('depenses-table');
+  if(!liste.length){el.innerHTML='<div class="empty">Aucune dépense enregistrée.</div>';return;}
+  var html='<table><tr><th>Date</th><th>Catégorie</th><th>Description</th><th style="text-align:right">Montant</th><th></th></tr>';
+  liste.forEach(function(d){
+    html+='<tr><td>'+esc(d.date||'')+'</td><td>'+esc(d.categorie||'')+'</td><td>'+esc(d.libelle||d.notes||'')+
+      (d.justificatif?' <span title="Justificatif joint">📎</span>':'')+
+      '</td><td style="text-align:right;white-space:nowrap">'+fmtEur(d.montant)+'</td>'+
+      '<td><button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="supprimerDepenseCompta('+d.id+')">Suppr.</button></td></tr>';
+  });
+  html+='</table>';
+  el.innerHTML=html;
+}
+
+function supprimerDepenseCompta(id){
+  if(!confirm('Supprimer cette dépense ?'))return;
+  var d=(dbPartage.depenses||[]).find(function(x){return x.id===id;});
+  var nouvelles=(dbPartage.depenses||[]).filter(function(x){return x.id!==id;});
+  ecrireDepensesPartagees(nouvelles).then(function(){
+    enregistrerActionCompta('Dépense supprimée',d?(d.categorie+' — '+fmtEur(d.montant)):String(id));
+  }).catch(function(e){alert('Erreur : '+e.message);});
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ENCAISSEMENTS — rapprochement (lecture des factures ; le marquage payee/receipt
+// se fait normalement dans gestion-devis-factures.html, ici c'est une vue de suivi)
+// ═══════════════════════════════════════════════════════════════════════
+function chargerEncaissements(){
+  var factures=(dbPartage.documents||[]).filter(function(d){return d.type==='facture'&&d.statut!=='annulee';})
+    .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  var el=document.getElementById('encaissements-table');
+  if(!factures.length){el.innerHTML='<div class="empty">Aucune facture.</div>';return;}
+  var html='<table><tr><th>N°</th><th>Client</th><th>Date</th><th style="text-align:right">Montant HT</th><th>Statut</th></tr>';
+  factures.forEach(function(d){
+    var paye=d.statut==='payee';
+    html+='<tr><td>'+esc(d.numero||'')+'</td><td>'+esc(nomClient(d.clientId))+'</td><td>'+esc(d.date||'')+'</td>'+
+      '<td style="text-align:right;white-space:nowrap">'+fmtEur(d.totalHT)+'</td>'+
+      '<td><span class="badge '+(paye?'badge-ok':'badge-warn')+'">'+(paye?'Encaissée':'En attente')+'</span></td></tr>';
+  });
+  html+='</table>';
+  el.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CHEQUES & ESPECES RECUS : extrait tous les paiements enregistres sur les factures (voir
+// gestion-devis-factures.html > openReceiptModal, champ "Mode de paiement") dont le mode
+// n'est PAS "Virement bancaire" — utile pour preparer les remises en banque des cheques et
+// verifier qu'aucune espece/cheque ne reste oublie sans etre depose.
+// ═══════════════════════════════════════════════════════════════════════
+function chargerChequesEspeces(){
+  var filtreMode=(document.getElementById('ce-filtre-mode')||{}).value||'';
+  var filtreDate=(document.getElementById('ce-filtre-date')||{}).value||'';
+  var paiements=[];
+  (dbPartage.documents||[]).filter(function(d){return d.type==='facture';}).forEach(function(d){
+    (d.paiements||[]).forEach(function(p){
+      if(!p.mode||p.mode==='Virement bancaire')return; // on ne garde que le "hors virement"
+      if(filtreMode&&p.mode!==filtreMode)return;
+      if(filtreDate&&(p.date||'')<filtreDate)return;
+      paiements.push({date:p.date||'',mode:p.mode,montant:p.montant||0,ref:p.reference||p.ref||'',facture:d.numero||'',client:nomClient(d.clientId)});
+    });
+  });
+  paiements.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+
+  var totalCheques=paiements.filter(function(p){return p.mode==='Chèque';}).reduce(function(s,p){return s+p.montant;},0);
+  var totalEspeces=paiements.filter(function(p){return p.mode==='Espèces';}).reduce(function(s,p){return s+p.montant;},0);
+  var totalAutre=paiements.filter(function(p){return p.mode!=='Chèque'&&p.mode!=='Espèces';}).reduce(function(s,p){return s+p.montant;},0);
+  document.getElementById('ce-total-cheques').textContent=fmtEur(totalCheques);
+  document.getElementById('ce-total-especes').textContent=fmtEur(totalEspeces);
+  document.getElementById('ce-total-autre').textContent=fmtEur(totalAutre);
+
+  var el=document.getElementById('cheques-especes-table');
+  if(!paiements.length){el.innerHTML='<div class="empty">Aucun paiement en chèque/espèces sur la période sélectionnée.</div>';return;}
+  var html='<table><tr><th>Date</th><th>Mode</th><th>Facture</th><th>Client</th><th>Référence</th><th style="text-align:right">Montant</th></tr>';
+  paiements.forEach(function(p){
+    var icone=p.mode==='Chèque'?'📝':(p.mode==='Espèces'?'💶':'💳');
+    html+='<tr><td>'+esc(p.date)+'</td><td>'+icone+' '+esc(p.mode)+'</td><td>'+esc(p.facture)+'</td><td>'+esc(p.client)+'</td>'+
+      '<td>'+esc(p.ref||'—')+'</td><td style="text-align:right;white-space:nowrap">'+fmtEur(p.montant)+'</td></tr>';
+  });
+  html+='</table>';
+  el.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// URSSAF
+// ═══════════════════════════════════════════════════════════════════════
+function debutTrimestre(d){
+  var m=d.getMonth();
+  var debutMois=m-(m%3);
+  return new Date(d.getFullYear(),debutMois,1);
+}
+function chargerUrssaf(){
+  var maintenant=new Date();
+  var debut=debutTrimestre(maintenant);
+  var debutStr=debut.toISOString().split('T')[0];
+  var caTrimestre=facturesPayees().filter(function(d){
+    var dt=dateEncaissement(d);
+    return dt&&dt>=debutStr;
+  }).reduce(function(s,d){return s+(parseFloat(d.receipt&&d.receipt.amount)||parseFloat(d.totalHT)||0);},0);
+  var cotisation=caTrimestre*(paramsCompta.tauxUrssaf/100);
+
+  document.getElementById('ur-ca-trimestre').textContent=fmtEur(caTrimestre);
+  document.getElementById('ur-cotisation-due').textContent=fmtEur(cotisation);
+
+  fbDb.collection('siteConfig').doc('compta').collection('versementsUrssaf').orderBy('date','desc').get().then(function(snap){
+    var el=document.getElementById('urssaf-table');
+    if(snap.empty){el.innerHTML='<div class="empty">Aucun versement enregistré.</div>';return;}
+    var html='<table><tr><th>Date</th><th style="text-align:right">Montant versé</th></tr>';
+    snap.forEach(function(doc){
+      var d=doc.data();
+      html+='<tr><td>'+esc(d.date||'')+'</td><td style="text-align:right;white-space:nowrap">'+fmtEur(d.montant)+'</td></tr>';
+    });
+    html+='</table>';
+    el.innerHTML=html;
+  }).catch(function(e){console.error('Erreur chargement versements URSSAF:',e);});
+}
+function enregistrerVersementUrssaf(){
+  var date=document.getElementById('ur-date-versement').value;
+  var montant=parseFloat(document.getElementById('ur-montant-verse').value);
+  if(!date||!montant){alert('Indiquez une date et un montant.');return;}
+  fbDb.collection('siteConfig').doc('compta').collection('versementsUrssaf').add({date:date,montant:montant}).then(function(){
+    enregistrerActionCompta('Versement URSSAF enregistré',fmtEur(montant)+' le '+date);
+    document.getElementById('ur-montant-verse').value='';
+    chargerUrssaf();
+  }).catch(function(e){alert('Erreur : '+e.message);});
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SALARIES (collection dediee "salaries", separee de "paie")
+// ═══════════════════════════════════════════════════════════════════════
+var editSalarieId=null;
+function editerSalarie(id){
+  fbDb.collection('salaries').doc(id).get().then(function(doc){
+    if(!doc.exists)return;
+    var d=doc.data();
+    editSalarieId=id;
+    document.getElementById('sa-nom').value=d.nom||'';
+    document.getElementById('sa-prenom').value=d.prenom||'';
+    document.getElementById('sa-email').value=d.email||'';
+    document.getElementById('sa-poste').value=d.poste||'';
+    document.getElementById('sa-taux-horaire').value=d.tauxHoraire||'';
+    document.getElementById('sa-type-contrat').value=d.typeContrat||'CDI';
+    document.getElementById('sa-date-naissance').value=d.dateNaissance||'';
+    document.getElementById('sa-sexe').value=d.sexe||'F';
+    document.getElementById('sa-nationalite').value=d.nationalite||'';
+    document.getElementById('sa-date-entree').value=d.dateEntree||'';
+    document.getElementById('sa-date-sortie').value=d.dateSortie||'';
+    document.querySelector('#vue-salaries .panel h2').scrollIntoView({behavior:'smooth',block:'center'});
+  });
+}
+
+function enregistrerSalarie(){
+  var nom=document.getElementById('sa-nom').value.trim();
+  var email=document.getElementById('sa-email').value.trim();
+  var poste=document.getElementById('sa-poste').value.trim();
+  var tauxHoraire=parseFloat(document.getElementById('sa-taux-horaire').value)||0;
+  if(!nom){alert('Indiquez au moins le nom du salarié.');return;}
+  var payload={
+    nom:nom,email:email,poste:poste,tauxHoraire:tauxHoraire,
+    prenom:document.getElementById('sa-prenom').value.trim(),
+    typeContrat:document.getElementById('sa-type-contrat').value,
+    dateNaissance:document.getElementById('sa-date-naissance').value||'',
+    sexe:document.getElementById('sa-sexe').value,
+    nationalite:document.getElementById('sa-nationalite').value.trim(),
+    dateEntree:document.getElementById('sa-date-entree').value||'',
+    dateSortie:document.getElementById('sa-date-sortie').value||''
+  };
+  var promesse;
+  if(editSalarieId){
+    promesse=fbDb.collection('salaries').doc(editSalarieId).update(payload);
+  }else{
+    payload.creePar=fbUser.email;payload.date=firebase.firestore.FieldValue.serverTimestamp();
+    promesse=fbDb.collection('salaries').add(payload);
+  }
+  promesse.then(function(){
+    enregistrerActionCompta(editSalarieId?'Salarié modifié':'Salarié ajouté',nom);
+    editSalarieId=null;
+    ['sa-nom','sa-prenom','sa-email','sa-poste','sa-taux-horaire','sa-date-naissance','sa-nationalite','sa-date-entree','sa-date-sortie'].forEach(function(id){document.getElementById(id).value='';});
+    chargerSalaries();
+    chargerRegistrePersonnel();
+  }).catch(function(e){alert('Erreur : '+e.message);});
+}
+function chargerSalaries(){
+  fbDb.collection('salaries').orderBy('nom').get().then(function(snap){
+    var el=document.getElementById('salaries-table');
+    if(snap.empty){el.innerHTML='<div class="empty">Aucun salarié enregistré.</div>';return;}
+    var html='<table><tr><th>Nom</th><th>Email</th><th>Poste / notes</th><th>Taux horaire</th><th></th></tr>';
+    snap.forEach(function(doc){
+      var d=doc.data();
+      html+='<tr><td>'+esc(d.nom||'')+'</td><td>'+esc(d.email||'')+'</td><td>'+esc(d.poste||'')+'</td>'+
+        '<td>'+(d.tauxHoraire?fmtEur(d.tauxHoraire)+'/h':'—')+'</td>'+
+        '<td style="white-space:nowrap">'+
+        '<button class="btn btn-outline" style="padding:4px 10px;font-size:11px" onclick="ouvrirFicheSalarie('+aj(doc.id)+','+aj(d.nom||'')+')">Fiche</button> '+
+        '<button class="btn btn-outline" style="padding:4px 10px;font-size:11px" onclick="editerSalarie('+aj(doc.id)+')">✏️</button> '+
+        '<button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="supprimerSalarie('+aj(doc.id)+')">Suppr.</button></td></tr>';
+    });
+    html+='</table>';
+    el.innerHTML=html;
+  }).catch(function(e){console.error('Erreur chargement salariés:',e);});
+}
+function supprimerSalarie(id){
+  if(!confirm('Supprimer ce salarié ? Les fiches de paie déjà enregistrées ne seront pas supprimées.'))return;
+  fbDb.collection('salaries').doc(id).delete().then(function(){
+    enregistrerActionCompta('Salarié supprimé',id);
+    chargerSalaries();
+    chargerRegistrePersonnel();
+  }).catch(function(e){alert('Erreur : '+e.message);});
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// REGISTRE UNIQUE DU PERSONNEL : document legalement obligatoire (art. L1221-13 du Code du
+// travail) listant chronologiquement (par date d'entree) tous les salaries employes, avec
+// leurs informations d'etat civil et de contrat. Construit a partir de la meme collection
+// 'salaries' que le reste de la paie — aucune saisie separee necessaire.
+// ═══════════════════════════════════════════════════════════════════════
+var _registrePersonnelCache=[];
+function chargerRegistrePersonnel(){
+  fbDb.collection('salaries').get().then(function(snap){
+    _registrePersonnelCache=[];
+    snap.forEach(function(doc){_registrePersonnelCache.push(Object.assign({id:doc.id},doc.data()));});
+    _registrePersonnelCache.sort(function(a,b){return (a.dateEntree||'9999').localeCompare(b.dateEntree||'9999');});
+    renderRegistrePersonnel();
+  }).catch(function(e){console.error('Erreur chargement registre:',e);});
+}
+
+function renderRegistrePersonnel(){
+  var el=document.getElementById('registre-personnel-table');
+  if(!el)return;
+  if(!_registrePersonnelCache.length){el.innerHTML='<div class="empty">Aucun salarié enregistré.</div>';return;}
+  var html='<table><tr><th>N°</th><th>Nom Prénom</th><th>Naissance</th><th>Nationalité</th><th>Emploi</th><th>Contrat</th><th>Entrée</th><th>Sortie</th></tr>';
+  _registrePersonnelCache.forEach(function(s,i){
+    var manque=!s.dateEntree||!s.dateNaissance||!s.nationalite;
+    html+='<tr'+(manque?' style="color:#B45309"':'')+'><td>'+(i+1)+'</td>'+
+      '<td>'+esc(s.nom||'')+(s.prenom?(' '+esc(s.prenom)):'')+'</td>'+
+      '<td>'+(s.dateNaissance?fmtDateFrCompta(s.dateNaissance):'—')+'</td>'+
+      '<td>'+esc(s.nationalite||'—')+'</td>'+
+      '<td>'+esc(s.poste||'—')+'</td>'+
+      '<td>'+esc(s.typeContrat||'—')+'</td>'+
+      '<td>'+(s.dateEntree?fmtDateFrCompta(s.dateEntree):'—')+'</td>'+
+      '<td>'+(s.dateSortie?fmtDateFrCompta(s.dateSortie):'—')+'</td></tr>';
+  });
+  html+='</table>';
+  if(_registrePersonnelCache.some(function(s){return !s.dateEntree||!s.dateNaissance||!s.nationalite;})){
+    html+='<div style="font-size:11.5px;color:#92400E;margin-top:8px">⚠️ Les lignes en orange ont des informations manquantes (date d\'entrée, date de naissance ou nationalité) — complétez-les via le bouton ✏️ pour un registre pleinement conforme.</div>';
+  }
+  el.innerHTML=html;
+}
+
+function fmtDateFrCompta(d){if(!d)return'';var p=String(d).split('-');return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):d;}
+
+function genererRegistrePersonnelPDF(){
+  if(!_registrePersonnelCache.length){alert('Aucun salarié enregistré.');return;}
+  var pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'landscape'});
+  pdf.setFontSize(14);pdf.setFont(undefined,'bold');
+  pdf.text('Registre unique du personnel — NICO MULTISERVICES',14,16);
+  pdf.setFontSize(9);pdf.setFont(undefined,'normal');pdf.setTextColor(100);
+  pdf.text('Édité le '+new Date().toLocaleDateString('fr-FR')+' — art. L1221-13 du Code du travail',14,22);
+  pdf.setTextColor(20);
+
+  pdf.autoTable({
+    startY:28,margin:{left:14,right:14},
+    head:[['N°','Nom Prénom','Sexe','Date de naissance','Nationalité','Emploi / Qualification','Type de contrat','Date d\'entrée','Date de sortie']],
+    body:_registrePersonnelCache.map(function(s,i){
+      return [
+        i+1,
+        (s.nom||'')+(s.prenom?(' '+s.prenom):''),
+        s.sexe==='M'?'Homme':(s.sexe==='F'?'Femme':'—'),
+        s.dateNaissance?fmtDateFrCompta(s.dateNaissance):'—',
+        s.nationalite||'—',
+        s.poste||'—',
+        s.typeContrat||'—',
+        s.dateEntree?fmtDateFrCompta(s.dateEntree):'—',
+        s.dateSortie?fmtDateFrCompta(s.dateSortie):'—'
+      ];
+    }),
+    styles:{fontSize:8.5},headStyles:{fillColor:[241,245,249],textColor:20}
+  });
+
+  pdf.save('Registre_unique_du_personnel_'+new Date().toISOString().split('T')[0]+'.pdf');
+  enregistrerActionCompta('Registre du personnel exporté',_registrePersonnelCache.length+' salarié(s)');
+}
+
+function chargerListeSalariesSelect(){
+  fbDb.collection('salaries').orderBy('nom').get().then(function(snap){
+    var opts='<option value="">— Sélectionner (voir onglet Salariés) —</option>';
+    var optsFiltre='<option value="">Tous</option>';
+    snap.forEach(function(doc){
+      var d=doc.data();
+      var archive=d.statut==='inactif'||d.statut==='archive';
+      // Le select de creation de fiche de paie ne propose que les salaries actifs
+      // (pas de sens de creer une nouvelle fiche pour quelqu'un qui est parti),
+      // mais le filtre de consultation garde tout le monde pour l'historique.
+      if(!archive)opts+='<option value="'+doc.id+'" data-email="'+esc(d.email||'')+'" data-nom="'+esc(d.nom||'')+'" data-taux="'+(d.tauxHoraire||0)+'" data-poste="'+esc(d.poste||'')+'">'+esc(d.nom||'')+'</option>';
+      optsFiltre+='<option value="'+doc.id+'">'+esc(d.nom||'')+(archive?' (archivé)':'')+'</option>';
+    });
+    var selPa=document.getElementById('pa-salarie-id');
+    var valActuelle=selPa.value;
+    selPa.innerHTML=opts;
+    selPa.value=valActuelle;
+    document.getElementById('pa-filtre-salarie').innerHTML=optsFiltre;
+  }).catch(function(e){console.error('Erreur chargement liste salariés:',e);});
+}
+function remplirEmailSalarie(){
+  // Reserve pour usage futur si besoin d'afficher l'email selectionne ; conserve pour clarte du flux.
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// PAIE — fiches saisies librement (pas de calcul automatique des charges)
+// ═══════════════════════════════════════════════════════════════════════
+// Recupere les heures pointees par l'employe depuis l'appli Chantier (Agenda) /
+// gestion-devis-factures, stockees sur chaque evenement (ev.pointagesHeures[]),
+// et affiche le total pour le salarie + la periode (mois) selectionnes. Le detail
+// jour par jour est ajoute automatiquement au champ Notes (sans écraser une saisie
+// deja presente).
+function calculerHeuresPointeesPaie(){
+  var selSalarie=document.getElementById('pa-salarie-id');
+  var opt=selSalarie.options[selSalarie.selectedIndex];
+  var salarieNom=opt?(opt.getAttribute('data-nom')||''):'';
+  var tauxHoraire=opt?(parseFloat(opt.getAttribute('data-taux'))||0):0;
+  var periode=document.getElementById('pa-periode').value; // format YYYY-MM
+  var bloc=document.getElementById('pa-heures-bloc');
+  var resume=document.getElementById('pa-heures-resume');
+  var detail=document.getElementById('pa-heures-detail');
+  if(!salarieNom||!periode){bloc.style.display='none';_pointagesPaieCourants=[];return;}
+  bloc.style.display='';
+
+  var pointagesTrouves=[];
+  (dbPartage.events||[]).forEach(function(ev){
+    (ev.pointagesHeures||[]).forEach(function(p){
+      if(p.employe===salarieNom&&(p.date||'').substring(0,7)===periode){
+        pointagesTrouves.push({date:p.date,heures:parseFloat(p.heures)||0,chantier:ev.titre||'(chantier sans titre)'});
+      }
+    });
+  });
+  _pointagesPaieCourants=pointagesTrouves;
+
+  if(!pointagesTrouves.length){
+    resume.textContent='Aucune heure pointée trouvée pour '+esc(salarieNom)+' sur cette période.';
+    detail.innerHTML='';
+    return;
+  }
+  pointagesTrouves.sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
+  var total=pointagesTrouves.reduce(function(s,p){return s+p.heures;},0);
+  var brutPropose=tauxHoraire>0?Math.round(total*tauxHoraire*100)/100:0;
+  resume.innerHTML='<strong>'+total+' h</strong> pointées pour '+esc(salarieNom)+' en '+fmtPeriodePaie(periode)+' ('+pointagesTrouves.length+' jour(s))'+
+    (tauxHoraire>0?' — brut proposé : <strong>'+fmtEur(brutPropose)+'</strong> ('+fmtEur(tauxHoraire)+'/h) <button type="button" class="btn btn-outline" style="padding:2px 8px;font-size:11px;margin-left:6px" onclick="appliquerHeuresPointeesPaie()">Appliquer comme heures normales</button>':
+      ' — <span style="color:var(--copper,#B45309)">aucun taux horaire renseigné pour ce salarié (onglet Salariés)</span>');
+
+  // Regroupe par chantier pour affichage en cases à cocher (coché par défaut = inclus sur la fiche de paie / PDF)
+  var parChantier={};
+  pointagesTrouves.forEach(function(p){
+    if(!parChantier[p.chantier])parChantier[p.chantier]={heures:0,jours:[]};
+    parChantier[p.chantier].heures+=p.heures;
+    parChantier[p.chantier].jours.push(p);
+  });
+  var chantiers=Object.keys(parChantier);
+  detail.innerHTML='<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Chantiers pointés sur la période — décochez ceux à exclure de la fiche de paie :</div>'+
+    chantiers.map(function(nom,i){
+      var c=parChantier[nom];
+      var joursDetail=c.jours.map(function(p){return p.date+' ('+p.heures+' h)';}).join(', ');
+      return '<label style="display:block;padding:5px 8px;border:1px solid var(--border,#E2E8F0);border-radius:6px;margin-bottom:4px;font-size:12px;cursor:pointer;background:#fff">'+
+        '<input type="checkbox" class="pa-chantier-check" data-chantier="'+esc(nom)+'" checked style="width:auto;margin-right:6px"> '+
+        '<strong>'+esc(nom)+'</strong> — '+c.heures+' h<br>'+
+        '<span style="font-size:10.5px;color:var(--muted);margin-left:20px">'+esc(joursDetail)+'</span></label>';
+    }).join('');
+
+  // Complete automatiquement le champ Notes avec le detail des heures, sans ecraser
+  // une saisie deja presente (ajoute seulement si le champ ne contient pas deja ce recap).
+  var notesEl=document.getElementById('pa-notes');
+  var recapTxt='Heures pointées : '+total+' h ('+pointagesTrouves.length+' jour(s))';
+  if(!notesEl.value||notesEl.value.indexOf('Heures pointées')===-1){
+    notesEl.value=notesEl.value?(notesEl.value+' — '+recapTxt):recapTxt;
+  }
+}
+var _pointagesPaieCourants=[];
+function getChantiersSelectionnesPaie(){
+  var parChantier={};
+  _pointagesPaieCourants.forEach(function(p){
+    if(!parChantier[p.chantier])parChantier[p.chantier]={heures:0,jours:[]};
+    parChantier[p.chantier].heures+=p.heures;
+    parChantier[p.chantier].jours.push({date:p.date,heures:p.heures});
+  });
+  var checks=document.querySelectorAll('.pa-chantier-check');
+  var selection=[];
+  checks.forEach(function(chk){
+    if(chk.checked){
+      var nom=chk.getAttribute('data-chantier');
+      var c=parChantier[nom];
+      if(c)selection.push({chantier:nom,heures:c.heures,jours:c.jours});
+    }
+  });
+  return selection;
+}
+function appliquerBrutProposePaie(brut){
+  document.getElementById('pa-brut').value=brut;
+  calculerNetPaie();
+}
+// ─── Lignes de rémunération (heures, primes, indemnités, régularisations, retenues) ───
+var paLignes=[];          // [{type:'gain'|'retenue', kind, libelle, base, taux, montant, periodeRef}]
+var paieEditionId=null;   // id de la fiche en cours de modification (null = nouvelle fiche)
+var _heuresManquantesPaie=0;
+function arrondi2Paie(n){return Math.round((parseFloat(n)||0)*100)/100;}
+function infosSalarieSelectionnePaie(){
+  var sel=document.getElementById('pa-salarie-id');
+  var opt=sel.options[sel.selectedIndex];
+  return {id:sel.value,nom:opt?(opt.getAttribute('data-nom')||''):'',taux:opt?(parseFloat(opt.getAttribute('data-taux'))||0):0,poste:opt?(opt.getAttribute('data-poste')||''):''};
+}
+function moisPrecedentPaie(periode){
+  var p=String(periode||'').split('-');
+  var y=parseInt(p[0],10),m=parseInt(p[1],10)-1;
+  if(!y||!m&&m!==0)return '';
+  if(m<1){m=12;y--;}
+  return y+'-'+String(m).padStart(2,'0');
+}
+function renderPaLignes(){
+  var el=document.getElementById('pa-lignes');
+  if(!el)return;
+  if(!paLignes.length){
+    el.innerHTML='<div class="hint" style="margin:0;font-size:.72rem;color:var(--muted)">Aucune ligne : saisissez le brut directement ci-dessous, ou ajoutez des lignes (heures, primes, heures du mois précédent…) — le brut est alors calculé automatiquement.</div>';
+    return;
+  }
+  var grid='display:grid;grid-template-columns:2.4fr 80px 90px 100px 34px;gap:6px;align-items:center;margin-bottom:6px';
+  var inp='width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;background:#FAF8F4';
+  var html='<div style="overflow-x:auto"><div style="min-width:560px">'+
+    '<div style="'+grid+';font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase"><span>Désignation</span><span>Base (h)</span><span>Taux (€)</span><span>Montant (€)</span><span></span></div>';
+  paLignes.forEach(function(l,i){
+    var couleur=l.type==='retenue'?'var(--danger)':'var(--accent)';
+    html+='<div style="'+grid+'">'+
+      '<input type="text" style="'+inp+';border-left:3px solid '+couleur+'" value="'+esc(l.libelle||'')+'" oninput="majPaLigne('+i+',\'libelle\',this.value)">'+
+      '<input type="number" step="0.01" style="'+inp+'" value="'+(l.base===''||l.base===null||l.base===undefined?'':l.base)+'" oninput="majPaLigne('+i+',\'base\',this.value)">'+
+      '<input type="number" step="0.01" style="'+inp+'" value="'+(l.taux===''||l.taux===null||l.taux===undefined?'':l.taux)+'" oninput="majPaLigne('+i+',\'taux\',this.value)">'+
+      '<input type="number" step="0.01" id="pal-m-'+i+'" style="'+inp+'" value="'+(l.montant===''||l.montant===null||l.montant===undefined?'':l.montant)+'" oninput="majPaLigne('+i+',\'montant\',this.value)">'+
+      '<button type="button" class="btn btn-danger" style="padding:4px 0;justify-content:center" title="Supprimer la ligne" onclick="supprimerLignePaie('+i+')">✕</button>'+
+    '</div>';
+  });
+  html+='<div style="font-size:.68rem;color:var(--muted)">Vert = ajouté au brut · rouge = retenue déduite du net à payer. Le montant se calcule tout seul si vous renseignez base × taux.</div></div></div>';
+  el.innerHTML=html;
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',renderPaLignes);else renderPaLignes();
+function majPaLigne(i,champ,valeur){
+  var l=paLignes[i];if(!l)return;
+  if(champ==='libelle'){l.libelle=valeur;return;}
+  l[champ]=valeur===''?'':parseFloat(valeur);
+  if((champ==='base'||champ==='taux')&&l.base!==''&&l.taux!==''&&!isNaN(l.base)&&!isNaN(l.taux)){
+    l.montant=arrondi2Paie(l.base*l.taux);
+    var m=document.getElementById('pal-m-'+i);if(m)m.value=l.montant;
+  }
+  recalculerPaieDepuisLignes();
+}
+function supprimerLignePaie(i){paLignes.splice(i,1);renderPaLignes();recalculerPaieDepuisLignes();}
+function totauxLignesPaie(){
+  var gains=0,retenues=0;
+  paLignes.forEach(function(l){
+    var m=parseFloat(l.montant)||0;
+    if(l.type==='retenue')retenues+=m;else gains+=m;
+  });
+  return {gains:arrondi2Paie(gains),retenues:arrondi2Paie(retenues),aDesGains:paLignes.some(function(l){return l.type!=='retenue';})};
+}
+function recalculerPaieDepuisLignes(){
+  var t=totauxLignesPaie();
+  if(t.aDesGains)document.getElementById('pa-brut').value=t.gains.toFixed(2);
+  calculerNetPaie();
+}
+function ajouterLignePaie(kind,options){
+  options=options||{};
+  var sal=infosSalarieSelectionnePaie();
+  var periode=document.getElementById('pa-periode').value;
+  var prev=moisPrecedentPaie(periode);
+  var l=null;
+  if(kind==='heures'){
+    var existante=paLignes.find(function(x){return x.kind==='heures';});
+    if(existante){alert('Une ligne « Heures normales » existe déjà : modifiez-la directement.');return;}
+    l={type:'gain',kind:'heures',libelle:'Heures normales',base:options.base!==undefined?options.base:'',taux:sal.taux||'',montant:''};
+  }else if(kind==='sup'){
+    l={type:'gain',kind:'sup',libelle:'Heures supplémentaires (majorées 25 %)',base:'',taux:sal.taux?arrondi2Paie(sal.taux*1.25):'',montant:''};
+  }else if(kind==='prime'){
+    l={type:'gain',kind:'prime',libelle:'Prime',base:'',taux:'',montant:''};
+  }else if(kind==='indemnite'){
+    l={type:'gain',kind:'indemnite',libelle:'Indemnité (panier / déplacement)',base:'',taux:'',montant:''};
+  }else if(kind==='regul'){
+    if(!prev){alert("Choisissez d'abord la période de la fiche.");return;}
+    var dejaRegul=paLignes.find(function(x){return x.kind==='regul'&&x.periodeRef===prev;});
+    if(dejaRegul&&options.base!==undefined){
+      dejaRegul.base=options.base;
+      dejaRegul.montant=(dejaRegul.taux!==''&&dejaRegul.taux!==undefined)?arrondi2Paie(dejaRegul.base*dejaRegul.taux):dejaRegul.montant;
+      renderPaLignes();recalculerPaieDepuisLignes();return;
+    }
+    l={type:'gain',kind:'regul',libelle:"Rappel d'heures — "+fmtPeriodePaie(prev),base:options.base!==undefined?options.base:'',taux:sal.taux||'',montant:'',periodeRef:prev};
+  }else if(kind==='retenue'){
+    l={type:'retenue',kind:'retenue',libelle:'Acompte / avance sur salaire',base:'',taux:'',montant:''};
+  }
+  if(!l)return;
+  if(l.base!==''&&l.taux!==''&&!isNaN(l.base)&&!isNaN(l.taux))l.montant=arrondi2Paie(l.base*l.taux);
+  paLignes.push(l);
+  renderPaLignes();
+  recalculerPaieDepuisLignes();
+}
+// Applique le total des heures pointées (chantiers cochés) comme ligne « Heures normales »
+function appliquerHeuresPointeesPaie(){
+  var sal=infosSalarieSelectionnePaie();
+  var total=arrondi2Paie(getChantiersSelectionnesPaie().reduce(function(s,c){return s+c.heures;},0));
+  var existante=paLignes.find(function(x){return x.kind==='heures';});
+  if(existante){
+    existante.base=total;
+    if(existante.taux!==''&&existante.taux!==undefined)existante.montant=arrondi2Paie(total*existante.taux);
+    renderPaLignes();recalculerPaieDepuisLignes();
+  }else{
+    ajouterLignePaie('heures',{base:total});
+  }
+}
+// ─── Heures manquantes du mois précédent ───
+// Compare les heures pointées le mois M-1 avec ce qui a déjà été payé pour M-1 (fiche de M-1
+// + régularisations déjà versées sur d'autres fiches) et propose d'ajouter la différence.
+function heuresDeFichePaie(d){
+  var h=(d.heuresPayees!==undefined&&d.heuresPayees!==null)
+    ?(parseFloat(d.heuresPayees)||0)
+    :(d.chantiersPointes||[]).reduce(function(s,c){return s+(parseFloat(c.heures)||0);},0);
+  return h+(parseFloat(d.heuresRegul)||0);
+}
+function detecterHeuresManquantesPaie(){
+  var bloc=document.getElementById('pa-regul-bloc');
+  var resume=document.getElementById('pa-regul-resume');
+  var actions=document.getElementById('pa-regul-actions');
+  var sal=infosSalarieSelectionnePaie();
+  var periode=document.getElementById('pa-periode').value;
+  _heuresManquantesPaie=0;
+  if(!sal.id||!periode){bloc.style.display='none';return;}
+  var prev=moisPrecedentPaie(periode);
+  if(!prev){bloc.style.display='none';return;}
+  bloc.style.display='';
+  actions.innerHTML='';
+  resume.textContent='Vérification des heures de '+fmtPeriodePaie(prev)+'…';
+  var pointees=0;
+  (dbPartage.events||[]).forEach(function(ev){
+    (ev.pointagesHeures||[]).forEach(function(pt){
+      if(pt.employe===sal.nom&&(pt.date||'').substring(0,7)===prev)pointees+=parseFloat(pt.heures)||0;
+    });
+  });
+  pointees=arrondi2Paie(pointees);
+  fbDb.collection('paie').where('salarieId','==',sal.id).get().then(function(snap){
+    var payees=0,ficheTrouvee=false;
+    snap.forEach(function(doc){
+      if(doc.id===paieEditionId)return;
+      var d=doc.data();
+      if(d.periode===prev){ficheTrouvee=true;payees+=heuresDeFichePaie(d)-(parseFloat(d.heuresRegul)||0);}
+      (d.lignes||[]).forEach(function(l){if(l.kind==='regul'&&l.periodeRef===prev)payees+=parseFloat(l.base)||0;});
+    });
+    payees=arrondi2Paie(payees);
+    var manquantes=arrondi2Paie(pointees-payees);
+    _heuresManquantesPaie=manquantes>0?manquantes:0;
+    var detail=ficheTrouvee
+      ?pointees+' h pointées en '+fmtPeriodePaie(prev)+', '+payees+' h déjà payées.'
+      :'Aucune fiche de paie trouvée pour '+fmtPeriodePaie(prev)+' ('+pointees+' h pointées).';
+    if(manquantes>0.01){
+      resume.innerHTML='<strong>'+manquantes+' h</strong> pointées en '+esc(fmtPeriodePaie(prev))+' ne sont pas encore payées. <span style="color:var(--muted)">'+esc(detail)+'</span>';
+      actions.innerHTML='<button type="button" class="btn btn-primary" style="padding:5px 12px;font-size:11.5px" onclick="ajouterLignePaie(\'regul\',{base:'+manquantes+'})">➕ Ajouter '+manquantes+' h à cette fiche</button>'+
+        '<button type="button" class="btn btn-outline" style="padding:5px 12px;font-size:11.5px" onclick="ajouterLignePaie(\'regul\')">Saisir un autre nombre d\'heures</button>';
+    }else{
+      resume.innerHTML='✓ Aucune heure manquante détectée pour '+esc(fmtPeriodePaie(prev))+'. <span style="color:var(--muted)">'+esc(detail)+'</span>';
+      actions.innerHTML='<button type="button" class="btn btn-outline" style="padding:5px 12px;font-size:11.5px" onclick="ajouterLignePaie(\'regul\')">➕ Ajouter des heures oubliées quand même</button>';
+    }
+  }).catch(function(e){
+    console.error('Erreur détection heures manquantes:',e);
+    resume.textContent='Impossible de vérifier les heures du mois précédent.';
+    actions.innerHTML='<button type="button" class="btn btn-outline" style="padding:5px 12px;font-size:11.5px" onclick="ajouterLignePaie(\'regul\')">➕ Ajouter des heures du mois précédent</button>';
+  });
+}
+
+function calculerNetPaie(){
+  var brut=parseFloat(document.getElementById('pa-brut').value)||0;
+  var chargesSal=parseFloat(document.getElementById('pa-charges-sal').value)||0;
+  var retenues=totauxLignesPaie().retenues;
+  document.getElementById('pa-net').value=(brut-chargesSal-retenues).toFixed(2);
+}
+function reinitialiserFormPaie(){
+  paieEditionId=null;
+  paLignes=[];
+  ['pa-brut','pa-charges-sal','pa-charges-pat','pa-net','pa-notes','pa-date-paiement','pa-conges','pa-absences'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('pa-mode-paiement').selectedIndex=0;
+  _pointagesPaieCourants=[];
+  document.getElementById('pa-form-titre').textContent='Nouvelle fiche de paie';
+  document.getElementById('pa-btn-annuler').style.display='none';
+  document.getElementById('pa-heures-bloc').style.display='none';
+  document.getElementById('pa-regul-bloc').style.display='none';
+  renderPaLignes();
+}
+function lignesPaieNettoyees(){
+  return paLignes.filter(function(l){return (l.libelle||'').trim()||parseFloat(l.montant);}).map(function(l){
+    var o={type:l.type==='retenue'?'retenue':'gain',kind:l.kind||'autre',libelle:(l.libelle||'').trim(),montant:arrondi2Paie(l.montant)};
+    if(l.base!==''&&l.base!==undefined&&!isNaN(l.base))o.base=parseFloat(l.base);
+    if(l.taux!==''&&l.taux!==undefined&&!isNaN(l.taux))o.taux=parseFloat(l.taux);
+    if(l.periodeRef)o.periodeRef=l.periodeRef;
+    return o;
+  });
+}
+function enregistrerFichePaie(publier){
+  var selSalarie=document.getElementById('pa-salarie-id');
+  var salarieId=selSalarie.value;
+  var opt=selSalarie.options[selSalarie.selectedIndex];
+  var salarieNom=opt?(opt.getAttribute('data-nom')||''):'';
+  var poste=opt?(opt.getAttribute('data-poste')||''):'';
+  var periode=document.getElementById('pa-periode').value;
+  var brut=parseFloat(document.getElementById('pa-brut').value)||0;
+  var chargesSal=parseFloat(document.getElementById('pa-charges-sal').value)||0;
+  var chargesPat=parseFloat(document.getElementById('pa-charges-pat').value)||0;
+  var net=parseFloat(document.getElementById('pa-net').value)||(brut-chargesSal-totauxLignesPaie().retenues);
+  var notes=document.getElementById('pa-notes').value.trim();
+  if(!salarieId||!periode||!brut){alert('Indiquez au moins le salarié, la période et le brut.');return;}
+  var chantiersPointes=getChantiersSelectionnesPaie();
+  var lignes=lignesPaieNettoyees();
+  var heuresPayees=0,heuresRegul=0;
+  lignes.forEach(function(l){
+    if(l.type!=='gain'||!l.base)return;
+    if(l.kind==='heures'||l.kind==='sup')heuresPayees+=l.base;
+    if(l.kind==='regul')heuresRegul+=l.base;
+  });
+  var data={
+    salarieId:salarieId,salarie:salarieNom,poste:poste,periode:periode,brut:brut,chargesSalariales:chargesSal,chargesPatronales:chargesPat,net:net,notes:notes,
+    chantiersPointes:chantiersPointes,lignes:lignes,heuresPayees:arrondi2Paie(heuresPayees),heuresRegul:arrondi2Paie(heuresRegul),
+    datePaiement:document.getElementById('pa-date-paiement').value||'',
+    modePaiement:document.getElementById('pa-mode-paiement').value||'',
+    congesPris:parseFloat(document.getElementById('pa-conges').value)||0,
+    absencesHeures:parseFloat(document.getElementById('pa-absences').value)||0,
+    statut:publier?'publiee':'brouillon',
+    modifieLe:firebase.firestore.FieldValue.serverTimestamp(),modifiePar:(fbUser&&fbUser.email)||''
+  };
+  var idCible=paieEditionId;
+  var etapeCumuls=publier
+    ?calculerCumulsPaie(salarieId,periode,{brut:brut,net:net,heures:heuresPayees+heuresRegul},idCible)
+    :Promise.resolve(null);
+  etapeCumuls.then(function(cumuls){
+    if(publier){data.cumuls=cumuls;data.datePublication=firebase.firestore.FieldValue.serverTimestamp();}
+    if(idCible){
+      return fbDb.collection('paie').doc(idCible).update(data);
+    }
+    data.creePar=fbUser.email;
+    data.date=firebase.firestore.FieldValue.serverTimestamp();
+    return fbDb.collection('paie').add(data);
+  }).then(function(){
+    enregistrerActionCompta(publier?'Fiche de paie publiée':(idCible?'Fiche de paie modifiée (brouillon)':'Fiche de paie enregistrée (brouillon)'),salarieNom+' — '+periode+' — net '+fmtEur(net));
+    reinitialiserFormPaie();
+    chargerPaie();
+  }).catch(function(e){alert('Erreur : '+e.message);});
+}
+// Cumuls de l'année jusqu'à la période (fiches publiées uniquement) + la fiche en cours
+function calculerCumulsPaie(salarieId,periode,courant,excludeId){
+  var annee=String(periode).substring(0,4);
+  return fbDb.collection('paie').where('salarieId','==',salarieId).get().then(function(snap){
+    var brut=courant.brut||0,net=courant.net||0,heures=courant.heures||0;
+    snap.forEach(function(doc){
+      if(doc.id===excludeId)return;
+      var d=doc.data();
+      if(d.statut==='brouillon')return;
+      if((d.periode||'').substring(0,4)!==annee||(d.periode||'')>periode)return;
+      brut+=parseFloat(d.brut)||0;net+=parseFloat(d.net)||0;heures+=heuresDeFichePaie(d);
+    });
+    return {annee:annee,brut:arrondi2Paie(brut),net:arrondi2Paie(net),heures:arrondi2Paie(heures)};
+  });
+}
+function editerFichePaie(id){
+  fbDb.collection('paie').doc(id).get().then(function(doc){
+    if(!doc.exists)return;
+    var d=doc.data();
+    if(d.statut!=='brouillon'){alert('Cette fiche est publiée. Repassez-la d\'abord en brouillon pour la modifier.');return;}
+    reinitialiserFormPaie();
+    paieEditionId=id;
+    document.getElementById('pa-salarie-id').value=d.salarieId||'';
+    document.getElementById('pa-periode').value=d.periode||'';
+    paLignes=(d.lignes||[]).map(function(l){return Object.assign({base:'',taux:''},l);});
+    renderPaLignes();
+    document.getElementById('pa-brut').value=d.brut!==undefined?d.brut:'';
+    document.getElementById('pa-charges-sal').value=d.chargesSalariales||'';
+    document.getElementById('pa-charges-pat').value=d.chargesPatronales||'';
+    document.getElementById('pa-net').value=d.net!==undefined?d.net:'';
+    document.getElementById('pa-notes').value=d.notes||'';
+    document.getElementById('pa-date-paiement').value=d.datePaiement||'';
+    if(d.modePaiement)document.getElementById('pa-mode-paiement').value=d.modePaiement;
+    document.getElementById('pa-conges').value=d.congesPris||'';
+    document.getElementById('pa-absences').value=d.absencesHeures||'';
+    document.getElementById('pa-form-titre').textContent='Modifier la fiche (brouillon) — '+(d.salarie||'')+' — '+fmtPeriodePaie(d.periode);
+    document.getElementById('pa-btn-annuler').style.display='';
+    calculerHeuresPointeesPaie();
+    detecterHeuresManquantesPaie();
+    document.getElementById('pa-form-panel').scrollIntoView({behavior:'smooth',block:'start'});
+  }).catch(function(e){alert('Erreur : '+e.message);});
+}
+function publierFichePaie(id){
+  if(!confirm('Publier cette fiche de paie ?\n\nLe salarié pourra la consulter et la télécharger dans son espace « Mes fiches de paie ».'))return;
+  fbDb.collection('paie').doc(id).get().then(function(doc){
+    if(!doc.exists)return;
+    var d=doc.data();
+    return calculerCumulsPaie(d.salarieId,d.periode,{brut:parseFloat(d.brut)||0,net:parseFloat(d.net)||0,heures:heuresDeFichePaie(d)},id).then(function(cumuls){
+      return fbDb.collection('paie').doc(id).update({statut:'publiee',cumuls:cumuls,datePublication:firebase.firestore.FieldValue.serverTimestamp()});
+    }).then(function(){
+      enregistrerActionCompta('Fiche de paie publiée',(d.salarie||'')+' — '+(d.periode||''));
+      chargerPaie();
+    });
+  }).catch(function(e){alert('Erreur : '+e.message);});
+}
+function depublierFichePaie(id){
+  if(!confirm('Repasser cette fiche en brouillon ?\n\nLe salarié ne la verra plus tant que vous ne l\'aurez pas republiée.'))return;
+  fbDb.collection('paie').doc(id).update({statut:'brouillon'}).then(function(){
+    enregistrerActionCompta('Fiche de paie repassée en brouillon',id);
+    chargerPaie();
+  }).catch(function(e){alert('Erreur : '+e.message);});
+}
+function chargerPaie(){
+  var filtre=document.getElementById('pa-filtre-salarie')?document.getElementById('pa-filtre-salarie').value:'';
+  var query=fbDb.collection('paie').orderBy('periode','desc');
+  query.get().then(function(snap){
+    var el=document.getElementById('paie-table');
+    var docs=[];
+    snap.forEach(function(doc){docs.push({id:doc.id,data:doc.data()});});
+    if(filtre)docs=docs.filter(function(x){return x.data.salarieId===filtre;});
+    if(!docs.length){el.innerHTML='<div class="empty">Aucune fiche de paie enregistrée.</div>';return;}
+    var html='<table><tr><th>Période</th><th>Salarié</th><th>Statut</th><th style="text-align:right">Brut</th><th style="text-align:right">Net</th><th></th></tr>';
+    docs.forEach(function(x){
+      var d=x.data;
+      var brouillon=d.statut==='brouillon';
+      var badge=brouillon?'<span class="badge badge-warn">Brouillon</span>':'<span class="badge badge-ok">Publiée</span>';
+      var boutons=
+        (brouillon
+          ?'<button class="btn btn-outline" style="padding:4px 8px;font-size:11px" onclick="editerFichePaie('+aj(x.id)+')">✏️ Éditer</button> '+
+           '<button class="btn btn-primary" style="padding:4px 8px;font-size:11px" onclick="publierFichePaie('+aj(x.id)+')">📤 Publier</button> '
+          :'<button class="btn btn-outline" style="padding:4px 8px;font-size:11px" onclick="depublierFichePaie('+aj(x.id)+')" title="Repasser en brouillon pour la modifier">↩️ Modifier</button> ')+
+        '<button class="btn btn-outline" style="padding:4px 8px;font-size:11px" onclick="genererFichePaiePDF('+aj(x.id)+')">📕 PDF</button> '+
+        (brouillon?'':'<button class="btn btn-outline" style="padding:4px 8px;font-size:11px" onclick="envoyerFichePaieParMail('+aj(x.id)+')">✉️ Mail</button> ')+
+        '<button class="btn btn-danger" style="padding:4px 8px;font-size:11px" onclick="supprimerFichePaie('+aj(x.id)+')">Suppr.</button>';
+      html+='<tr><td>'+esc(d.periode||'')+'</td><td>'+esc(d.salarie||'')+'</td><td>'+badge+'</td>'+
+        '<td style="text-align:right;white-space:nowrap">'+fmtEur(d.brut)+'</td><td style="text-align:right;white-space:nowrap">'+fmtEur(d.net)+'</td>'+
+        '<td style="white-space:nowrap">'+boutons+'</td></tr>';
+    });
+    html+='</table>';
+    el.innerHTML=html;
+  }).catch(function(e){console.error('Erreur chargement paie:',e);});
+}
+function supprimerFichePaie(id){
+  if(!confirm('Supprimer cette fiche de paie ?'))return;
+  fbDb.collection('paie').doc(id).delete().then(function(){
+    enregistrerActionCompta('Fiche de paie supprimée',id);
+    chargerPaie();
+  }).catch(function(e){alert('Erreur : '+e.message);});
+}
+
+// ═══ GENERATION PDF FICHE DE PAIE (meme style visuel que les documents de gestion-devis-factures) ═══
+function fmtPeriodePaie(periode){
+  if(!periode)return'';
+  var parts=String(periode).split('-');
+  if(parts.length!==2)return periode;
+  var mois=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  var m=parseInt(parts[1],10);
+  return (mois[m-1]||parts[1])+' '+parts[0];
+}
+// Lignes détaillées d'une fiche (gains, brut, cotisations, net imposable, retenues) pour le PDF
+function rowsPaieDetaillees(d){
+  var brut=parseFloat(d.brut)||0,cs=parseFloat(d.chargesSalariales)||0;
+  var lignes=Array.isArray(d.lignes)?d.lignes:[];
+  var rows=[];
+  lignes.filter(function(l){return l.type!=='retenue';}).forEach(function(l){rows.push({label:l.libelle||'',base:l.base,taux:l.taux,gain:parseFloat(l.montant)||0,kind:l.kind});});
+  rows.push({label:'SALAIRE BRUT',gain:brut,bold:true});
+  if(cs)rows.push({label:'Cotisations salariales',retenue:cs});
+  rows.push({label:'NET IMPOSABLE',gain:brut-cs,bold:true});
+  lignes.filter(function(l){return l.type==='retenue';}).forEach(function(l){rows.push({label:l.libelle||'Retenue',retenue:parseFloat(l.montant)||0});});
+  return rows;
+}
+// Informations complémentaires (heures, absences, congés, paiement) sous forme de phrases courtes
+function infosPaieTexte(d){
+  var out=[];
+  var lignes=Array.isArray(d.lignes)?d.lignes:[];
+  function somme(k){return Math.round(lignes.filter(function(l){return l.kind===k&&l.type!=='retenue';}).reduce(function(s,l){return s+(parseFloat(l.base)||0);},0)*100)/100;}
+  var hn=somme('heures'),hs=somme('sup'),hr=somme('regul');
+  if(hn)out.push('Heures normales : '+hn+' h');
+  if(hs)out.push('Heures supplémentaires : '+hs+' h');
+  if(hr)out.push('Heures du mois précédent régularisées : '+hr+' h');
+  if(parseFloat(d.absencesHeures))out.push('Absences : '+d.absencesHeures+' h');
+  if(parseFloat(d.congesPris))out.push('Congés payés pris : '+d.congesPris+' j');
+  if(d.datePaiement){var q=String(d.datePaiement).split('-');out.push('Paiement le '+(q.length===3?q[2]+'/'+q[1]+'/'+q[0]:d.datePaiement)+(d.modePaiement?' ('+d.modePaiement+')':''));}
+  return out;
+}
+function construirePdfFichePaie(d,salarieInfo){
+  salarieInfo=salarieInfo||{};
+  var p=dbPartage.params||{};
+  var pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+  var W=210,H=297,ML=14,MR=196,CW=MR-ML;
+
+  var noir=[31,41,55],gris=[107,114,128],grisLeger=[156,163,175],gc=[221,214,203];
+  var accent=[13,159,110],accentDark=[10,125,87],accentBg=[236,253,247];
+  var cuivre=[194,112,61],cuivreBg=[251,235,224];
+
+  // Bandeau superieur decoratif
+  pdf.setFillColor.apply(pdf,accent);pdf.rect(0,0,W,3,'F');
+
+  var Y=14;
+
+  // LOGO + ENTREPRISE
+  var LSIZE=26,txtX=ML;
+  if(p.logo){try{pdf.addImage(p.logo,'AUTO',ML,Y,LSIZE,LSIZE,'','FAST');txtX=ML+LSIZE+6;}catch(e){}}
+  pdf.setFontSize(12.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);
+  pdf.text(p.nom||'Mon Entreprise',txtX,Y+6);
+  pdf.setFontSize(8);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);
+  var iy=Y+12;
+  [p.adresse,p.ville,[p.tel?'Tél. '+p.tel:'',p.email||''].filter(Boolean).join(' · '),p.siret?'SIRET : '+p.siret:''].filter(Boolean).forEach(function(l){pdf.text(l,txtX,iy);iy+=4.2;});
+
+  // ENCADRE TYPE DOC (assorti au style devis/factures, en vert pour bien distinguer la paie)
+  var bW=64,bH=32,bX=MR-bW;
+  pdf.setFillColor.apply(pdf,accentBg);pdf.setDrawColor.apply(pdf,accent);pdf.setLineWidth(1.3);pdf.roundedRect(bX,Y,bW,bH,3,3,'FD');
+  pdf.setFontSize(13.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,accentDark);
+  pdf.text('BULLETIN DE PAIE',bX+bW/2,Y+9,{align:'center'});
+  pdf.setDrawColor.apply(pdf,accent);pdf.setLineWidth(0.4);pdf.line(bX+4,Y+13,bX+bW-4,Y+13);
+  pdf.setFontSize(7.5);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text('Période',bX+4,Y+19);
+  pdf.setFont('helvetica','bold');pdf.setFontSize(9.5);pdf.setTextColor.apply(pdf,noir);pdf.text(fmtPeriodePaie(d.periode),bX+bW-4,Y+19,{align:'right'});
+  pdf.setFontSize(7.5);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text('Émis le',bX+4,Y+26);
+  pdf.setFont('helvetica','bold');pdf.setFontSize(8.5);pdf.setTextColor.apply(pdf,noir);var dateEmission=(d.datePublication&&d.datePublication.toDate)?d.datePublication.toDate():new Date();
+  pdf.text(d.statut==='brouillon'?'BROUILLON':dateEmission.toLocaleDateString('fr-FR'),bX+bW-4,Y+26,{align:'right'});
+
+  Y=Math.max(iy+6,Y+bH+8);
+
+  // SALARIE
+  pdf.setFontSize(8);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);pdf.text('SALARIÉ',ML,Y);
+  pdf.setDrawColor.apply(pdf,gc);pdf.setLineWidth(0.3);pdf.line(ML,Y+2,MR,Y+2);
+  Y+=8;
+  pdf.setFontSize(11.5);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);pdf.text(esc(d.salarie||''),ML,Y);
+  var infosLigne=[salarieInfo.poste||d.poste,salarieInfo.email].filter(Boolean).join(' · ');
+  if(infosLigne){Y+=5.5;pdf.setFontSize(8.5);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text(esc(infosLigne),ML,Y);}
+  var infosPaie=infosPaieTexte(d);
+  if(infosPaie.length){
+    pdf.setFontSize(8);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);
+    var infosLignes=pdf.splitTextToSize(infosPaie.join('   ·   '),CW);
+    Y+=5;pdf.text(infosLignes,ML,Y);Y+=(infosLignes.length-1)*4;
+  }
+  Y+=10;
+
+  // TABLEAU REMUNERATION
+  var brut=parseFloat(d.brut)||0,chargesSal=parseFloat(d.chargesSalariales)||0,chargesPat=parseFloat(d.chargesPatronales)||0;
+  var netImposable=brut-chargesSal;
+  if(d.lignes&&d.lignes.length){
+    var det=rowsPaieDetaillees(d);
+    var corps=det.map(function(r){
+      return [r.label,
+        (r.base!==undefined&&r.base!==null&&r.base!=='')?String(r.base):'',
+        (r.taux!==undefined&&r.taux!==null&&r.taux!=='')?fmtEur(r.taux):'',
+        (r.gain!==undefined&&r.gain!==null)?fmtEur(r.gain):'',
+        (r.retenue!==undefined&&r.retenue!==null)?('- '+fmtEur(r.retenue)):''];
+    });
+    pdf.autoTable({
+      startY:Y,
+      head:[['Désignation','Base (h)','Taux','Gains','Retenues']],
+      body:corps,
+      margin:{left:ML,right:W-MR},
+      styles:{fontSize:8.8,cellPadding:{top:2.6,bottom:2.6,left:4,right:4},textColor:noir,lineColor:[230,230,230],lineWidth:0.2},
+      headStyles:{fillColor:[245,245,245],textColor:noir,fontStyle:'bold',fontSize:8.2,lineColor:[200,200,200],lineWidth:0.3},
+      columnStyles:{0:{cellWidth:'auto'},1:{cellWidth:20,halign:'right'},2:{cellWidth:24,halign:'right'},3:{cellWidth:30,halign:'right'},4:{cellWidth:30,halign:'right'}},
+      didParseCell:function(data){
+        if(data.section!=='body')return;
+        var r=det[data.row.index];
+        if(r&&r.bold){data.cell.styles.fontStyle='bold';data.cell.styles.fillColor=[249,250,251];}
+        else if(r&&r.kind==='regul'){data.cell.styles.fillColor=[255,251,235];}
+      }
+    });
+    Y=pdf.lastAutoTable.finalY+6;
+  }else{
+  var rows=[
+    ['Salaire brut',fmtEur(brut)],
+    ['Cotisations salariales',(chargesSal?'- ':'')+fmtEur(chargesSal)],
+    ['Net imposable',fmtEur(netImposable)]
+  ];
+  pdf.autoTable({
+    startY:Y,
+    head:[['Élément de rémunération','Montant']],
+    body:rows,
+    margin:{left:ML,right:W-MR},
+    styles:{fontSize:9,cellPadding:{top:4.5,bottom:4.5,left:5,right:5},textColor:noir,lineColor:[230,230,230],lineWidth:0.2},
+    headStyles:{fillColor:[245,245,245],textColor:noir,fontStyle:'bold',fontSize:8.5,lineColor:[200,200,200],lineWidth:0.3},
+    columnStyles:{0:{cellWidth:'auto'},1:{cellWidth:38,halign:'right'}},
+    didParseCell:function(data){
+      if(data.section==='body'&&data.row.index===2){data.cell.styles.fontStyle='bold';data.cell.styles.fillColor=[249,250,251];}
+    }
+  });
+  Y=pdf.lastAutoTable.finalY+6;
+  }
+
+  // DETAIL DES CHANTIERS (heures pointees, si presentes sur cette fiche)
+  if(d.chantiersPointes&&d.chantiersPointes.length){
+    var rowsChantiers=d.chantiersPointes.map(function(c){
+      var joursTxt=(c.jours||[]).map(function(j){return j.date+' ('+j.heures+'h)';}).join(', ');
+      return [esc(c.chantier||''),c.heures+' h',joursTxt];
+    });
+    pdf.autoTable({
+      startY:Y,
+      head:[['Chantier','Total heures','Détail des jours']],
+      body:rowsChantiers,
+      margin:{left:ML,right:W-MR},
+      styles:{fontSize:7.8,cellPadding:{top:3.5,bottom:3.5,left:5,right:5},textColor:noir,lineColor:[230,230,230],lineWidth:0.2},
+      headStyles:{fillColor:[245,245,245],textColor:noir,fontStyle:'bold',fontSize:8,lineColor:[200,200,200],lineWidth:0.3},
+      columnStyles:{0:{cellWidth:50},1:{cellWidth:24,halign:'right'},2:{cellWidth:'auto'}}
+    });
+    Y=pdf.lastAutoTable.finalY+6;
+  }
+
+  // NET A PAYER — encadre mis en valeur
+  var netH=17;
+  if(Y+netH+10>H-30){pdf.addPage();Y=20;}
+  pdf.setFillColor.apply(pdf,accent);pdf.roundedRect(ML,Y,CW,netH,2,2,'F');
+  pdf.setFontSize(12);pdf.setFont('helvetica','bold');pdf.setTextColor(255,255,255);
+  pdf.text('NET À PAYER',ML+6,Y+netH/2+1.3,{baseline:'middle'});
+  pdf.setFontSize(15);
+  pdf.text(fmtEur(d.net!==undefined&&d.net!==null&&d.net!==''?d.net:netImposable),MR-6,Y+netH/2+1.3,{align:'right',baseline:'middle'});
+  Y+=netH+10;
+
+  // CUMULS ANNUELS (figés à la publication de la fiche)
+  if(d.cumuls){
+    var cH=16,cw3=CW/3;
+    if(Y+cH>H-24){pdf.addPage();Y=20;}
+    pdf.setFillColor(249,250,251);pdf.setDrawColor.apply(pdf,gc);pdf.setLineWidth(0.3);pdf.rect(ML,Y,CW,cH,'FD');
+    pdf.setFontSize(7);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);
+    pdf.text('CUMULS ANNUELS '+d.cumuls.annee+' (jusqu\'à cette période)',ML+4,Y+5);
+    [['Brut cumulé',fmtEur(d.cumuls.brut)],['Net à payer cumulé',fmtEur(d.cumuls.net)],['Heures cumulées',(d.cumuls.heures||0)+' h']].forEach(function(c,k){
+      pdf.setFontSize(7.5);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);pdf.text(c[0],ML+4+k*cw3,Y+10);
+      pdf.setFontSize(9);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,noir);pdf.text(c[1],ML+4+k*cw3,Y+14);
+    });
+    Y+=cH+5;
+  }
+
+  // INFOS EMPLOYEUR (charges patronales / cout total) — encadre secondaire discret
+  if(chargesPat){
+    var eH=20;
+    if(Y+eH>H-24){pdf.addPage();Y=20;}
+    pdf.setFillColor(249,250,251);pdf.setDrawColor.apply(pdf,gc);pdf.setLineWidth(0.3);pdf.rect(ML,Y,CW,eH,'FD');
+    pdf.setFontSize(7);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);
+    pdf.text('POUR INFORMATION — CHARGES EMPLOYEUR (non déduites du salarié)',ML+4,Y+6);
+    pdf.setFontSize(8.5);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,noir);
+    pdf.text('Cotisations patronales',ML+4,Y+13);
+    pdf.setFont('helvetica','bold');pdf.text(fmtEur(chargesPat),ML+90,Y+13,{align:'right'});
+    pdf.setFont('helvetica','normal');pdf.text('Coût total employeur',ML+100,Y+13);
+    pdf.setFont('helvetica','bold');pdf.text(fmtEur(brut+chargesPat),MR-4,Y+13,{align:'right'});
+    Y+=eH+8;
+  }
+
+  // NOTES
+  if(d.notes){
+    if(Y+14>H-22){pdf.addPage();Y=20;}
+    pdf.setFontSize(8);pdf.setFont('helvetica','bold');pdf.setTextColor.apply(pdf,gris);pdf.text('OBSERVATIONS',ML,Y);Y+=5;
+    pdf.setFontSize(9);pdf.setFont('helvetica','italic');pdf.setTextColor.apply(pdf,noir);
+    var notesLines=pdf.splitTextToSize(esc(d.notes),CW);
+    pdf.text(notesLines,ML,Y);
+    Y+=notesLines.length*4.5+4;
+  }
+
+  // MENTION LEGALE
+  pdf.setFontSize(7.5);pdf.setFont('helvetica','italic');pdf.setTextColor.apply(pdf,grisLeger);
+  pdf.text('Ce bulletin de paie est à conserver sans limitation de durée.',ML,Math.min(Y+2,H-24));
+
+  // FOOTER
+  var fY=H-18;
+  pdf.setDrawColor(210,215,220);pdf.setLineWidth(0.3);pdf.line(ML,fY,MR,fY);
+  pdf.setFontSize(7);pdf.setFont('helvetica','normal');pdf.setTextColor.apply(pdf,gris);
+  var fLine=(p.nom||'')+(p.siret?' · SIRET : '+p.siret:'')+(p.adresse?' · '+p.adresse:'')+(p.ville?' · '+p.ville:'');
+  pdf.text(fLine,W/2,fY+5,{align:'center'});
+  pdf.setFontSize(6.5);pdf.setTextColor.apply(pdf,grisLeger);
+  pdf.text('Document généré automatiquement le '+new Date().toLocaleDateString('fr-FR')+' à '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),W/2,fY+9.5,{align:'center'});
+
+  if(d.statut==='brouillon'){
+    try{pdf.setGState(new pdf.GState({opacity:0.12}));}catch(e){}
+    pdf.setFontSize(80);pdf.setFont('helvetica','bold');pdf.setTextColor(220,38,38);
+    pdf.text('BROUILLON',W/2,H/2,{align:'center',angle:35});
+    try{pdf.setGState(new pdf.GState({opacity:1}));}catch(e){}
+  }
+  return pdf;
+}
+function genererFichePaiePDF(id){
+  fbDb.collection('paie').doc(id).get().then(function(doc){
+    if(!doc.exists)return;
+    var d=doc.data();
+    var finish=function(salarieInfo){
+      var pdf=construirePdfFichePaie(d,salarieInfo);
+      pdf.save('bulletin-paie-'+(d.salarie||'').replace(/[^a-z0-9]/gi,'_')+'-'+(d.periode||'')+'.pdf');
+      enregistrerActionCompta('Bulletin de paie téléchargé (PDF)',(d.salarie||'')+' — '+(d.periode||''));
+    };
+    if(d.salarieId){
+      fbDb.collection('salaries').doc(d.salarieId).get().then(function(docSal){
+        finish(docSal.exists?{poste:docSal.data().poste||'',email:docSal.data().email||''}:{});
+      }).catch(function(){finish({});});
+    }else{finish({});}
+  }).catch(function(e){alert('Erreur : '+e.message);});
+}
+function envoyerFichePaieParMail(id){
+  fbDb.collection('paie').doc(id).get().then(function(doc){
+    if(!doc.exists)return;
+    var d=doc.data();
+    if(!d.salarieId){alert('Aucun salarié lié à cette fiche.');return;}
+    fbDb.collection('salaries').doc(d.salarieId).get().then(function(docSal){
+      var email=docSal.exists?(docSal.data().email||''):'';
+      if(!email){alert('Aucun email enregistré pour ce salarié (à ajouter dans l\'onglet Salariés).');return;}
+      // Genere et telecharge d'abord le PDF, puis ouvre le client mail : le PDF est a joindre
+      // manuellement (les liens mailto: ne permettent pas de joindre un fichier automatiquement).
+      var pdf=construirePdfFichePaie(d,docSal.exists?{poste:docSal.data().poste||'',email:email}:{});
+      pdf.save('bulletin-paie-'+(d.salarie||'').replace(/[^a-z0-9]/gi,'_')+'-'+(d.periode||'')+'.pdf');
+      var sujet=encodeURIComponent('Bulletin de paie — '+(d.periode||''));
+      var corps=encodeURIComponent('Bonjour '+(d.salarie||'')+',\n\nVeuillez trouver ci-joint votre bulletin de paie pour la période '+(d.periode||'')+'.\n(Le fichier PDF vient d\'être téléchargé — pensez à le joindre à cet email.)\n\nCordialement.');
+      window.location.href='mailto:'+encodeURIComponent(email)+'?subject='+sujet+'&body='+corps;
+      enregistrerActionCompta('Bulletin de paie envoyé par email',(d.salarie||'')+' — '+(d.periode||'')+' — '+email);
+    });
+  }).catch(function(e){alert('Erreur : '+e.message);});
+}
+
+// ═══ FICHE SALARIE — cumuls et historique ═══
+function ouvrirFicheSalarie(salarieId,nom){
+  document.getElementById('fiche-salarie-titre').textContent='Fiche — '+nom;
+  document.getElementById('fiche-salarie-panel').style.display='block';
+  var anneeActuelle=new Date().getFullYear();
+  fbDb.collection('paie').where('salarieId','==',salarieId).get().then(function(snap){
+    var docs=[];
+    snap.forEach(function(doc){docs.push(doc.data());});
+    docs=docs.filter(function(d){return d.statut!=='brouillon';});
+    docs.sort(function(a,b){return (b.periode||'').localeCompare(a.periode||'');});
+    var docsAnnee=docs.filter(function(d){return (d.periode||'').substring(0,4)===String(anneeActuelle);});
+    var cumulBrut=docsAnnee.reduce(function(s,d){return s+(parseFloat(d.brut)||0);},0);
+    var cumulNet=docsAnnee.reduce(function(s,d){return s+(parseFloat(d.net)||0);},0);
+    document.getElementById('fs-cumul-brut').textContent=fmtEur(cumulBrut);
+    document.getElementById('fs-cumul-net').textContent=fmtEur(cumulNet);
+    document.getElementById('fs-nb-fiches').textContent=docs.length;
+
+    var el=document.getElementById('fiche-salarie-historique');
+    if(!docs.length){el.innerHTML='<div class="empty">Aucune fiche de paie pour ce salarié.</div>';return;}
+    var html='<table><tr><th>Période</th><th style="text-align:right">Brut</th><th style="text-align:right">Net</th></tr>';
+    docs.forEach(function(d){
+      html+='<tr><td>'+esc(d.periode||'')+'</td><td style="text-align:right;white-space:nowrap">'+fmtEur(d.brut)+'</td><td style="text-align:right;white-space:nowrap">'+fmtEur(d.net)+'</td></tr>';
+    });
+    html+='</table>';
+    el.innerHTML=html;
+  }).catch(function(e){console.error('Erreur chargement historique salarié:',e);});
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// EXPORTS
+// ═══════════════════════════════════════════════════════════════════════
+function lignesJournalPourExport(){
+  var du=document.getElementById('ex-du').value;
+  var au=document.getElementById('ex-au').value;
+  var lignes=[];
+  facturesPayees().forEach(function(d){
+    var dt=dateEncaissement(d);
+    lignes.push({date:dt,type:'Recette',libelle:'Facture '+(d.numero||'')+' — '+nomClient(d.clientId),montant:parseFloat(d.receipt&&d.receipt.amount)||parseFloat(d.totalHT)||0});
+  });
+  (dbPartage.depenses||[]).forEach(function(d){
+    lignes.push({date:d.date,type:'Dépense',libelle:(d.categorie||'')+(d.libelle?' — '+d.libelle:''),montant:-(parseFloat(d.montant)||0)});
+  });
+  return lignes.filter(function(l){
+    if(du&&l.date<du)return false;
+    if(au&&l.date>au)return false;
+    return true;
+  }).sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
+}
+function telechargerCSV(nomFichier,lignes,entetes,accesseurs){
+  var csv=entetes.join(';')+'\n'+lignes.map(function(l){
+    return accesseurs.map(function(a){return '"'+String(a(l)).replace(/"/g,'""')+'"';}).join(';');
+  }).join('\n');
+  var blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download=nomFichier;a.click();
+  URL.revokeObjectURL(url);
+}
+function exporterJournalCSV(){
+  var lignes=lignesJournalPourExport();
+  telechargerCSV('journal-comptable.csv',lignes,
+    ['Date','Type','Libellé','Montant'],
+    [function(l){return l.date||'';},function(l){return l.type;},function(l){return l.libelle;},function(l){return l.montant.toFixed(2);}]);
+  enregistrerActionCompta('Export journal (CSV)','');
+}
+function exporterDepensesCSV(){
+  telechargerCSV('depenses.csv',(dbPartage.depenses||[]),
+    ['Date','Catégorie','Description','Montant'],
+    [function(d){return d.date||'';},function(d){return d.categorie||'';},function(d){return d.libelle||d.notes||'';},function(d){return (parseFloat(d.montant)||0).toFixed(2);}]);
+  enregistrerActionCompta('Export dépenses (CSV)','');
+}
+function exporterJournalPDF(){
+  var lignes=lignesJournalPourExport();
+  var docPdf=new jspdf.jsPDF();
+  docPdf.setFontSize(14);
+  docPdf.text('Journal comptable — NICO MULTISERVICES',14,16);
+  docPdf.setFontSize(9);
+  docPdf.autoTable({
+    startY:22,
+    head:[['Date','Type','Libellé','Montant']],
+    body:lignes.map(function(l){return [l.date||'',l.type,l.libelle,fmtEur(l.montant)];}),
+    styles:{fontSize:8}
+  });
+  docPdf.save('journal-comptable.pdf');
+  enregistrerActionCompta('Export journal (PDF)','');
+}
+
+// ═══ RAPPORT ANNUEL SIMPLIFIE ═══
+function genererRapportAnnuelPDF(){
+  var annee=parseInt(document.getElementById('ra-annee').value)||new Date().getFullYear();
+  var p=dbPartage.params||{};
+  var facturesAnnee=facturesPayees().filter(function(d){var dt=dateEncaissement(d);return dt&&new Date(dt).getFullYear()===annee;});
+  var caAnnee=facturesAnnee.reduce(function(s,d){return s+(parseFloat(d.receipt&&d.receipt.amount)||parseFloat(d.totalHT)||0);},0);
+  var depensesAnnee=(dbPartage.depenses||[]).filter(function(d){return (d.date||'').substring(0,4)===String(annee);});
+  var totalDepenses=depensesAnnee.reduce(function(s,d){return s+(parseFloat(d.montant)||0);},0);
+
+  var promesseUrssaf=fbDb.collection('siteConfig').doc('compta').collection('versementsUrssaf').get()
+    .then(function(snap){
+      var total=0;
+      snap.forEach(function(doc){
+        var d=doc.data();
+        if((d.date||'').substring(0,4)===String(annee))total+=(parseFloat(d.montant)||0);
+      });
+      return total;
+    }).catch(function(){return 0;});
+
+  promesseUrssaf.then(function(totalUrssaf){
+    var docPdf=new jspdf.jsPDF();
+    docPdf.setFontSize(15);docPdf.setFont(undefined,'bold');
+    docPdf.text('Rapport annuel simplifié — '+annee,14,18);
+    docPdf.setFontSize(10);docPdf.setFont(undefined,'normal');
+    docPdf.text((p.nom||'')+(p.siret?' · SIRET : '+p.siret:''),14,25);
+
+    docPdf.autoTable({
+      startY:34,
+      head:[['Indicateur','Montant']],
+      body:[
+        ['Chiffre d\'affaires encaissé',fmtEur(caAnnee)],
+        ['Total des dépenses',fmtEur(totalDepenses)],
+        ['Cotisations URSSAF versées',fmtEur(totalUrssaf)],
+        ['Résultat estimé (CA − dépenses − URSSAF)',fmtEur(caAnnee-totalDepenses-totalUrssaf)]
+      ],
+      styles:{fontSize:10}
+    });
+
+    var catTotaux={};
+    depensesAnnee.forEach(function(d){var cat=d.categorie||'Autre';catTotaux[cat]=(catTotaux[cat]||0)+(parseFloat(d.montant)||0);});
+    var y=docPdf.lastAutoTable.finalY+10;
+    docPdf.setFontSize(12);docPdf.setFont(undefined,'bold');
+    docPdf.text('Dépenses par catégorie',14,y);
+    docPdf.autoTable({
+      startY:y+4,
+      head:[['Catégorie','Montant']],
+      body:Object.keys(catTotaux).sort(function(a,b){return catTotaux[b]-catTotaux[a];}).map(function(c){return [c,fmtEur(catTotaux[c])];}),
+      styles:{fontSize:9}
+    });
+
+    docPdf.save('rapport-annuel-'+annee+'.pdf');
+    enregistrerActionCompta('Rapport annuel généré (PDF)',String(annee));
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ARCHIVAGE LEGAL — GOOGLE DRIVE
+// Envoie une archive complete de l'annee (factures/devis en CSV structure,
+// journal comptable en PDF+CSV, depenses en CSV, bulletins de paie en PDF)
+// dans un dossier dedie "Archives comptables NICO MULTISERVICES/{annee}".
+// Utilise le meme Client ID Google deja configure pour Gmail/Drive dans
+// gestion-devis-factures.html, mais un dossier separe et dedie a cette archive
+// (comme demande : compte/dossier separe des photos de chantier).
+// ═══════════════════════════════════════════════════════════════════════
+var GOOGLE_DRIVE_ARCHIVE_CONFIG={
+  clientId:'702834434238-58rha78icpd9hjl9u2b9629nu0ap9b9p.apps.googleusercontent.com'
+};
+var ARCHIVE_GDRIVE_CONNECTED_KEY='nico_compta_gdrive_connected';
+var archiveTokenClient=null;
+var archiveAccessToken=null;
+var archiveTokenExpiryMs=0;
+var archiveTokenPendingCallback=null;
+
+function archiveEnsureToken(callback,forcerConsentement){
+  if(archiveAccessToken&&Date.now()<archiveTokenExpiryMs-30000){callback(archiveAccessToken);return;}
+  if(!window.google||!google.accounts||!google.accounts.oauth2){callback(null);return;}
+  if(!archiveTokenClient){
+    archiveTokenClient=google.accounts.oauth2.initTokenClient({
+      client_id:GOOGLE_DRIVE_ARCHIVE_CONFIG.clientId,
+      scope:'https://www.googleapis.com/auth/drive.file',
+      callback:function(resp){
+        var cb=archiveTokenPendingCallback;archiveTokenPendingCallback=null;
+        if(resp&&resp.access_token){
+          archiveAccessToken=resp.access_token;
+          archiveTokenExpiryMs=Date.now()+(resp.expires_in||3600)*1000;
+          try{localStorage.setItem(ARCHIVE_GDRIVE_CONNECTED_KEY,'1');}catch(e){}
+          if(cb)cb(archiveAccessToken);
+        }else{
+          if(cb)cb(null);
+        }
+      }
+    });
+  }
+  archiveTokenPendingCallback=callback;
+  var dejaAutorise=false;
+  try{dejaAutorise=localStorage.getItem(ARCHIVE_GDRIVE_CONNECTED_KEY)==='1';}catch(e){}
+  archiveTokenClient.requestAccessToken({prompt:(forcerConsentement||!dejaAutorise)?'consent':''});
+}
+function gdriveArchiveConnecter(){
+  var el=document.getElementById('archive-gdrive-statut');
+  el.textContent='Connexion en cours…';
+  archiveEnsureToken(function(token){
+    el.textContent=token?'✓ Connecté à Google Drive':'Échec de connexion — vérifiez votre navigateur/pare-feu et réessayez.';
+    el.style.color=token?'var(--accent)':'var(--danger)';
+  },true);
+}
+function archiveTenterReconnexionAutomatique(){
+  var dejaAutorise=false;
+  try{dejaAutorise=localStorage.getItem(ARCHIVE_GDRIVE_CONNECTED_KEY)==='1';}catch(e){}
+  if(!dejaAutorise)return;
+  archiveEnsureToken(function(token){
+    var el=document.getElementById('archive-gdrive-statut');
+    if(el){el.textContent=token?'✓ Connecté à Google Drive':'Reconnexion automatique impossible — cliquez sur "Connecter Google Drive".';el.style.color=token?'var(--accent)':'var(--muted)';}
+  });
+}
+
+// Cherche un dossier par nom sous un parent donne (ou racine si parentId est null), le cree s'il n'existe pas.
+function gdriveTrouverOuCreerDossier(nom,parentId,token){
+  var q="mimeType='application/vnd.google-apps.folder' and name='"+nom.replace(/'/g,"\\'")+"' and trashed=false"+(parentId?" and '"+parentId+"' in parents":"");
+  return fetch('https://www.googleapis.com/drive/v3/files?q='+encodeURIComponent(q)+'&fields=files(id,name)',{
+    headers:{Authorization:'Bearer '+token}
+  }).then(function(r){return r.json();}).then(function(data){
+    if(data.files&&data.files.length)return data.files[0].id;
+    var metadata={name:nom,mimeType:'application/vnd.google-apps.folder'};
+    if(parentId)metadata.parents=[parentId];
+    return fetch('https://www.googleapis.com/drive/v3/files',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify(metadata)
+    }).then(function(r){return r.json();}).then(function(created){return created.id;});
+  });
+}
+// Upload d'un fichier (Blob) dans un dossier Drive donne.
+function gdriveUploaderFichier(nomFichier,blob,mimeType,dossierId,token){
+  var metadata={name:nomFichier,parents:[dossierId]};
+  var form=new FormData();
+  form.append('metadata',new Blob([JSON.stringify(metadata)],{type:'application/json'}));
+  form.append('file',blob,nomFichier);
+  return fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+    method:'POST',
+    headers:{Authorization:'Bearer '+token},
+    body:form
+  }).then(function(r){return r.json();});
+}
+function csvBlob(entetes,lignes,accesseurs){
+  var csv=entetes.join(';')+'\n'+lignes.map(function(l){
+    return accesseurs.map(function(a){return '"'+String(a(l)).replace(/"/g,'""')+'"';}).join(';');
+  }).join('\n');
+  return new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+}
+
+function archiverAnneeVersGoogleDrive(annee,silencieux){
+  annee=annee||parseInt(document.getElementById('arch-annee').value)||new Date().getFullYear();
+  var zoneStatut=document.getElementById('archive-progression');
+  function log(msg){if(zoneStatut)zoneStatut.textContent=msg;}
+  log('Connexion à Google Drive…');
+
+  archiveEnsureToken(function(token){
+    if(!token){
+      log('');
+      if(!silencieux)alert('Connexion à Google Drive impossible. Cliquez sur "Connecter Google Drive" puis réessayez.');
+      return;
+    }
+    log('Préparation des dossiers…');
+    gdriveTrouverOuCreerDossier('Archives comptables NICO MULTISERVICES',null,token).then(function(dossierRacine){
+      return gdriveTrouverOuCreerDossier(String(annee),dossierRacine,token);
+    }).then(function(dossierAnnee){
+      var uploads=[];
+
+      // 1) Factures et devis de l'annee (CSV structure)
+      var docsAnnee=(dbPartage.documents||[]).filter(function(d){return (d.date||'').substring(0,4)===String(annee);});
+      if(docsAnnee.length){
+        var blobDocs=csvBlob(
+          ['Type','Numéro','Date','Client','Statut','Total HT'],docsAnnee,
+          [function(d){return d.type;},function(d){return d.numero||'';},function(d){return d.date||'';},function(d){return nomClient(d.clientId);},function(d){return d.statut||'';},function(d){return (parseFloat(d.totalHT)||0).toFixed(2);}]
+        );
+        uploads.push(gdriveUploaderFichier('devis-factures-'+annee+'.csv',blobDocs,'text/csv',dossierAnnee,token));
+      }
+
+      // 2) Journal comptable de l'annee (CSV + PDF)
+      var lignesJournal=[];
+      facturesPayees().filter(function(d){return (dateEncaissement(d)||'').substring(0,4)===String(annee);}).forEach(function(d){
+        lignesJournal.push({date:dateEncaissement(d),type:'Recette',libelle:'Facture '+(d.numero||'')+' — '+nomClient(d.clientId),montant:parseFloat(d.receipt&&d.receipt.amount)||parseFloat(d.totalHT)||0});
+      });
+      var depensesAnnee=(dbPartage.depenses||[]).filter(function(d){return (d.date||'').substring(0,4)===String(annee);});
+      depensesAnnee.forEach(function(d){
+        lignesJournal.push({date:d.date,type:'Dépense',libelle:(d.categorie||'')+(d.libelle?' — '+d.libelle:''),montant:-(parseFloat(d.montant)||0)});
+      });
+      lignesJournal.sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
+      if(lignesJournal.length){
+        var blobJournal=csvBlob(['Date','Type','Libellé','Montant'],lignesJournal,
+          [function(l){return l.date||'';},function(l){return l.type;},function(l){return l.libelle;},function(l){return l.montant.toFixed(2);}]);
+        uploads.push(gdriveUploaderFichier('journal-comptable-'+annee+'.csv',blobJournal,'text/csv',dossierAnnee,token));
+
+        var docPdfJournal=new jspdf.jsPDF();
+        docPdfJournal.setFontSize(14);
+        docPdfJournal.text('Journal comptable '+annee+' — NICO MULTISERVICES',14,16);
+        docPdfJournal.setFontSize(9);
+        docPdfJournal.autoTable({startY:22,head:[['Date','Type','Libellé','Montant']],body:lignesJournal.map(function(l){return [l.date||'',l.type,l.libelle,fmtEur(l.montant)];}),styles:{fontSize:8}});
+        uploads.push(gdriveUploaderFichier('journal-comptable-'+annee+'.pdf',docPdfJournal.output('blob'),'application/pdf',dossierAnnee,token));
+      }
+
+      // 3) Depenses (CSV)
+      if(depensesAnnee.length){
+        var blobDep=csvBlob(['Date','Catégorie','Description','Montant'],depensesAnnee,
+          [function(d){return d.date||'';},function(d){return d.categorie||'';},function(d){return d.libelle||d.notes||'';},function(d){return (parseFloat(d.montant)||0).toFixed(2);}]);
+        uploads.push(gdriveUploaderFichier('depenses-'+annee+'.csv',blobDep,'text/csv',dossierAnnee,token));
+      }
+
+      log('Envoi du journal, des devis/factures et des dépenses…');
+      Promise.all(uploads).then(function(){
+        // 4) Bulletins de paie de l'annee (PDF, un par fiche)
+        log('Récupération des bulletins de paie…');
+        return fbDb.collection('paie').get();
+      }).then(function(snap){
+        var fichesAnnee=[];
+        snap.forEach(function(doc){var d=doc.data();if((d.periode||'').substring(0,4)===String(annee)&&d.statut!=='brouillon')fichesAnnee.push(d);});
+        if(!fichesAnnee.length)return Promise.resolve();
+        log('Envoi de '+fichesAnnee.length+' bulletin(s) de paie…');
+        var uploadsPaie=fichesAnnee.map(function(d){
+          var pdf=construirePdfFichePaie(d);
+          var nom='bulletin-paie-'+(d.salarie||'').replace(/[^a-z0-9]/gi,'_')+'-'+(d.periode||'')+'.pdf';
+          return gdriveUploaderFichier(nom,pdf.output('blob'),'application/pdf',dossierAnnee,token);
+        });
+        return Promise.all(uploadsPaie);
+      }).then(function(){
+        log('✓ Archive '+annee+' envoyée sur Google Drive.');
+        enregistrerActionCompta('Archivage légal envoyé sur Google Drive',String(annee));
+        if(!silencieux)alert('Archive '+annee+' envoyée sur Google Drive avec succès.');
+      }).catch(function(e){
+        console.error('Erreur archivage Google Drive:',e);
+        log('Erreur lors de l\'envoi : '+e.message);
+        if(!silencieux)alert('Erreur lors de l\'archivage : '+e.message);
+      });
+    }).catch(function(e){
+      console.error('Erreur création dossiers Google Drive:',e);
+      log('Erreur : '+e.message);
+      if(!silencieux)alert('Erreur lors de la préparation des dossiers Drive : '+e.message);
+    });
+  },false);
+}
+
+// Archivage automatique : declenche l'archivage de l'annee ecoulee si on est dans les 5
+// premiers jours de janvier ET que ca n'a pas deja ete fait cette annee (marqueur localStorage).
+function verifierArchivageAutomatiqueAnnuel(){
+  var maintenant=new Date();
+  if(maintenant.getMonth()!==0||maintenant.getDate()>5)return; // uniquement du 1er au 5 janvier
+  var anneeEcoulee=maintenant.getFullYear()-1;
+  var marqueur='nico_compta_archive_auto_'+anneeEcoulee;
+  var dejaFait=false;
+  try{dejaFait=localStorage.getItem(marqueur)==='1';}catch(e){}
+  if(dejaFait)return;
+  var dejaAutorise=false;
+  try{dejaAutorise=localStorage.getItem(ARCHIVE_GDRIVE_CONNECTED_KEY)==='1';}catch(e){}
+  if(!dejaAutorise)return; // pas de popup de consentement impose automatiquement : uniquement si deja connecte
+  archiverAnneeVersGoogleDrive(anneeEcoulee,true);
+  try{localStorage.setItem(marqueur,'1');}catch(e){}
+}
+
+document.addEventListener('DOMContentLoaded',function(){
+  setTimeout(function(){
+    archiveTenterReconnexionAutomatique();
+    setTimeout(verifierArchivageAutomatiqueAnnuel,2000);
+  },600);
+});
+
+</script>
+</body>
+</html>
