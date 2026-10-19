@@ -283,6 +283,8 @@ mark{background:#FEF08A;border-radius:2px;padding:0 1px;}
 /* ECRAN DE CONNEXION */
 .auth-screen{position:fixed;inset:0;background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);display:flex;align-items:center;justify-content:center;z-index:9999;}
 .auth-screen.hidden{display:none;}
+/* Connexion obligatoire : rien de l'application n'est affiché tant qu'on n'est pas connecté */
+body.auth-locked>*:not(#auth-screen):not(#maint-gate):not(script):not(style):not(link):not(noscript){display:none!important;}
 .auth-card{background:#fff;border-radius:16px;padding:36px 32px;width:100%;max-width:380px;box-shadow:0 25px 70px rgba(0,0,0,.35);}
 .auth-logo{width:52px;height:52px;background:linear-gradient(135deg,#1A56DB,#0D9F6E);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 18px;}
 .auth-title{text-align:center;font-size:18px;font-weight:800;color:#1A202C;margin-bottom:4px;}
@@ -517,9 +519,10 @@ body.mode-presentation .page.active .content>div>.card:first-child{display:none!
 body.mode-presentation .card-header{display:none!important}
 body.mode-presentation .pv{max-width:760px;margin:50px auto;font-size:1.08em;box-shadow:0 8px 32px rgba(0,0,0,.12);border-radius:10px}
 body.mode-presentation{background:#F1F5F9}
+.msgi-badge{display:none;background:#DC2626;color:#fff;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px}
 </style>
 </head>
-<body>
+<body class="auth-locked">
   <div id="mode-test-banner" style="display:none;position:sticky;top:0;z-index:200;background:#F59E0B;color:#1A1206;font-weight:700;font-size:12.5px;padding:7px 14px;text-align:center;align-items:center;justify-content:center;gap:8px">
     🧪 MODE TEST — vous travaillez sur une base de données séparée, vos vraies données ne sont pas touchées
     <button onclick="demanderCodeDeveloppeur()" style="background:#1A1206;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">Revenir aux vraies données</button>
@@ -589,9 +592,6 @@ body.mode-presentation{background:#F1F5F9}
 
     <div class="auth-loading" id="auth-loading">🔄 Connexion en cours...</div>
 
-    <div class="auth-skip">
-      <a onclick="skipAuthAndUseLocal()">Continuer sans compte (mode local uniquement)</a>
-    </div>
   </div>
 </div>
 
@@ -653,6 +653,10 @@ body.mode-presentation{background:#F1F5F9}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
       Cotisations URSSAF
       <span id="urssaf-badge-bn" style="display:none;position:absolute;right:14px;top:8px;background:#DC2626;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:10px">!</span>
+    </div>
+    <div class="bn-more-item" data-page="messagerie" onclick="bnGoTo('messagerie')" style="position:relative">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Messagerie interne
+      <span class="msgi-badge" style="position:absolute;right:14px;top:8px">0</span>
     </div>
     <div class="bn-more-item" data-page="demandes" onclick="bnGoTo('demandes')" style="position:relative">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Demandes site web
@@ -777,6 +781,10 @@ body.mode-presentation{background:#F1F5F9}
         </div>
         <div class="nav-item topmenu-item" data-page="equipe-chantiers" onclick="showPage('equipe-chantiers')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Équipe &amp; Chantiers
+        </div>
+        <div class="nav-item topmenu-item" data-page="messagerie" onclick="showPage('messagerie')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Messagerie interne
+          <span class="msgi-badge" style="margin-left:auto">0</span>
         </div>
         <div class="nav-item topmenu-item" data-page="emails-recus" onclick="showPage('emails-recus')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Emails reçus
@@ -1098,6 +1106,10 @@ body.mode-presentation{background:#F1F5F9}
         <div class="empty">Chargement…</div>
       </div>
     </div>
+    <div class="card" id="mfp-justif-card" style="display:none;margin-top:16px">
+      <div class="card-header"><h3>Mes justificatifs de revenus</h3></div>
+      <div class="card-body" id="mfp-justif"></div>
+    </div>
   </div>
 </div>
 
@@ -1268,6 +1280,11 @@ body.mode-presentation{background:#F1F5F9}
 </div>
 
 <!-- PAGE EMAILS RECUS (Gmail) -->
+<div class="page" id="page-messagerie">
+  <div class="topbar"><h1>✉️ Messagerie interne</h1></div>
+  <div class="content"><div id="msgi-root"></div></div>
+</div>
+
 <div class="page" id="page-emails-recus">
   <div class="topbar"><h1>📥 Emails reçus</h1></div>
   <div class="content">
@@ -1425,6 +1442,8 @@ body.mode-presentation{background:#F1F5F9}
       <div class="card"><div class="card-header"><h3>Informations entreprise</h3></div><div class="card-body">
         <div class="g2" style="gap:12px">
           <div class="fg"><label>Nom de l'entreprise</label><input id="p-nom" placeholder="NICO MULTISERVICES"></div>
+          <div class="fg"><label>Gérant / dirigeant (nom et prénom)</label><input id="p-gerant" placeholder="Forgeois Nicolas"></div>
+          <div class="fg"><label>Qualité du gérant</label><select id="p-gerant-qualite"><option value="">— Non précisée —</option><option>Micro-entrepreneur (entrepreneur individuel)</option><option>Gérant</option><option>Président</option><option>Dirigeant</option></select></div>
           <div class="fg"><label>SIRET</label>
               <div style="display:flex;gap:6px">
                 <input id="p-siret" placeholder="000 000 000 00000" oninput="document.getElementById('siret-check-result').innerHTML=''">
@@ -2541,6 +2560,8 @@ body.mode-presentation{background:#F1F5F9}
     <div class="modal-body">
       <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Décrivez votre problème ou votre question ; elle apparaîtra immédiatement dans le tableau de bord des administrateurs, qui pourront vous répondre ou intervenir.</p>
       <div class="fg"><label>Titre</label><input type="text" id="aide-titre" placeholder="Ex : Impossible de créer une facture"></div>
+      <div class="g2" style="margin-top:10px"><div class="fg"><label>Catégorie</label><select id="aide-categorie"><option value="bug">Quelque chose ne marche pas</option><option value="question">Question d'utilisation</option><option value="idee">Idée / amélioration</option><option value="acces">Accès, mot de passe, droits</option><option value="document">Document / facture / paie</option><option value="autre">Autre</option></select></div>
+        <div class="fg"><label>Priorité</label><select id="aide-priorite"><option value="normale">Normale</option><option value="urgente">Urgente</option><option value="bloquant">Bloquant</option></select></div></div>
       <div class="fg" style="margin-top:10px"><label>Description</label><textarea id="aide-description" style="min-height:120px" placeholder="Expliquez ce qui se passe, ce que vous essayiez de faire…"></textarea></div>
       <div id="aide-status" style="margin-top:10px;font-size:12.5px"></div>
     </div>
@@ -2880,7 +2901,8 @@ body.mode-presentation{background:#F1F5F9}
           <button class="btn btn-ghost btn-sm" onclick="clearSig('doc-client')">🗑 Effacer</button>
         </div>
         <div class="sig-wrap"><canvas id="sig-canvas-doc-client" width="700" height="110"></canvas><div class="sig-hint" id="sig-hint-doc-client">✍️ Faites signer le client ici</div></div>
-        <div style="display:flex;justify-content:flex-end;margin-top:8px">
+        <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <button class="btn btn-ghost btn-sm" onclick="envoyerSignatureMobile(editDId)">📲 Faire signer sur mobile</button>
           <button class="btn btn-accent btn-sm" onclick="validerSignatureClientDevis()">✓ Valider la signature du client</button>
         </div>
       </div>
@@ -3666,6 +3688,7 @@ function syncScanMetaToFirestore(){
 
 function startScansMetaListener(){
   if(!FIREBASE_ENABLED||!fbUser)return;
+  startSignaturesMobileListener();
   if(fbScansMetaUnsubscribe)fbScansMetaUnsubscribe();
   fbScansMetaUnsubscribe=fbDb.collection('users').doc(DOC_ACTIF).collection('scansMeta').onSnapshot(function(snap){
     var localScans=db.scans||[];
@@ -3907,13 +3930,9 @@ function handleAuthSubmit(){
 }
 
 function skipAuthAndUseLocal(){
-  fbUser=null;
-  FIREBASE_ENABLED=false;
-  if(fbSyncUnsubscribe)fbSyncUnsubscribe();
-  hideAuthScreen();
-  setSyncStatus('local');
-  document.getElementById('sync-user-email').style.display='none';
-  document.getElementById('sync-status').style.display='flex';
+  // Connexion obligatoire : le mode « sans compte » n'existe plus.
+  showAuthScreen();
+  if(typeof showAuthError==='function')showAuthError('La connexion est obligatoire pour utiliser l\'application.');
 }
 
 function handleLogout(){
@@ -3926,11 +3945,12 @@ function handleLogout(){
   document.getElementById('sync-user-email').style.display='none';
   setSyncStatus('local');
   
-  // Rester en mode local
-  skipAuthAndUseLocal();
+  // Retour à l'écran de connexion
+  showAuthScreen();
 }
 
 function hideAuthScreen(){
+  if(fbUser)document.body.classList.remove('auth-locked');
   var authContainer=document.getElementById('auth-screen');
   if(authContainer)authContainer.style.display='none';
   document.getElementById('sync-status').style.display='flex';
@@ -3942,6 +3962,7 @@ function hideAuthScreen(){
 }
 
 function showAuthScreen(){
+  document.body.classList.add('auth-locked');
   var authContainer=document.getElementById('auth-screen');
   if(authContainer)authContainer.style.display='flex';
   document.getElementById('sync-status').style.display='none';
@@ -3953,6 +3974,12 @@ function checkAuthStatus(){
   fbAuth.onAuthStateChanged(function(user){
     fbUser=user;
     if(user){
+    if(msgiEstCompteBoite(user)){
+      // Les boites mail internes ne donnent PAS acces aux applications (messagerie uniquement)
+      fbAuth.signOut();
+      alert('Cette adresse est une boîte mail interne : elle donne accès à la messagerie uniquement, pas à l\'application. Utilisez votre identifiant habituel.');
+      return;
+    }
       console.log('Utilisateur connecté:',user.email);
       traceEvent('page_vue','Connexion gestion — '+user.email);
       hideAuthScreen();
@@ -3970,6 +3997,7 @@ function checkAuthStatus(){
     }else{
       console.log('Pas de session active');
       showAuthScreen();
+      msgiFermerSession();
       isAdmin=false;
       userRole='employe';
       adminDeverrouille=false;
@@ -3985,10 +4013,30 @@ function checkAuthStatus(){
 // regle que le mode maintenance). bannerUpdatedAt sert d'identifiant : la fermeture est
 // memorisee par version de message dans le localStorage, donc un nouveau message publie
 // reapparait meme si l'utilisateur avait ferme le precedent.
+/* Avis de migration vers la nouvelle application (activé depuis le tableau de bord) */
+function afficherAvisMigration(cfg){
+  var el=document.getElementById('migration-banner');
+  if(!cfg.migrationActif){if(el)el.style.display='none';return;}
+  var v=String(cfg.migrationUpdatedAt||'');
+  try{if(sessionStorage.getItem('gdf_migration_plus_tard')===v){if(el)el.style.display='none';return;}}catch(e){}
+  if(!el){
+    el=document.createElement('div');el.id='migration-banner';
+    el.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#0F5BD6;color:#fff;padding:12px 16px;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;box-shadow:0 -4px 18px rgba(0,0,0,.25);font:14px/1.4 system-ui,sans-serif';
+    el.innerHTML='<span id="mig-txt" style="max-width:720px"></span><a id="mig-lien" target="_blank" rel="noopener" style="background:#fff;color:#0F5BD6;font-weight:700;padding:8px 14px;border-radius:8px;text-decoration:none">Ouvrir NicoMultiservices</a><button id="mig-plus" type="button" style="background:none;border:1px solid rgba(255,255,255,.6);color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer">Plus tard</button>';
+    document.body.appendChild(el);
+  }
+  var url=String(cfg.migrationUrl||'');
+  el.querySelector('#mig-txt').textContent='🚚 '+(cfg.migrationMessage||'Nous changeons d\'application.')+(cfg.migrationDate?' Bascule prévue le '+cfg.migrationDate.split('-').reverse().join('/')+'.':'');
+  var a=el.querySelector('#mig-lien');if(/^https?:\/\//i.test(url)||/^[A-Za-z0-9_\-\/.]+$/.test(url)){a.href=url;a.style.display='';}else a.style.display='none';
+  el.querySelector('#mig-plus').onclick=function(){try{sessionStorage.setItem('gdf_migration_plus_tard',v);}catch(e){}el.style.display='none';};
+  el.style.display='flex';
+}
+
 function chargerBanniereClient(){
   if(!FIREBASE_ENABLED||!fbDb)return;
   fbDb.collection('siteConfig').doc('main').get().then(function(doc){
     var cfg=doc.exists?doc.data():{};
+    afficherAvisMigration(cfg);
     if(!cfg.bannerActive||!cfg.bannerMessage){masquerBanniereGlobale();return;}
     var vue=null;
     try{vue=localStorage.getItem('gdf_banner_dismissed');}catch(e){}
@@ -5760,6 +5808,7 @@ function showPage(name){
   else if(name==='urssaf')initUrssafPage();
   else if(name==='scans'){if(!db.scans)db.scans=[];renderScans();}
   else if(name==='emails-recus')initEmailsRecusPage();
+  else if(name==='messagerie')initMessagerie();
   else if(name==='depenses'){if(!db.depenses)db.depenses=[];renderDepenses();}
   else if(name==='bilan')initBilanPage();
   else if(name==='avis')initAvisPage();
@@ -5805,9 +5854,13 @@ function envoyerDemandeAide(){
   }
   statusEl.textContent='Envoi en cours…';
   statusEl.style.color='var(--muted)';
+  var _cat=document.getElementById('aide-categorie').value,_prio=document.getElementById('aide-priorite').value;
+  var _catL=document.getElementById('aide-categorie').selectedOptions[0].text,_prioL=document.getElementById('aide-priorite').selectedOptions[0].text;
   fbDb.collection('demandesAide').add({
-    titre:titre,
-    description:description,
+    titre:(_prio==='bloquant'?'🚨 ':_prio==='urgente'?'⚠️ ':'')+titre,
+    description:'['+_catL+' · '+_prioL+' · gestion]\n'+description,descriptionOriginale:description,
+    categorie:_cat,priorite:_prio,appOrigine:'gestion',pageOrigine:document.title||'',navigateur:navigator.userAgent.slice(0,140),ecran:window.innerWidth+'x'+window.innerHeight,
+    dateMaj:firebase.firestore.FieldValue.serverTimestamp(),
     statut:'ouvert',
     demandePar:fbUser?fbUser.email:'Compte inconnu',
     demandeParUid:fbUser?fbUser.uid:'',
@@ -5985,6 +6038,38 @@ function useStoredSig(id){if(db.params.signature)setSig(id,db.params.signature);
 // Fait signer le client directement sur l'appli (tablette/telephone en main), sans passer
 // par consultation.html. Enregistre uniquement la signature (pas de facture automatique) :
 // le devis apparaitra ensuite avec le badge "Signe - pret a facturer" comme via le lien client.
+/* ═══ Signature du client sur le mobile ═══
+   Crée une demande dans users/{DOC_ACTIF}/demandesSignature ; l'appli mobile la reçoit en direct,
+   affiche la page de signature, puis enregistre la signature dans le devis. */
+var signaturesMobileEnAttente={},fbSigMobileUnsub=null;
+function startSignaturesMobileListener(){
+  if(!FIREBASE_ENABLED||!fbUser)return;
+  if(fbSigMobileUnsub)fbSigMobileUnsub();
+  fbSigMobileUnsub=fbDb.collection('users').doc(DOC_ACTIF).collection('demandesSignature').onSnapshot(function(snap){
+    var m={};snap.forEach(function(d){var x=d.data();if(x.status==='pending')m[x.docId]=true;});
+    signaturesMobileEnAttente=m;
+    try{renderDevis();}catch(e){}
+  },function(e){console.warn('Écoute des signatures mobile impossible:',e);});
+}
+function envoyerSignatureMobile(id){
+  var doc=db.documents.find(function(x){return x.id===id;});
+  if(!doc){alert('Enregistrez d\'abord le devis avant de le faire signer sur mobile.');return;}
+  if(doc.type!=='devis'){alert('Seuls les devis peuvent être signés.');return;}
+  if(doc.devisSigne){alert('Ce devis est déjà signé.');return;}
+  if(!FIREBASE_ENABLED||!fbUser){alert('Connexion requise pour envoyer une demande à l\'appli mobile.');return;}
+  var c=db.clients.find(function(x){return x.id===doc.clientId;});
+  fbDb.collection('users').doc(DOC_ACTIF).collection('demandesSignature').doc(String(doc.id)).set({
+    docId:doc.id,numero:doc.numero,clientNom:c?c.nom:'',totalHT:doc.totalHT||0,objet:doc.objet||'',
+    status:'pending',createdAt:firebase.firestore.FieldValue.serverTimestamp(),createdBy:fbUser.email||''
+  }).then(function(){
+    alert('📲 Demande envoyée à l\'appli mobile.\n\nOuvrez l\'appli sur le téléphone : la page de signature du devis '+doc.numero+' vous attend.');
+  }).catch(function(e){console.error(e);alert('Envoi impossible : '+(e&&e.message?e.message:e));});
+}
+function annulerSignatureMobile(id){
+  if(!confirm('Annuler la demande de signature envoyée au mobile ?'))return;
+  fbDb.collection('users').doc(DOC_ACTIF).collection('demandesSignature').doc(String(id)).set({status:'cancelled'},{merge:true}).catch(function(e){alert('Échec : '+e.message);});
+}
+
 function validerSignatureClientDevis(){
   if(!editDId){alert('Enregistrez d\'abord le devis avant de faire signer le client.');return;}
   var sig=getSig('doc-client');
@@ -6058,7 +6143,8 @@ function modifierProchainNumero(type){
 
 function loadParams(){
   var p=db.params;
-  ['nom','siret','adresse','ville','tel','email','iban','paiement'].forEach(function(k){var el=document.getElementById('p-'+k);if(el)el.value=p[k]||'';});
+  ['nom','gerant','siret','adresse','ville','tel','email','iban','paiement'].forEach(function(k){var el=document.getElementById('p-'+k);if(el)el.value=p[k]||'';});
+  var gq=document.getElementById('p-gerant-qualite');if(gq)gq.value=p.gerantQualite||'';
   if(p.logo){document.getElementById('logo-preview').src=p.logo;document.getElementById('logo-preview').style.display='block';document.getElementById('logo-ph').style.display='none';}
   document.getElementById('sidebar-company').textContent=p.nom||'Mon Entreprise';
   if(p.signature)document.getElementById('sig-status').innerHTML='<span style="color:var(--accent);font-weight:700">✓ Signature enregistree</span>';
@@ -6117,7 +6203,8 @@ function saveTemplatesEmail(){
 }
 function saveParams(){
   if(!verifierCode1012('Modifier les paramètres'))return;
-  ['nom','siret','adresse','ville','tel','email','iban','paiement'].forEach(function(k){var el=document.getElementById('p-'+k);if(el)db.params[k]=el.value;});
+  ['nom','gerant','siret','adresse','ville','tel','email','iban','paiement'].forEach(function(k){var el=document.getElementById('p-'+k);if(el)db.params[k]=el.value;});
+  var gq=document.getElementById('p-gerant-qualite');if(gq)db.params.gerantQualite=gq.value;
   var actEl=document.getElementById('p-activite-urssaf');if(actEl)db.params.activiteUrssaf=actEl.value;
   var freqEl=document.getElementById('p-frequence-urssaf');if(freqEl)db.params.frequenceUrssaf=freqEl.value;
   var acreEl=document.getElementById('p-acre');if(acreEl)db.params.acre=acreEl.value;
@@ -6538,6 +6625,93 @@ function getHeaderGmail(message,name){
   return h?h.value:'';
 }
 
+// Reponses aux mails externes de la messagerie interne : repere le n° de suivi NM-AAMMJJ-XXXX dans
+// l'objet et affiche qui l'avait envoye (journal messagerieExternes, lisible par les admins).
+function annoterSuiviGmail(){
+  document.querySelectorAll('.nm-suivi[data-ref]').forEach(function(el){
+    var ref=el.getAttribute('data-ref');
+    el.textContent='🔗 N° de suivi '+ref;
+    if(!FIREBASE_ENABLED||!fbDb)return;
+    fbDb.collection('messagerieExternes').doc(ref).get().then(function(d){
+      if(!d.exists){el.textContent='🔗 N° de suivi '+ref+' (introuvable dans le journal)';return;}
+      var m=d.data();
+      el.innerHTML='↩️ Réponse au mail <b>'+esc(ref)+'</b> envoyé par <b>'+esc(m.fromNom||m.fromEmail)+'</b> (boîte '+esc(m.fromEmail)+') à '+esc(m.toExterne);
+    }).catch(function(){});
+  });
+}
+// ─── Transfert d'un mail client (Gmail) vers la boite mail interne d'un employe ───
+function gmailDecoderB64(s){
+  s=String(s||'').replace(/-/g,'+').replace(/_/g,'/');
+  try{return decodeURIComponent(escape(atob(s)));}catch(e){try{return atob(s);}catch(e2){return '';}}
+}
+function gmailExtraireTexte(payload){
+  var txt='',html='';
+  (function parcourir(p){
+    if(!p)return;
+    if(p.mimeType==='text/plain'&&p.body&&p.body.data)txt+=gmailDecoderB64(p.body.data);
+    else if(p.mimeType==='text/html'&&p.body&&p.body.data)html+=gmailDecoderB64(p.body.data);
+    (p.parts||[]).forEach(parcourir);
+  })(payload);
+  if(!txt&&html){
+    // DOMParser : document inerte (aucun script ni image du mail n'est charge)
+    var doc=new DOMParser().parseFromString(html.replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<br\s*\/?>/gi,'\n').replace(/<\/(p|div|tr)>/gi,'\n'),'text/html');
+    txt=doc.body?doc.body.textContent:'';
+  }
+  return txt.replace(/\r/g,'').replace(/\n{3,}/g,'\n\n').trim().substring(0,6000);
+}
+function gmailOuvrirTransfert(id){
+  var m=gmailEmailsCache.filter(function(x){return x.id===id;})[0];if(!m)return;
+  var ancien=document.getElementById('gmail-transfert-ov');if(ancien)ancien.remove();
+  var ov=document.createElement('div');ov.id='gmail-transfert-ov';ov.className='modal-overlay open';
+  ov.innerHTML='<div class="modal" style="max-width:480px"><div class="modal-header"><h2>↪️ Transférer à un employé</h2></div><div class="modal-body">'+
+    '<p style="font-size:12.5px;color:var(--muted);margin-bottom:12px">« '+esc(getHeaderGmail(m,'Subject')||'(Sans objet)')+' » — de '+esc(getHeaderGmail(m,'From'))+'</p>'+
+    '<div class="fg"><label>Boîte mail interne du destinataire</label><select id="gt-dest"><option value="">Chargement…</option></select></div>'+
+    '<div class="fg"><label>Message d\'accompagnement (optionnel)</label><textarea id="gt-note" rows="3" placeholder="Ex : peux-tu rappeler ce client ?"></textarea></div>'+
+    '<div id="gt-status" style="font-size:12.5px;min-height:16px"></div></div>'+
+    '<div class="modal-footer"><button class="btn btn-ghost" onclick="document.getElementById(\'gmail-transfert-ov\').remove()">Annuler</button><button class="btn btn-primary" id="gt-btn" onclick="gmailTransferer(\''+esc(id)+'\')">Transférer</button></div></div>';
+  document.body.appendChild(ov);
+  fbDb.collection('boitesMail').get().then(function(s){
+    var l=s.docs.map(function(d){return d.data();}).sort(function(a,b){return String(a.nom||'').localeCompare(String(b.nom||''));});
+    document.getElementById('gt-dest').innerHTML=l.length?l.map(function(b){return '<option value="'+esc(b.adresse)+'">'+esc(b.nom||'')+' — '+esc(b.adresse)+'</option>';}).join(''):'<option value="">Aucune boîte interne créée (dashboard)</option>';
+  }).catch(function(){document.getElementById('gt-dest').innerHTML='<option value="">Lecture impossible (règle « boitesMail » ?)</option>';});
+}
+function gmailTransferer(id){
+  var dest=document.getElementById('gt-dest').value,note=document.getElementById('gt-note').value.trim();
+  var st=document.getElementById('gt-status');
+  if(!dest){st.style.color='var(--danger)';st.textContent='Choisissez une boîte.';return;}
+  if(!gmailAccessToken){st.style.color='var(--danger)';st.textContent='Session Gmail expirée : reconnectez Gmail.';return;}
+  var m=gmailEmailsCache.filter(function(x){return x.id===id;})[0];if(!m)return;
+  document.getElementById('gt-btn').disabled=true;st.style.color='var(--muted)';st.textContent='Envoi…';
+  var from=getHeaderGmail(m,'From'),subject=getHeaderGmail(m,'Subject')||'(Sans objet)',dateH=getHeaderGmail(m,'Date');
+  var mm=from.match(/<([^>]+)>/),clientEmail=(mm?mm[1]:from).trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail))clientEmail='';
+  var clientNom=from.replace(/<[^>]*>/,'').replace(/["']/g,'').trim();
+  var refM=subject.match(/NM-\d{6}-[A-Z0-9]{4}/),ref=refM?refM[0]:'';
+  var infoRef=Promise.resolve('');
+  if(ref)infoRef=fbDb.collection('messagerieExternes').doc(ref).get().then(function(d){
+    if(!d.exists)return 'Réponse au mail '+ref+'\n';
+    var x=d.data();return 'Réponse au mail '+ref+' envoyé par '+(x.fromNom||x.fromEmail)+' (boîte '+x.fromEmail+') à '+x.toExterne+'\n';
+  }).catch(function(){return 'Réponse au mail '+ref+'\n';});
+  Promise.all([
+    fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+encodeURIComponent(id)+'?format=full',{headers:{Authorization:'Bearer '+gmailAccessToken}}).then(function(r){if(!r.ok)throw new Error('Gmail HTTP '+r.status);return r.json();}),
+    infoRef
+  ]).then(function(res){
+    var texte=gmailExtraireTexte(res[0].payload)||m.snippet||'(contenu vide)';
+    var corps=(note?note+'\n\n':'')+'━━ Mail client transféré ━━\n'+res[1]+'De : '+from+'\nDate : '+(dateH?new Date(dateH).toLocaleString('fr-FR'):'')+'\nObjet : '+subject+'\n\n'+texte;
+    return fbDb.collection('messagerieInterne').add({
+      fromUid:fbUser.uid,fromEmail:(fbUser.email||'').toLowerCase(),fromNom:'Boîte entreprise (Gmail)',toEmail:dest.toLowerCase(),
+      subject:'Réponse client : '+subject.replace(/\[NM-\d{6}-[A-Z0-9]{4}\]\s*/g,''),body:corps,transfert:true,sansReponse:true,
+      clientEmail:clientEmail,clientNom:clientNom,ref:ref,lu:false,supprimeExp:true,supprimeDest:false,
+      date:firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }).then(function(){
+    document.getElementById('gmail-transfert-ov').remove();
+    alert('✅ Mail transféré à '+dest+'.');
+  }).catch(function(e){
+    console.error('Transfert Gmail:',e);document.getElementById('gt-btn').disabled=false;
+    st.style.color='var(--danger)';st.textContent='❌ Échec : '+(e.message||e.code);
+  });
+}
 function renderGmailEmails(messages){
   var listEl=document.getElementById('gmail-emails-list');
   if(!listEl)return;
@@ -6554,15 +6728,17 @@ function renderGmailEmails(messages){
     var unread=(m.labelIds||[]).indexOf('UNREAD')!==-1;
     return '<div style="padding:12px 14px;border:1px solid '+(unread?'#BFDBFE':'var(--border)')+';border-radius:8px;margin-bottom:8px;background:'+(unread?'#EFF6FF':'#fff')+'">'+
       '<div style="display:flex;justify-content:space-between;align-items:start;gap:10px;margin-bottom:4px">'+
-        '<strong style="font-size:13px">'+esc(subject)+(unread?' <span style="background:var(--primary);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:4px;vertical-align:middle">NON LU</span>':'')+'</strong>'+
+        '<strong style="font-size:13px">'+esc(subject)+((/NM-\d{6}-[A-Z0-9]{4}/.test(subject))?'<div class="nm-suivi" data-ref="'+esc(subject.match(/NM-\d{6}-[A-Z0-9]{4}/)[0])+'" style="font-weight:600;font-size:11.5px;color:var(--primary);margin-top:3px"></div>':'')+(unread?' <span style="background:var(--primary);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:4px;vertical-align:middle">NON LU</span>':'')+'</strong>'+
         '<span style="font-size:11px;color:var(--muted);white-space:nowrap">'+esc(dateTxt)+'</span>'+
       '</div>'+
       '<div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">De : '+esc(from)+'</div>'+
       '<div style="font-size:12px;color:var(--text)">'+esc(snippet)+'</div>'+
       '<a href="https://mail.google.com/mail/u/0/#inbox/'+esc(m.id)+'" target="_blank" style="font-size:11px;color:var(--primary);text-decoration:none;display:inline-block;margin-top:8px">Ouvrir dans Gmail →</a>'+
+      '<a href="#" onclick="gmailOuvrirTransfert(\''+esc(m.id)+'\');return false" style="font-size:11px;color:var(--primary);text-decoration:none;display:inline-block;margin:8px 0 0 14px">↪️ Transférer à un employé</a>'+
     '</div>';
   }).join('');
   listEl.innerHTML=lignes;
+  annoterSuiviGmail();
 }
 
 function filtrerEmailsGmail(){
@@ -7462,6 +7638,9 @@ function renderDevis(){
     var acompteBtn=d.convertiEnFacture?'':'<button class="btn btn-ghost btn-sm" onclick="openAcompteModal('+d.id+')" title="Créer une facture d\'acompte">💶 Acompte</button>';
     var soldeBtn=(!d.convertiEnFacture&&acomptesVerses>0&&acomptesVerses<d.totalHT)?'<button class="btn btn-accent btn-sm" onclick="facturerSoldeDevis('+d.id+')" title="Facturer le solde restant après acomptes">💳 Solde</button>':'';
     var histBtn=(d.historique&&d.historique.length)?'<button class="btn btn-ghost btn-sm" onclick="showHistoriqueModal('+d.id+')" title="Historique des modifications">📝</button>':'';
+    var signMobileBtn=(d.devisSigne||d.convertiEnFacture)?'':(signaturesMobileEnAttente[d.id]
+      ?'<button class="btn btn-ghost btn-sm" onclick="annulerSignatureMobile('+d.id+')" title="En attente de signature sur le mobile : cliquer pour annuler">⏳ Annuler</button>'
+      :'<button class="btn btn-accent btn-sm" onclick="envoyerSignatureMobile('+d.id+')" title="Envoyer à l\'appli mobile pour faire signer le client">📲 Signer</button>');
     var consultBtn=clientAConsultation(d.clientId)?'<button class="btn btn-ghost btn-sm" onclick="showConsultationInfo('+d.id+')" title="Code et statut de consultation client">🔗</button>':'';
     var associesTxt=(Array.isArray(d.clientsAssocies)&&d.clientsAssocies.length)?d.clientsAssocies.map(function(a){
       var ac=db.clients.find(function(x){return x.id===a.clientId;});
@@ -7472,7 +7651,7 @@ function renderDevis(){
       '<button class="btn btn-ghost btn-sm" onclick="showPv('+d.id+')">👁</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="openDocModal(\'devis\','+d.id+')">✏️</button>'+
       (d.convertiEnFacture?'':'<button class="btn btn-ghost btn-sm" onclick="openModalScanSignature('+d.id+')" title="Scanner le devis signé à la main">📷</button>')+
-      convertBtn+acompteBtn+soldeBtn+histBtn+consultBtn+
+      signMobileBtn+convertBtn+acompteBtn+soldeBtn+histBtn+consultBtn+
       '<button class="btn btn-primary btn-sm" onclick="downloadPDF('+d.id+',true)">⬇</button>'+
       '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteDoc('+d.id+')">🗑</button>'+
     '</td></tr>';
@@ -11560,6 +11739,19 @@ function telechargerRapportChantierPDF(){
 // dans la collection top-niveau 'paie', independante du document partage db.
 // ═══════════════════════════════════════════════════════════════════════
 var _mesFichesPaie=[];
+/* Justificatifs de revenus micro-entrepreneur publiés par la compta pour l'utilisateur connecté */
+function chargerMesJustificatifs(salarieId){
+  var el=document.getElementById('mfp-justif'),card=document.getElementById('mfp-justif-card');if(!el)return;
+  fbDb.collection('justificatifsRevenus').where('salarieId','==',salarieId).get().then(function(snap){
+    var l=snap.docs.map(function(d){return Object.assign({_id:d.id},d.data());}).filter(function(x){return x.publie&&/^data:application\/pdf/.test(x.pdf||'');})
+      .sort(function(a,b){return (b.periode||'').localeCompare(a.periode||'');});
+    card.style.display=l.length?'block':'none';
+    el.innerHTML=l.map(function(x){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)"><div><b>'+esc(x.periodeLibelle||'')+'</b><div style="font-size:12px;color:var(--muted)">Justificatif de revenus micro-entrepreneur</div></div>'+
+        '<a class="btn btn-ghost btn-sm" href="'+x.pdf+'" download="'+esc(x.nomFichier||'justificatif.pdf')+'">⬇️ Télécharger</a></div>';}).join('');
+  }).catch(function(e){console.warn('Justificatifs indisponibles',e);card.style.display='none';});
+}
+
 function chargerMesFichesPaie(){
   var el=document.getElementById('mfp-corps');
   if(!fbUser||!fbUser.email){el.innerHTML='<div class="empty">Vous devez être connecté pour voir vos fiches de paie.</div>';return;}
@@ -11570,6 +11762,7 @@ function chargerMesFichesPaie(){
       return;
     }
     var salarieId=snapSal.docs[0].id;
+    chargerMesJustificatifs(salarieId);
     fbDb.collection('paie').where('salarieId','==',salarieId).get().then(function(snapPaie){
       _mesFichesPaie=[];
       snapPaie.forEach(function(doc){var dPaie=doc.data();if(dPaie.statut==='brouillon')return;_mesFichesPaie.push(Object.assign({_id:doc.id},dPaie));});
@@ -12612,6 +12805,576 @@ function fermerWelcomeModalGDF(){
   localStorage.setItem(WELCOME_STORAGE_KEY_GDF,'1');
   var m=document.getElementById('welcome-modal-gdf');
   if(m)m.classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MESSAGERIE INTERNE (identique dans gestion-devis-factures.html et dashboard.html)
+// Boite mail interne = compte SEPARE de la connexion habituelle : adresse interne + mot de passe
+// propres (crees depuis le dashboard, onglet "Boites mail internes"). La session de messagerie
+// utilise une 2e instance Firebase ("messagerie") : elle n'affecte jamais la connexion normale.
+// Les messages ne quittent jamais l'entreprise (aucun SMTP/EmailJS) : collection Firestore
+// "messagerieInterne", un document par destinataire.
+//   Regles Firestore a ajouter (Firestore Database > Regles) :
+//   match /boitesMail/{adr} {
+//     allow read: if request.auth != null;
+//     allow create, delete: if request.auth != null &&
+//       exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+//     allow update: if request.auth != null && (
+//       exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+//       (request.auth.token.email.lower() == adr &&
+//        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mdpProvisoire','mdpChangeLe'])));
+//   }
+//   match /boitesMailSecrets/{adr} {
+//     allow read: if request.auth != null &&
+//       exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+//     allow create, update: if request.auth != null && (
+//       exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+//       request.auth.token.email.lower() == adr);
+//     allow delete: if request.auth != null && (
+//       exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+//       request.auth.token.email.lower() == adr);
+//   }
+//   match /messagerieExternes/{ref} {
+//     allow create: if request.auth != null && request.resource.data.fromUid == request.auth.uid &&
+//       request.resource.data.fromEmail == request.auth.token.email.lower();
+//     allow read: if request.auth != null && (resource.data.fromUid == request.auth.uid ||
+//       exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+//   }
+//   match /messagerieConfig/{id} {
+//     allow read: if request.auth != null;
+//     allow write: if request.auth != null &&
+//       exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+//   }
+//   match /messagerieInterne/{id} {
+//     allow create: if request.auth != null && request.resource.data.fromUid == request.auth.uid &&
+//       request.resource.data.fromEmail == request.auth.token.email.lower();
+//     allow read, update, delete: if request.auth != null && (
+//       resource.data.fromUid == request.auth.uid ||
+//       resource.data.toEmail == request.auth.token.email.lower());
+//   }
+// ═══════════════════════════════════════════════════════════════════════
+var MSGI_DOMAINE='mail.nico-multiservices.fr';
+function msgiEstCompteBoite(u){return !!(u&&u.email&&u.email.trim().toLowerCase().slice(-(MSGI_DOMAINE.length+1))==='@'+MSGI_DOMAINE);}
+var msgApp=null, msgAuth=null, msgDb=null, msgUser=null, _msgiBoite=null, _msgiEtat='init'; // init | login | chmdp | ok
+var _msgiRecus=[], _msgiEnvoyes=[], _msgiUnsubR=null, _msgiUnsubE=null, _msgiOnglet='recus';
+var _msgiAdresses=[], _msgiAdressesChargees=false, _msgiOuvert=null, _msgiErreurRegles=false, _msgiLoginErr='';
+
+function msgiEsc(s){return (s===null||s===undefined)?'':String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function msgiMonEmail(){return (msgUser&&msgUser.email)?msgUser.email.trim().toLowerCase():'';}
+function msgiDate(ts){
+  if(!ts||!ts.toDate)return '…';
+  return ts.toDate().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function msgiTri(a,b){
+  var x=a.date&&a.date.toMillis?a.date.toMillis():Date.now(), y=b.date&&b.date.toMillis?b.date.toMillis():Date.now();
+  return y-x;
+}
+
+// Instance Firebase dediee a la messagerie (session isolee, jamais liee a la connexion normale)
+function msgiInitFirebase(){
+  if(msgApp)return true;
+  try{
+    msgApp=firebase.initializeApp(FIREBASE_CONFIG,'messagerie');
+    msgAuth=msgApp.auth();
+    msgAuth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(function(){});
+    msgDb=msgApp.firestore();
+    msgAuth.onAuthStateChanged(msgiSurChangementAuth);
+    return true;
+  }catch(e){console.error('Init messagerie:',e);msgApp=null;return false;}
+}
+function msgiSurChangementAuth(user){
+  msgUser=user;
+  if(!user){
+    msgiArreterEcoute();_msgiBoite=null;_msgiEtat='login';msgiMajBadge();msgiRendre();
+    var st=document.getElementById('msgi-login-status');
+    if(st&&_msgiLoginErr){st.style.color='var(--danger)';st.textContent=_msgiLoginErr;}
+    return;
+  }
+  msgDb.collection('boitesMail').doc(msgiMonEmail()).get().then(function(doc){
+    if(!doc.exists){
+      // Boite supprimee depuis le dashboard : acces refuse
+      _msgiLoginErr='Cette boîte mail n\'existe plus (supprimée par l\'administrateur).';
+      msgAuth.signOut();return;
+    }
+    _msgiBoite=doc.data();
+    if(_msgiBoite.mdpProvisoire===true){_msgiEtat='chmdp';msgiRendre();return;}
+    _msgiEtat='ok';msgiDemarrerEcoute();msgiRendre();
+  }).catch(function(e){
+    console.error('Lecture boîte:',e);
+    _msgiLoginErr='Accès refusé : règle Firestore « boitesMail » manquante ou compte invalide.';
+    msgAuth.signOut();
+  });
+}
+function msgiConnexion(){
+  var a=(document.getElementById('msgi-login-adr').value||'').trim().toLowerCase();
+  var p=document.getElementById('msgi-login-mdp').value;
+  var st=document.getElementById('msgi-login-status');
+  if(!a||!p){st.textContent='Saisissez votre adresse mail interne et votre mot de passe.';return;}
+  st.style.color='var(--muted)';st.textContent='Connexion…';_msgiLoginErr='';
+  msgAuth.signInWithEmailAndPassword(a,p).catch(function(e){
+    st.style.color='var(--danger)';
+    st.textContent=(e.code==='auth/too-many-requests')?'Trop de tentatives, réessayez dans quelques minutes.':'Adresse ou mot de passe incorrect.';
+  });
+}
+function msgiDeconnexion(){if(msgAuth)msgAuth.signOut();}
+// Appele a la deconnexion de l'application : ferme aussi la session de messagerie
+function msgiFermerSession(){if(msgAuth&&msgAuth.currentUser)msgAuth.signOut();else msgiArreterEcoute();}
+
+// Le mot de passe choisi par l'employe est memorise CHIFFRE avec la cle PUBLIQUE du coffre (RSA-OAEP) :
+// seul l'administrateur detenteur de la phrase secrete peut le dechiffrer (pour le lui renvoyer), jamais affiche.
+// Coffre non initialise : le mot de passe provisoire memorise est simplement detruit.
+function msgiMemoriserMdp(mdp){
+  var ref=msgDb.collection('boitesMailSecrets').doc(msgiMonEmail());
+  function detruire(){return ref.delete().catch(function(){});}
+  return msgDb.collection('messagerieConfig').doc('coffre').get().then(function(d){
+    if(!d.exists||!d.data().publicKey||!window.crypto||!crypto.subtle)return detruire();
+    return crypto.subtle.importKey('jwk',d.data().publicKey,{name:'RSA-OAEP',hash:'SHA-256'},false,['encrypt']).then(function(k){
+      return crypto.subtle.encrypt({name:'RSA-OAEP'},k,new TextEncoder().encode(mdp));
+    }).then(function(ct){
+      var s='',b=new Uint8Array(ct);for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);
+      return ref.set({alg:'rsa',ct:btoa(s),date:firebase.firestore.FieldValue.serverTimestamp()});
+    });
+  }).catch(function(e){console.warn('Coffre des mots de passe:',e);return detruire();});
+}
+function msgiChangerMdp(){
+  var a=document.getElementById('msgi-new').value,b=document.getElementById('msgi-conf').value;
+  var st=document.getElementById('msgi-chmdp-status');st.style.color='var(--danger)';
+  if(a.length<8){st.textContent='8 caractères minimum.';return;}
+  if(a.length>100){st.textContent='100 caractères maximum.';return;}
+  if(a!==b){st.textContent='Les deux mots de passe ne correspondent pas.';return;}
+  st.style.color='var(--muted)';st.textContent='Enregistrement…';
+  msgUser.updatePassword(a).then(function(){
+    return msgDb.collection('boitesMail').doc(msgiMonEmail()).update({mdpProvisoire:false,mdpChangeLe:firebase.firestore.FieldValue.serverTimestamp()}).then(function(){
+      return msgiMemoriserMdp(a);
+    });
+  }).then(function(){
+    _msgiBoite.mdpProvisoire=false;_msgiEtat='ok';msgiDemarrerEcoute();msgiRendre();
+  }).catch(function(e){
+    st.style.color='var(--danger)';
+    if(e.code==='auth/requires-recent-login')st.textContent='Session trop ancienne : déconnectez-vous puis reconnectez-vous avec le mot de passe provisoire.';
+    else if(e.code==='auth/weak-password')st.textContent='Mot de passe trop faible.';
+    else st.textContent='Erreur : '+(e.message||e.code);
+  });
+}
+
+// Ecoute temps reel. Pas d'orderBy : tri cote client (aucun index composite a creer).
+function msgiDemarrerEcoute(){
+  msgiArreterEcoute();
+  msgiChargerExt();
+  var moi=msgiMonEmail();
+  _msgiUnsubR=msgDb.collection('messagerieInterne').where('toEmail','==',moi).onSnapshot(function(snap){
+    _msgiRecus=snap.docs.map(function(d){var o=d.data();o.id=d.id;return o;}).filter(function(m){return !m.supprimeDest;}).sort(msgiTri);
+    msgiMajBadge();msgiRendre();
+  },function(e){console.error('Messagerie (réception):',e);_msgiErreurRegles=true;msgiRendre();});
+  _msgiUnsubE=msgDb.collection('messagerieInterne').where('fromUid','==',msgUser.uid).onSnapshot(function(snap){
+    _msgiEnvoyes=snap.docs.map(function(d){var o=d.data();o.id=d.id;return o;}).filter(function(m){return !m.supprimeExp;}).sort(msgiTri);
+    msgiRendre();
+  },function(e){console.error('Messagerie (envoyés):',e);});
+}
+function msgiArreterEcoute(){
+  if(_msgiUnsubR){_msgiUnsubR();_msgiUnsubR=null;}
+  if(_msgiUnsubE){_msgiUnsubE();_msgiUnsubE=null;}
+  _msgiRecus=[];_msgiEnvoyes=[];_msgiOuvert=null;_msgiAdressesChargees=false;_msgiAdresses=[];
+}
+function msgiMajBadge(){
+  var n=_msgiRecus.filter(function(m){return !m.lu;}).length;
+  document.querySelectorAll('.msgi-badge').forEach(function(b){b.textContent=n;b.style.display=n>0?'inline-block':'none';});
+}
+
+// Annuaire = boites mail internes existantes (autocompletion + refus d'une adresse inconnue)
+function msgiChargerAdresses(){
+  if(_msgiAdressesChargees||!msgDb||_msgiEtat!=='ok')return;
+  msgDb.collection('boitesMail').get().then(function(s){
+    _msgiAdresses=s.docs.map(function(d){var x=d.data();return {email:(x.adresse||d.id).toLowerCase(),nom:x.nom||''};});
+    _msgiAdressesChargees=_msgiAdresses.length>0;
+    var dl=document.getElementById('msgi-datalist');
+    if(dl)dl.innerHTML=_msgiAdresses.filter(function(a){return a.email!==msgiMonEmail();}).map(function(a){return '<option value="'+msgiEsc(a.email)+'">'+msgiEsc(a.nom)+'</option>';}).join('');
+  }).catch(function(e){console.warn('Annuaire boîtes indisponible:',e.code);});
+}
+
+// ─── Rendu ───
+function initMessagerie(){
+  if(!msgiInitFirebase()){var r=document.getElementById('msgi-root');if(r)r.innerHTML='<div style="color:var(--danger);font-size:13px">Messagerie indisponible (Firebase non initialisé).</div>';return;}
+  msgiRendre();msgiChargerAdresses();
+}
+function msgiOnglet(o){_msgiOnglet=o;_msgiOuvert=null;msgiRendre();}
+var MSGI_CSS='<style>'+
+  '.msgi-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center}'+
+  '.msgi-tab{padding:8px 14px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}'+
+  '.msgi-tab.on{background:var(--copper,var(--accent));color:#fff;border-color:transparent}'+
+  '.msgi-box{border:1px solid var(--border);border-radius:12px;background:var(--surface,var(--panel));overflow:hidden}'+
+  '.msgi-row{display:flex;gap:12px;align-items:center;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer}'+
+  '.msgi-row:last-child{border-bottom:none}.msgi-row:hover{background:rgba(127,127,127,.08)}'+
+  '.msgi-row.nl{font-weight:700}.msgi-dot{width:9px;height:9px;border-radius:50%;background:var(--copper,var(--accent));flex:none}'+
+  '.msgi-dot.lu{background:transparent;border:1px solid var(--border)}'+
+  '.msgi-who{width:34%;min-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}'+
+  '.msgi-sub{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--muted)}'+
+  '.msgi-sub b{color:var(--text)}.msgi-dt{font-size:11.5px;color:var(--muted);flex:none}'+
+  '.msgi-f{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}'+
+  '.msgi-f label{font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}'+
+  '.msgi-f input,.msgi-f textarea{padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;font-family:inherit;background:transparent;color:var(--text);width:100%;box-sizing:border-box}'+
+  '.msgi-btn{padding:9px 18px;border-radius:9px;border:none;background:var(--copper,var(--accent));color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}'+
+  '.msgi-btn.sec{background:transparent;color:var(--text);border:1px solid var(--border)}'+
+  '.msgi-btn.dg{background:transparent;color:var(--danger);border:1px solid var(--danger)}'+
+  '@media(max-width:600px){.msgi-who{width:38%}.msgi-dt{display:none}}'+
+  '</style>';
+
+function msgiRendre(){
+  var root=document.getElementById('msgi-root');
+  if(!root)return;
+  // Ne pas ecraser un formulaire en cours de saisie (connexion, mdp, nouveau message)
+  if(_msgiEtat==='login'&&document.getElementById('msgi-login-adr'))return;
+  if(_msgiEtat==='chmdp'&&document.getElementById('msgi-new'))return;
+  if(_msgiEtat==='ok'&&_msgiOnglet==='nouveau'&&document.getElementById('msgi-to'))return;
+  var h=MSGI_CSS;
+  if(_msgiEtat==='init'){root.innerHTML=h+'<div style="color:var(--muted);font-size:13px">Chargement…</div>';return;}
+  if(_msgiEtat==='login'){
+    root.innerHTML=h+'<div class="msgi-box" style="padding:22px;max-width:420px">'+
+      '<div style="font-size:15px;font-weight:700;margin-bottom:4px">🔒 Connexion à votre boîte mail interne</div>'+
+      '<p style="font-size:12.5px;color:var(--muted);margin-bottom:16px">Utilisez l\'adresse mail interne et le mot de passe qui vous ont été remis. Ils sont distincts de votre connexion habituelle à l\'application.</p>'+
+      '<div class="msgi-f"><label>Adresse mail interne</label><input id="msgi-login-adr" type="email" autocomplete="off"></div>'+
+      '<div class="msgi-f"><label>Mot de passe</label><input id="msgi-login-mdp" type="password" autocomplete="off" onkeydown="if(event.key===\'Enter\')msgiConnexion()"></div>'+
+      '<div id="msgi-login-status" style="font-size:12.5px;min-height:16px;margin-bottom:10px;color:var(--danger)">'+msgiEsc(_msgiLoginErr)+'</div>'+
+      '<button class="msgi-btn" onclick="msgiConnexion()">Se connecter</button></div>';
+    return;
+  }
+  if(_msgiEtat==='chmdp'){
+    root.innerHTML=h+'<div class="msgi-box" style="padding:22px;max-width:420px">'+
+      '<div style="font-size:15px;font-weight:700;margin-bottom:4px">🔑 Choisissez votre mot de passe</div>'+
+      '<p style="font-size:12.5px;color:var(--muted);margin-bottom:16px">Connecté en tant que <b>'+msgiEsc(msgiMonEmail())+'</b> avec un mot de passe provisoire : définissez maintenant votre mot de passe personnel pour cette boîte mail.</p>'+
+      '<div class="msgi-f"><label>Nouveau mot de passe (8 caractères min.)</label><input id="msgi-new" type="password" autocomplete="new-password"></div>'+
+      '<div class="msgi-f"><label>Confirmer</label><input id="msgi-conf" type="password" autocomplete="new-password" onkeydown="if(event.key===\'Enter\')msgiChangerMdp()"></div>'+
+      '<div id="msgi-chmdp-status" style="font-size:12.5px;min-height:16px;margin-bottom:10px"></div>'+
+      '<div style="display:flex;gap:8px"><button class="msgi-btn" onclick="msgiChangerMdp()">Valider</button><button class="msgi-btn sec" onclick="msgiDeconnexion()">Se déconnecter</button></div></div>';
+    return;
+  }
+  var nonLus=_msgiRecus.filter(function(m){return !m.lu;}).length;
+  h+='<div style="font-size:12px;color:var(--muted);margin-bottom:12px">🔒 Messagerie interne : vos messages restent dans l\'entreprise. Boîte : <b>'+msgiEsc(msgiMonEmail())+'</b> <a href="#" style="margin-left:8px;color:var(--danger)" onclick="msgiDeconnexion();return false">Se déconnecter de la boîte</a></div>'+
+    '<div class="msgi-tabs">'+
+      '<button class="msgi-tab'+(_msgiOnglet==='recus'?' on':'')+'" onclick="msgiOnglet(\'recus\')">📥 Réception'+(nonLus?'<span class="msgi-badge" style="display:inline-block">'+nonLus+'</span>':'')+'</button>'+
+      '<button class="msgi-tab'+(_msgiOnglet==='envoyes'?' on':'')+'" onclick="msgiOnglet(\'envoyes\')">📤 Envoyés</button>'+
+      '<button class="msgi-tab'+(_msgiOnglet==='nouveau'?' on':'')+'" onclick="msgiNouveau()">✏️ Nouveau message</button>'+
+    '</div>';
+  if(_msgiErreurRegles)h+='<div style="padding:10px 12px;border:1px solid var(--danger);border-radius:9px;color:var(--danger);font-size:12.5px;margin-bottom:12px">⚠️ Accès refusé par Firestore : ajoutez les règles <code>boitesMail</code> et <code>messagerieInterne</code> (voir le commentaire « MESSAGERIE INTERNE » dans le code).</div>';
+  if(_msgiOuvert){
+    var liste=(_msgiOnglet==='envoyes'?_msgiEnvoyes:_msgiRecus);
+    var m=liste.filter(function(x){return x.id===_msgiOuvert;})[0];
+    if(m){
+      var recu=_msgiOnglet!=='envoyes';
+      h+='<div class="msgi-box" style="padding:18px">'+
+        '<div style="font-size:16px;font-weight:700;margin-bottom:6px">'+(m.annonce?'📢 ':'')+(m.transfert?'↪️ ':'')+(m.copie?'📋 ':'')+msgiEsc(m.subject||'(sans objet)')+'</div>'+
+        '<div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">'+(recu?'De : <b>'+msgiEsc(m.fromNom?m.fromNom+' — ':'')+msgiEsc(m.fromEmail)+'</b>':'À : <b>'+msgiEsc(m.toEmail)+'</b>'+((m.cc&&m.cc.length)?' · Copie interne : <b>'+msgiEsc(m.cc.join(', '))+'</b>':''))+(m.ref?' · N° de suivi <b>'+msgiEsc(m.ref)+'</b>':'')+' · '+msgiDate(m.date)+'</div>'+
+        '<div style="font-size:13.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;margin-bottom:18px">'+msgiEsc(m.body)+'</div>'+
+        ((m.pieces&&m.pieces.length)?'<div style="margin-bottom:18px">'+m.pieces.map(function(p,i){return '<button class="msgi-btn sec" style="margin:0 6px 6px 0" onclick="msgiOuvrirPiece(\''+m.id+'\','+i+')">🔗 '+msgiEsc(p.label)+'</button>';}).join('')+'</div>':'')+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+          '<button class="msgi-btn sec" onclick="msgiOuvert(null)">← Retour</button>'+
+          (recu&&!m.annonce&&!m.sansReponse?'<button class="msgi-btn" onclick="msgiRepondre(\''+m.id+'\')">↩️ Répondre</button>':'')+
+          (recu&&m.clientEmail?'<button class="msgi-btn" onclick="msgiRepondreClient(\''+m.id+'\')">📤 Répondre au client</button>':'')+
+          '<button class="msgi-btn dg" onclick="msgiSupprimer(\''+m.id+'\','+(recu?'true':'false')+')">🗑 Supprimer</button>'+
+        '</div></div>';
+    }else{_msgiOuvert=null;}
+  }
+  if(!_msgiOuvert){
+    if(_msgiOnglet==='nouveau'){
+      h+='<div class="msgi-box" style="padding:18px">'+
+        '<div class="msgi-f"><label style="text-transform:none;display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" id="msgi-ext" style="width:auto" onchange="msgiToggleExt()"> 📤 Envoyer à une adresse e-mail externe<span id="msgi-ext-note" style="color:var(--muted);font-weight:400"></span></label></div>'+
+        '<div class="msgi-f"><label>À (adresse mail interne du destinataire)</label><input id="msgi-to" type="text" list="msgi-datalist" placeholder="prenom.nom@… — plusieurs : séparer par une virgule" autocomplete="off"><datalist id="msgi-datalist"></datalist></div>'+
+        '<div class="msgi-f"><label>Objet</label><input id="msgi-subject" type="text" maxlength="150"></div>'+
+        '<div class="msgi-f"><label>Message</label><textarea id="msgi-body" rows="9"></textarea></div>'+
+        '<div class="msgi-f"><label>🔗 Joindre un lien (devis, facture, client, chantier)</label><div style="display:flex;gap:6px;flex-wrap:wrap"><select id="msgi-piece-type" onchange="msgiChoixTypePiece()" style="padding:9px;border:1.5px solid var(--border);border-radius:9px;background:transparent;color:var(--text);font-family:inherit"><option value="">Type…</option><option value="devis">Devis</option><option value="facture">Facture</option><option value="client">Client</option><option value="chantier">Chantier</option></select><select id="msgi-piece-item" style="flex:1;min-width:160px;padding:9px;border:1.5px solid var(--border);border-radius:9px;background:transparent;color:var(--text);font-family:inherit"><option value="">—</option></select><button class="msgi-btn sec" type="button" onclick="msgiAjouterPiece()">Ajouter</button></div><div id="msgi-pieces" style="margin-top:8px"></div></div>'+
+        '<div class="msgi-f" id="msgi-ext-extra" style="display:none"><label>Nom du destinataire externe (optionnel)</label><input id="msgi-ext-nom" type="text" autocomplete="off"><label style="margin-top:6px">Modèle de mail</label><select id="msgi-modele" onchange="msgiAppliquerModele()" style="padding:9px;border:1.5px solid var(--border);border-radius:9px;background:transparent;color:var(--text);font-family:inherit"></select></div>'+
+        '<div class="msgi-f" id="msgi-ext-cc-wrap" style="display:none"><label>Copie interne (adresses mail internes, séparées par une virgule)</label><input id="msgi-ext-cc" type="text" list="msgi-datalist" autocomplete="off" placeholder="prenom.nom@…"></div>'+
+        '<div class="msgi-f" id="msgi-ext-code-wrap" style="display:none"><label>Code de validation (envoi externe)</label><input id="msgi-ext-code" type="password" autocomplete="off"></div>'+
+        '<div id="msgi-status" style="font-size:12.5px;margin-bottom:10px;display:none"></div>'+
+        '<div style="display:flex;gap:8px"><button class="msgi-btn" id="msgi-send" onclick="msgiEnvoyer()">📨 Envoyer</button><button class="msgi-btn sec" onclick="msgiOnglet(\'recus\')">Annuler</button></div></div>';
+    }else{
+      var L=(_msgiOnglet==='envoyes'?_msgiEnvoyes:_msgiRecus);
+      if(!L.length)h+='<div class="msgi-box" style="padding:30px;text-align:center;color:var(--muted);font-size:13px">'+(_msgiOnglet==='envoyes'?'Aucun message envoyé.':'Aucun message reçu.')+'</div>';
+      else h+='<div class="msgi-box">'+L.map(function(m){
+        var recu=_msgiOnglet!=='envoyes',nl=recu&&!m.lu;
+        return '<div class="msgi-row'+(nl?' nl':'')+'" onclick="msgiOuvert(\''+m.id+'\')">'+
+          (recu?'<span class="msgi-dot'+(nl?'':' lu')+'"></span>':'')+
+          '<span class="msgi-who">'+(m.externe?'↗ ':'')+msgiEsc(recu?(m.fromNom||m.fromEmail):m.toEmail)+'</span>'+
+          '<span class="msgi-sub">'+(m.ref?'<span style="color:var(--copper,var(--accent))">['+msgiEsc(m.ref)+']</span> ':'')+'<b>'+msgiEsc(m.subject||'(sans objet)')+'</b> — '+msgiEsc((m.body||'').replace(/\s+/g,' ').substring(0,90))+'</span>'+
+          '<span class="msgi-dt">'+msgiDate(m.date)+'</span></div>';
+      }).join('')+'</div>';
+    }
+  }
+  root.innerHTML=h;
+  if(_msgiOnglet==='nouveau'){msgiChargerAdresses();msgiMajExtUI();}
+}
+
+// ─── Pieces jointes = liens vers un devis, une facture, un client ou un chantier ───
+// Le message ne stocke qu'une reference {t,id,num,nom,label} ; le destinataire clique pour ouvrir la fiche.
+var _msgiPieces=[];
+function msgiSource(){
+  if(typeof db!=='undefined'&&db&&db.documents)return {app:'gestion',docs:db.documents||[],clients:db.clients||[],events:db.events||[]};
+  var p=(typeof _dbPartageComplet!=='undefined'&&_dbPartageComplet)||{};
+  return {app:'dashboard',docs:(typeof _tousLesDocumentsCache!=='undefined'?_tousLesDocumentsCache:[])||[],clients:(typeof _tousLesClientsCache!=='undefined'?_tousLesClientsCache:[])||[],events:p.events||[]};
+}
+function msgiNomClient(src,id){var c=src.clients.filter(function(x){return x.id===id;})[0];return c?c.nom:'';}
+function msgiPiecesDisponibles(type){
+  var src=msgiSource(),out=[];
+  if(type==='devis'||type==='facture'){
+    src.docs.filter(function(d){return d.type===type;}).sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));}).slice(0,200).forEach(function(d){
+      out.push({t:type,id:d.id,num:d.numero||'',nom:'',label:(type==='devis'?'Devis ':'Facture ')+(d.numero||'')+(msgiNomClient(src,d.clientId)?' — '+msgiNomClient(src,d.clientId):'')+(d.totalHT?' — '+Number(d.totalHT).toFixed(2)+' € HT':'')});
+    });
+  }else if(type==='client'){
+    src.clients.slice().sort(function(a,b){return String(a.nom||'').localeCompare(String(b.nom||''));}).forEach(function(c){out.push({t:'client',id:c.id,num:'',nom:c.nom||'',label:'Client — '+(c.nom||'')});});
+  }else if(type==='chantier'){
+    src.events.slice().sort(function(a,b){return String(b.start||'').localeCompare(String(a.start||''));}).slice(0,200).forEach(function(e){
+      out.push({t:'chantier',id:e.id,num:'',nom:e.titre||'',label:'Chantier — '+(e.titre||'(sans titre)')+(e.start?' ('+e.start+')':'')});
+    });
+  }
+  return out;
+}
+var _msgiPiecesListe=[];
+function msgiChoixTypePiece(){
+  var t=document.getElementById('msgi-piece-type').value,sel=document.getElementById('msgi-piece-item');
+  if(!t){sel.innerHTML='<option value="">—</option>';_msgiPiecesListe=[];return;}
+  _msgiPiecesListe=msgiPiecesDisponibles(t);
+  sel.innerHTML=_msgiPiecesListe.length?_msgiPiecesListe.map(function(p,i){return '<option value="'+i+'">'+msgiEsc(p.label)+'</option>';}).join(''):'<option value="">Aucun élément disponible</option>';
+}
+function msgiAjouterPiece(){
+  var i=document.getElementById('msgi-piece-item').value;if(i===''||!_msgiPiecesListe[i])return;
+  var p=_msgiPiecesListe[i];
+  if(_msgiPieces.some(function(x){return x.t===p.t&&String(x.id)===String(p.id);}))return;
+  if(_msgiPieces.length>=5){alert('5 éléments maximum par message.');return;}
+  _msgiPieces.push(p);msgiMajPieces();
+}
+function msgiRetirerPiece(i){_msgiPieces.splice(i,1);msgiMajPieces();}
+function msgiMajPieces(){
+  var el=document.getElementById('msgi-pieces');if(!el)return;
+  el.innerHTML=_msgiPieces.map(function(p,i){return '<span style="display:inline-flex;gap:6px;align-items:center;border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:12px;margin:0 6px 6px 0">🔗 '+msgiEsc(p.label)+' <a href="#" style="color:var(--danger);text-decoration:none" onclick="msgiRetirerPiece('+i+');return false">✕</a></span>';}).join('');
+}
+function msgiOuvrirPiece(msgId,i){
+  var m=_msgiRecus.concat(_msgiEnvoyes).filter(function(x){return x.id===msgId;})[0];
+  var p=m&&m.pieces&&m.pieces[i];if(!p)return;
+  var src=msgiSource();
+  try{
+    if(p.t==='devis'||p.t==='facture'){
+      var d=src.docs.filter(function(x){return x.numero===p.num;})[0];
+      if(!d){alert('Document introuvable (numéro : '+p.num+'). Il a peut-être été supprimé.');return;}
+      if(src.app==='gestion'){showPage(d.type==='devis'?'devis':'factures');openDocModal(d.type,d.id);}
+      else{_lastDocsFicheClient=[d];ouvrirApercuDocument(0);}
+    }else if(p.t==='client'){
+      var c=src.clients.filter(function(x){return x.id===p.id;})[0];
+      if(!c){alert('Client introuvable. Il a peut-être été supprimé.');return;}
+      if(src.app==='gestion'){showPage('clients');openClientModal(c.id);}
+      else ouvrirFicheClient(c.nom);
+    }else if(p.t==='chantier'){
+      var e=src.events.filter(function(x){return x.id===p.id;})[0];
+      if(!e){alert('Chantier introuvable. Il a peut-être été supprimé.');return;}
+      if(src.app==='gestion'){showPage('planning');openEventModal(e.id);}
+      else alert('Chantier : '+(e.titre||'')+'\nDu '+(e.start||'?')+' au '+(e.end||e.start||'?')+'\n\nÀ consulter en détail dans l\'application Gestion devis & factures (Planning).');
+    }
+  }catch(err){console.error('Ouverture pièce jointe:',err);alert('Impossible d\'ouvrir cet élément depuis ici.');}
+}
+// ─── Envoi vers une adresse EXTERNE via EmailJS, protege par un code de validation ───
+// Le code est defini par l'administrateur dans le dashboard (Boites mail internes). Seule son
+// empreinte SHA-256 salee est stockee (messagerieConfig/externe). Le service EmailJS utilise la
+// configuration deja publiee par l'app de gestion (siteConfig/main.emailjsConfig).
+// ⚠️ Controle cote navigateur (comme tout EmailJS sans serveur) : choisir un code long.
+var _msgiExt=null,_msgiEjCfg=null,_msgiEchecsCode=0,_msgiBlocageJusqua=0;
+function msgiHash(sel,code){
+  if(!window.crypto||!crypto.subtle)return Promise.reject(new Error('crypto-indisponible'));
+  var buf=new TextEncoder().encode(sel+'|'+code);
+  return crypto.subtle.digest('SHA-256',buf).then(function(h){
+    return Array.prototype.map.call(new Uint8Array(h),function(b){return ('0'+b.toString(16)).slice(-2);}).join('');
+  });
+}
+function msgiChargerExt(){
+  if(!msgDb)return;
+  msgDb.collection('messagerieConfig').doc('externe').get().then(function(d){_msgiExt=d.exists?d.data():null;msgiMajExtUI();}).catch(function(e){console.warn('Config envoi externe:',e.code);_msgiExt=null;});
+  msgDb.collection('messagerieConfig').doc('modeles').get().then(function(d){_msgiModeles=(d.exists&&Array.isArray(d.data().liste))?d.data().liste:null;}).catch(function(){_msgiModeles=null;});
+  msgDb.collection('siteConfig').doc('main').get().then(function(d){_msgiEjCfg=d.exists?(d.data().emailjsConfig||null):null;}).catch(function(){_msgiEjCfg=null;});
+}
+function msgiMajExtUI(){
+  var cb=document.getElementById('msgi-ext');if(!cb)return;
+  var ok=!!(_msgiExt&&_msgiExt.actif&&_msgiExt.codeHash);
+  cb.disabled=!ok;
+  var n=document.getElementById('msgi-ext-note');
+  if(n)n.textContent=ok?'':' (non activé par l\'administrateur)';
+}
+function msgiToggleExt(){
+  var on=document.getElementById('msgi-ext').checked;
+  document.getElementById('msgi-ext-code-wrap').style.display=on?'flex':'none';
+  document.getElementById('msgi-ext-cc-wrap').style.display=on?'flex':'none';
+  document.getElementById('msgi-ext-extra').style.display=on?'flex':'none';
+  if(on)msgiRemplirModeles();
+  document.getElementById('msgi-to').placeholder=on?'adresse e-mail externe (une seule)':'prenom.nom@… — plusieurs : séparer par une virgule';
+  document.getElementById('msgi-to').removeAttribute('list');
+  if(!on)document.getElementById('msgi-to').setAttribute('list','msgi-datalist');
+}
+// N° de suivi : NM-AAMMJJ-XXXX (ex. NM-261019-K7Q2), repris dans l'objet et le pied du mail externe.
+// ─── Modeles de mails externes (geres par l'admin dans le dashboard : messagerieConfig/modeles) ───
+// Variables remplacees automatiquement : {client} {expediteur} {entreprise} {telephone} {email}
+var MSGI_MODELES_DEFAUT=[
+ {id:'relance',nom:'Relance de paiement',objet:'Rappel de règlement',corps:'Bonjour {client},\n\nSauf erreur de notre part, votre facture reste à régler. Pourriez-vous procéder au règlement dans les meilleurs délais ?\n\nSi vous l\'avez déjà effectué, merci de ne pas tenir compte de ce message.\n\nCordialement,\n{expediteur}\n{entreprise} — {telephone}'},
+ {id:'rdv',nom:'Confirmation de rendez-vous',objet:'Confirmation de votre rendez-vous',corps:'Bonjour {client},\n\nJe vous confirme notre rendez-vous prévu le [date] à [heure] à l\'adresse suivante : [adresse].\n\nN\'hésitez pas à me contacter en cas d\'empêchement.\n\nCordialement,\n{expediteur}\n{entreprise} — {telephone}'},
+ {id:'avis',nom:'Demande d\'avis',objet:'Votre avis nous intéresse',corps:'Bonjour {client},\n\nNous espérons que nos travaux vous ont donné entière satisfaction. Si c\'est le cas, pourriez-vous nous laisser un avis ? Cela nous aide beaucoup.\n\nMerci d\'avance,\n{expediteur}\n{entreprise}'},
+ {id:'suite',nom:'Suite à votre demande',objet:'Suite à votre demande',corps:'Bonjour {client},\n\nNous avons bien reçu votre demande et revenons vers vous rapidement pour convenir d\'une visite ou d\'un devis.\n\nCordialement,\n{expediteur}\n{entreprise} — {telephone}'}
+];
+var _msgiModeles=null;
+function msgiListeModeles(){return (_msgiModeles&&_msgiModeles.length)?_msgiModeles:MSGI_MODELES_DEFAUT;}
+function msgiRempl(t){
+  var cfg=_msgiEjCfg||{},nomEl=document.getElementById('msgi-ext-nom');
+  var client=(nomEl&&nomEl.value.trim())||'Madame, Monsieur';
+  return String(t||'').replace(/\{client\}/g,client).replace(/\{expediteur\}/g,(_msgiBoite&&_msgiBoite.nom)||msgiMonEmail())
+    .replace(/\{entreprise\}/g,cfg.nomEntreprise||'NICO MULTISERVICES').replace(/\{telephone\}/g,cfg.telEntreprise||'').replace(/\{email\}/g,cfg.emailEntreprise||'');
+}
+function msgiRemplirModeles(){
+  var sel=document.getElementById('msgi-modele');if(!sel)return;
+  sel.innerHTML='<option value="">— Aucun modèle —</option>'+msgiListeModeles().map(function(m,i){return '<option value="'+i+'">'+msgiEsc(m.nom)+'</option>';}).join('');
+}
+function msgiAppliquerModele(){
+  var i=document.getElementById('msgi-modele').value;if(i==='')return;
+  var m=msgiListeModeles()[i];if(!m)return;
+  document.getElementById('msgi-subject').value=msgiRempl(m.objet);
+  document.getElementById('msgi-body').value=msgiRempl(m.corps);
+}
+// Reponse a un client depuis un message transfere : prepare un envoi externe vers son adresse
+function msgiRepondreClient(id){
+  var m=_msgiRecus.filter(function(x){return x.id===id;})[0];if(!m||!m.clientEmail)return;
+  var sujet=String(m.subject||'').replace(/^(réponse client|transfert)\s*:\s*/i,'').replace(/\[NM-\d{6}-[A-Z0-9]{4}\]\s*/g,'').replace(/^(re|tr)\s*:\s*/i,'');
+  msgiNouveau({to:m.clientEmail,subject:'Re : '+sujet,body:''});
+  var cb=document.getElementById('msgi-ext');
+  if(cb&&!cb.disabled){cb.checked=true;msgiToggleExt();if(m.clientNom)document.getElementById('msgi-ext-nom').value=m.clientNom;}
+  else msgiStatus('L\'envoi externe n\'est pas activé : demandez à l\'administrateur.',true);
+}
+function msgiNouvelleRef(){
+  var c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',r='';
+  for(var i=0;i<4;i++)r+=c.charAt(Math.floor(Math.random()*c.length));
+  var d=new Date();
+  return 'NM-'+String(d.getFullYear()).slice(2)+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'-'+r;
+}
+function msgiEnvoyerExterne(brut,sujet,corps){
+  var btn=document.getElementById('msgi-send');
+  if(!_msgiExt||!_msgiExt.actif||!_msgiExt.codeHash){msgiStatus('L\'envoi externe n\'est pas activé par l\'administrateur.',true);return;}
+  var dest=brut.trim().toLowerCase();
+  if(!/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(dest)){msgiStatus('Saisissez une seule adresse e-mail externe valide.',true);return;}
+  if(dest.slice(-(MSGI_DOMAINE.length+1))==='@'+MSGI_DOMAINE){msgiStatus('C\'est une adresse interne : décochez « envoi externe ».',true);return;}
+  if(!sujet){msgiStatus('L\'objet est obligatoire pour un mail externe.',true);return;}
+  if(!corps){msgiStatus('Le message est vide.',true);return;}
+  if(_msgiPieces.length){msgiStatus('Les liens joints ne sont pas envoyés à l\'extérieur : retirez-les.',true);return;}
+  if(Date.now()<_msgiBlocageJusqua){msgiStatus('Trop de codes erronés. Réessayez dans '+Math.ceil((_msgiBlocageJusqua-Date.now())/60000)+' min.',true);return;}
+  var code=document.getElementById('msgi-ext-code').value;
+  if(!code){msgiStatus('Saisissez le code de validation.',true);return;}
+  var ccs=[];
+  (document.getElementById('msgi-ext-cc').value||'').split(/[,;\s]+/).forEach(function(x){x=x.trim().toLowerCase();if(x&&ccs.indexOf(x)===-1)ccs.push(x);});
+  for(var ci=0;ci<ccs.length;ci++){
+    var a=ccs[ci];
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a)||a.slice(-(MSGI_DOMAINE.length+1))!=='@'+MSGI_DOMAINE){msgiStatus('Copie interne : « '+a+' » n\'est pas une adresse mail interne.',true);return;}
+    if(a===msgiMonEmail()){msgiStatus('Inutile de vous mettre en copie : le mail figure dans vos Envoyés.',true);return;}
+    if(_msgiAdressesChargees&&!_msgiAdresses.some(function(x){return x.email===a;})){msgiStatus('Copie interne : boîte inconnue « '+a+' ».',true);return;}
+  }
+  var cfg=_msgiEjCfg;
+  if(!cfg||!cfg.actif||!cfg.publicKey||!cfg.serviceId||!cfg.templateId){msgiStatus('EmailJS n\'est pas configuré (Paramètres de l\'application Gestion devis & factures).',true);return;}
+  if(typeof emailjs==='undefined'){msgiStatus('EmailJS indisponible.',true);return;}
+  btn.disabled=true;msgiStatus('Vérification du code…',false);
+  msgiHash(_msgiExt.sel||'',code).then(function(h){
+    if(h!==_msgiExt.codeHash){
+      _msgiEchecsCode++;
+      if(_msgiEchecsCode>=5){_msgiBlocageJusqua=Date.now()+5*60000;_msgiEchecsCode=0;}
+      btn.disabled=false;msgiStatus('Code de validation incorrect.',true);return null;
+    }
+    _msgiEchecsCode=0;msgiStatus('Envoi…',false);
+    var nom=(_msgiBoite&&_msgiBoite.nom)||'';var ent=cfg.nomEntreprise||'NICO MULTISERVICES';
+    var ref=msgiNouvelleRef();
+    var pied='\n\n————————————————\nEnvoyé par : '+(nom||msgiMonEmail())+' ('+ent+')\nBoîte mail interne : '+msgiMonEmail()+'\nN° de suivi : '+ref+'\nMerci de conserver ce n° de suivi dans l\'objet de votre réponse.';
+    var params={to_email:dest,to_name:((document.getElementById('msgi-ext-nom')&&document.getElementById('msgi-ext-nom').value.trim())||dest),cc_email:'',subject:'['+ref+'] '+sujet,
+      message:corps+pied,
+      from_name:(nom?nom+' — ':'')+ent,reply_to:cfg.emailEntreprise||''};
+    return emailjs.send(cfg.serviceId,cfg.templateId,params,{publicKey:cfg.publicKey}).then(function(){
+      // Journal de suivi : permet a l'administrateur de retrouver expediteur + boite interne a partir du n° ou du destinataire
+      msgDb.collection('messagerieExternes').doc(ref).set({ref:ref,fromUid:msgUser.uid,fromEmail:msgiMonEmail(),fromNom:nom,toExterne:dest,subject:sujet,date:firebase.firestore.FieldValue.serverTimestamp()}).catch(function(e){
+        console.error('Journal de suivi:',e);
+        alert('⚠️ Mail envoyé (n° '+ref+') mais le suivi n\'a pas pu être enregistré : règle Firestore « messagerieExternes » manquante.');
+      });
+      return msgDb.collection('messagerieInterne').add({
+        fromUid:msgUser.uid,fromEmail:msgiMonEmail(),fromNom:nom,toEmail:dest,externe:true,ref:ref,cc:ccs,
+        subject:sujet,body:corps,lu:true,supprimeExp:false,supprimeDest:true,
+        date:firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }).then(function(){
+      // Copies internes : un message par boite en copie (le mail externe est deja parti ; un echec ici n'annule rien)
+      if(!ccs.length)return;
+      return Promise.all(ccs.map(function(a){
+        return msgDb.collection('messagerieInterne').add({
+          fromUid:msgUser.uid,fromEmail:msgiMonEmail(),fromNom:nom,toEmail:a,copie:true,ref:ref,
+          subject:sujet,body:'📋 Copie interne d\'un mail envoyé à '+dest+' (N° de suivi '+ref+')\n\n————————\n'+corps,
+          lu:false,supprimeExp:true,supprimeDest:false,date:firebase.firestore.FieldValue.serverTimestamp()
+        });
+      })).catch(function(e){console.error('Copies internes:',e);alert('⚠️ Mail envoyé, mais les copies internes n\'ont pas pu être remises.');});
+    }).then(function(){_msgiOnglet='envoyes';_msgiOuvert=null;msgiRendre();});
+  }).catch(function(e){
+    console.error('Envoi externe:',e);btn.disabled=false;
+    msgiStatus('❌ Envoi impossible : '+((e&&(e.text||e.message))||'erreur inconnue'),true);
+  });
+}
+function msgiNouveau(prefill){
+  _msgiOnglet='nouveau';_msgiOuvert=null;_msgiPieces=[];
+  var r=document.getElementById('msgi-root');if(r)r.innerHTML='';
+  msgiRendre();
+  msgiMajPieces();
+  if(prefill){
+    document.getElementById('msgi-to').value=prefill.to||'';
+    document.getElementById('msgi-subject').value=prefill.subject||'';
+    document.getElementById('msgi-body').value=prefill.body||'';
+  }
+}
+function msgiOuvert(id){
+  _msgiOuvert=id;
+  if(id&&_msgiOnglet==='recus'){
+    var m=_msgiRecus.filter(function(x){return x.id===id;})[0];
+    if(m&&!m.lu){
+      m.lu=true;
+      msgDb.collection('messagerieInterne').doc(id).update({lu:true,luLe:firebase.firestore.FieldValue.serverTimestamp()}).catch(function(e){console.error('Marquage lu:',e);});
+      msgiMajBadge();
+    }
+  }
+  msgiRendre();
+}
+function msgiRepondre(id){
+  var m=_msgiRecus.filter(function(x){return x.id===id;})[0];if(!m)return;
+  var sujet=/^re\s*:/i.test(m.subject||'')?m.subject:'Re : '+(m.subject||'');
+  msgiNouveau({to:m.fromEmail,subject:sujet,body:'\n\n————————\nLe '+msgiDate(m.date)+', '+(m.fromNom||m.fromEmail)+' a écrit :\n'+(m.body||'')});
+}
+function msgiSupprimer(id,recu){
+  if(!confirm('Supprimer ce message de votre boîte ?'))return;
+  msgDb.collection('messagerieInterne').doc(id).update(recu?{supprimeDest:true}:{supprimeExp:true}).then(function(){_msgiOuvert=null;msgiRendre();}).catch(function(e){console.error(e);alert('⚠️ Suppression impossible (voir la console).');});
+}
+function msgiStatus(txt,erreur){
+  var s=document.getElementById('msgi-status');if(!s)return;
+  s.style.display=txt?'block':'none';s.style.color=erreur?'var(--danger)':'var(--muted)';s.textContent=txt||'';
+}
+function msgiEnvoyer(){
+  if(!msgUser){alert('Boîte non connectée.');return;}
+  var brut=document.getElementById('msgi-to').value;
+  var sujet=document.getElementById('msgi-subject').value.trim();
+  var corps=document.getElementById('msgi-body').value.trim();
+  if(document.getElementById('msgi-ext')&&document.getElementById('msgi-ext').checked){msgiEnvoyerExterne(brut,msgiRempl(sujet),msgiRempl(corps));return;}
+  var dests=[];brut.split(/[,;\s]+/).forEach(function(x){x=x.trim().toLowerCase();if(x&&dests.indexOf(x)===-1)dests.push(x);});
+  if(!dests.length){msgiStatus('Saisissez l\'adresse mail interne du destinataire.',true);return;}
+  var re=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  for(var i=0;i<dests.length;i++){if(!re.test(dests[i])){msgiStatus('Adresse invalide : '+dests[i],true);return;}}
+  if(!corps){msgiStatus('Le message est vide.',true);return;}
+  if(_msgiAdressesChargees){
+    var inconnues=dests.filter(function(d){return !_msgiAdresses.some(function(a){return a.email===d;});});
+    if(inconnues.length){msgiStatus('Boîte mail interne inconnue : '+inconnues.join(', ')+'. Elle doit d\'abord être créée dans le dashboard.',true);return;}
+  }
+  var btn=document.getElementById('msgi-send');btn.disabled=true;msgiStatus('Envoi…',false);
+  Promise.all(dests.map(function(d){
+    return msgDb.collection('messagerieInterne').add({
+      fromUid:msgUser.uid,fromEmail:msgiMonEmail(),fromNom:(_msgiBoite&&_msgiBoite.nom)||'',toEmail:d,
+      subject:sujet,body:corps,pieces:_msgiPieces.slice(),lu:false,supprimeExp:false,supprimeDest:false,
+      date:firebase.firestore.FieldValue.serverTimestamp()
+    });
+  })).then(function(){_msgiPieces=[];_msgiOnglet='envoyes';_msgiOuvert=null;msgiRendre();
+  }).catch(function(e){
+    console.error('Envoi message interne:',e);btn.disabled=false;
+    msgiStatus('❌ Envoi impossible'+(e.code==='permission-denied'?' : règle Firestore « messagerieInterne » manquante.':'.'),true);
+  });
 }
 
 // ═══ PREMIERE CONNEXION : verifie (cote serveur, pas juste localStorage) si ce compte a
