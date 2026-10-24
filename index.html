@@ -3961,6 +3961,222 @@ function hideAuthScreen(){
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// GARDE OTP (double authentification) — module commun à toutes les applications.
+// Utilisation : appeler otpGarde(user, fbDb, fbAuth) juste après une connexion réussie,
+// et otpFermer() à la déconnexion. L'administrateur choisit, compte par compte
+// (dashboard > 🔐 Double authentification) :
+//   • « App d'authentification » : code à 6 chiffres (Google Authenticator, Authy…), TOTP RFC 6238.
+//   • « Code par message » : si une boîte mail interne est liée au compte, le code y est déposé
+//     (sans EmailJS) ; s'il n'est pas lu dans la minute, on propose l'envoi par e-mail (EmailJS).
+//     Sans boîte liée, le code part directement par e-mail (EmailJS).
+// Collections : otpUsers/{uid} (réglages, lisibles par le compte et les admins),
+//               otpSecrets/{uid} (secret TOTP, lisible UNIQUEMENT par le compte).
+// ⚠️ Contrôle côté navigateur : il bloque l'usage normal des applications, mais ne remplace pas
+// une vérification serveur (voir les explications fournies avec ce module).
+// ═══════════════════════════════════════════════════════════════════════════
+var _otp={user:null,cfg:null,db:null,auth:null,code:null,codeExp:0,essais:0,msgId:null,unsubLu:null,timers:[],lu:false,emailEnvoye:false,tentTotp:0,blocJusqua:0};
+function otpEsc(s){return (s===null||s===undefined)?'':String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function otpMasque(m){m=String(m||'');var i=m.indexOf('@');return i<2?m:m.charAt(0)+'***'+m.slice(i);}
+function otpArreterTimers(){_otp.timers.forEach(function(t){clearTimeout(t);clearInterval(t);});_otp.timers=[];if(_otp.unsubLu){try{_otp.unsubLu();}catch(e){}_otp.unsubLu=null;}}
+function otpFermer(){
+  otpArreterTimers();
+  var el=document.getElementById('otp-garde');if(el&&el.parentNode)el.parentNode.removeChild(el);
+  _otp.user=null;_otp.code=null;_otp.msgId=null;
+}
+function otpGarde(user,db,auth){
+  if(!user||!db){console.log('[OTP] appel ignoré (utilisateur ou base absents)');return;}
+  _otp.db=db;_otp.auth=auth;
+  if(_otp.user&&_otp.user.uid===user.uid&&document.getElementById('otp-garde'))return;
+  _otp.user=user;
+  console.log('[OTP] vérification pour',user.email,'(uid '+user.uid+')');
+  db.collection('otpUsers').doc(user.uid).get().then(function(d){
+    if(!d.exists){console.log('[OTP] aucun réglage pour ce compte (document otpUsers/'+user.uid+' absent) : pas de contrôle');return;}
+    var c=d.data();if(!c.methode||c.methode==='off'){console.log('[OTP] méthode désactivée pour ce compte');return;}
+    _otp.cfg=c;var v=String(c.version||0);
+    try{if(sessionStorage.getItem('otp_ok_'+user.uid)===v){console.log('[OTP] déjà validé dans cette session');return;}}catch(e){}
+    try{var t=JSON.parse(localStorage.getItem('otp_trust_'+user.uid)||'null');if(t&&String(t.v)===v&&t.exp>Date.now()){console.log('[OTP] appareil de confiance valide');return;}}catch(e){}
+    console.log('[OTP] méthode',c.methode,'→ affichage de l\'écran de vérification');
+    otpAfficher();
+  }).catch(function(e){
+    console.warn('OTP : réglages illisibles (règle Firestore « otpUsers » manquante ?) — contrôle ignoré.',e&&e.code);
+    otpAvertir('⚠️ Double authentification inactive : lecture de « otpUsers » refusée ('+((e&&e.code)||'erreur')+'). Republiez le fichier firestore.rules dans la console Firebase.');
+  });
+}
+function otpAvertir(t){
+  if(document.getElementById('otp-avert'))return;
+  var b=document.createElement('div');b.id='otp-avert';
+  b.style.cssText='position:fixed;left:0;right:0;top:0;z-index:2147482000;background:#B91C1C;color:#fff;font:600 13px system-ui,sans-serif;padding:9px 14px;display:flex;gap:12px;align-items:center;justify-content:center;text-align:center';
+  b.innerHTML='<span></span><button type="button" style="background:#fff;color:#B91C1C;border:none;border-radius:6px;padding:3px 10px;font-weight:700;cursor:pointer" onclick="this.parentNode.remove()">OK</button>';
+  b.firstChild.textContent=t;document.body.appendChild(b);
+}
+// ─── Interface (plein écran, au-dessus de l'application) ───
+function otpAfficher(){
+  if(!document.getElementById('otp-garde')){
+    var el=document.createElement('div');el.id='otp-garde';
+    el.innerHTML='<style>'+
+      '#otp-garde{position:fixed;inset:0;z-index:2147483000;background:linear-gradient(135deg,#0F172A,#1E293B);display:flex;align-items:center;justify-content:center;padding:16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#E2E8F0;overflow:auto}'+
+      '#otp-garde .otp-card{background:#1E293B;border:1px solid #334155;border-radius:16px;padding:26px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.45)}'+
+      '#otp-garde h2{margin:0 0 6px;font-size:18px}#otp-garde p{font-size:13px;line-height:1.55;color:#94A3B8;margin:0 0 14px}'+
+      '#otp-garde input[type=text]{width:100%;box-sizing:border-box;padding:13px;border-radius:10px;border:1.5px solid #475569;background:#0F172A;color:#F1F5F9;font-size:22px;letter-spacing:.35em;text-align:center;font-family:ui-monospace,Menlo,Consolas,monospace}'+
+      '#otp-garde button{padding:10px 16px;border-radius:10px;border:none;background:#C2703D;color:#fff;font-weight:700;font-size:13.5px;cursor:pointer;font-family:inherit}'+
+      '#otp-garde button.sec{background:transparent;color:#CBD5E1;border:1px solid #475569}'+
+      '#otp-garde .otp-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}'+
+      '#otp-garde .otp-err{color:#F87171;font-size:12.5px;min-height:16px;margin-top:8px}'+
+      '#otp-garde .otp-key{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0F172A;border-radius:8px;padding:8px 10px;font-size:13px;word-break:break-all;letter-spacing:.08em;margin:6px 0 12px;user-select:all}'+
+      '#otp-garde label.otp-c{display:flex;gap:8px;align-items:center;font-size:12.5px;color:#94A3B8;margin-top:12px}'+
+      '</style><div class="otp-card" id="otp-corps"></div>';
+    document.body.appendChild(el);
+  }
+  if(_otp.cfg.methode==='totp')otpEtapeTotp();else otpEtapeCode();
+}
+function otpCorps(html){var c=document.getElementById('otp-corps');if(c)c.innerHTML=html;}
+function otpBoutonsBas(){return '<div class="otp-row"><button type="button" class="sec" onclick="otpDeconnexion()">Se déconnecter</button></div>';}
+function otpDeconnexion(){otpFermer();if(_otp.auth)_otp.auth.signOut();}
+function otpErr(t){var e=document.getElementById('otp-err');if(e)e.textContent=t||'';}
+function otpSaisie(onValider){
+  return '<input type="text" id="otp-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" onkeydown="if(event.key===\'Enter\')'+onValider+'()">'+
+    '<label class="otp-c"><input type="checkbox" id="otp-trust"> Faire confiance à cet appareil pendant 30 jours</label><div class="otp-err" id="otp-err"></div>';
+}
+function otpReussi(){
+  var uid=_otp.user.uid,v=String(_otp.cfg.version||0);
+  try{sessionStorage.setItem('otp_ok_'+uid,v);}catch(e){}
+  var t=document.getElementById('otp-trust');
+  if(t&&t.checked){try{localStorage.setItem('otp_trust_'+uid,JSON.stringify({v:v,exp:Date.now()+30*86400000}));}catch(e){}}
+  if(_otp.msgId&&_otp.db){_otp.db.collection('messagerieInterne').doc(_otp.msgId).delete().catch(function(){});}
+  otpFermer();
+}
+// ─── TOTP (RFC 6238 : HMAC-SHA1, 6 chiffres, pas de 30 s) ───
+var OTP_B32='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+function otpB32Enc(b){var bits='',o='',i;for(i=0;i<b.length;i++)bits+=('00000000'+b[i].toString(2)).slice(-8);for(i=0;i+5<=bits.length;i+=5)o+=OTP_B32.charAt(parseInt(bits.substr(i,5),2));return o;}
+function otpB32Dec(s){var bits='',out=[],i;s=String(s).replace(/[=\s]/g,'').toUpperCase();for(i=0;i<s.length;i++){var k=OTP_B32.indexOf(s.charAt(i));if(k<0)continue;bits+=('00000'+k.toString(2)).slice(-5);}for(i=0;i+8<=bits.length;i+=8)out.push(parseInt(bits.substr(i,8),2));return new Uint8Array(out);}
+function otpTotp(secret,counter){
+  var buf=new ArrayBuffer(8),dv=new DataView(buf);dv.setUint32(0,Math.floor(counter/4294967296));dv.setUint32(4,counter>>>0);
+  return crypto.subtle.importKey('raw',otpB32Dec(secret),{name:'HMAC',hash:'SHA-1'},false,['sign']).then(function(k){return crypto.subtle.sign('HMAC',k,buf);}).then(function(sig){
+    var h=new Uint8Array(sig),o=h[19]&15,n=((h[o]&127)<<24)|(h[o+1]<<16)|(h[o+2]<<8)|h[o+3];
+    return ('000000'+(n%1000000)).slice(-6);
+  });
+}
+function otpVerifTotp(secret,code){
+  var c=Math.floor(Date.now()/30000);
+  return Promise.all([-1,0,1].map(function(d){return otpTotp(secret,c+d);})).then(function(a){return a.indexOf(code)!==-1;});
+}
+var _otpSecretNouveau=null;
+function otpEtapeTotp(){
+  otpCorps('<h2>🔐 Vérification en deux étapes</h2><p>Chargement…</p>');
+  _otp.db.collection('otpSecrets').doc(_otp.user.uid).get().then(function(d){
+    if(d.exists&&d.data().secret){_otpSecretNouveau=null;otpEcranTotp(d.data().secret,false);return;}
+    var b=new Uint8Array(20);crypto.getRandomValues(b);_otpSecretNouveau=otpB32Enc(b);
+    otpEcranTotp(_otpSecretNouveau,true);
+  }).catch(function(e){console.warn('OTP secret:',e);otpCorps('<h2>🔐 Vérification en deux étapes</h2><p style="color:#F87171">Lecture impossible (règle Firestore « otpSecrets » manquante ?). Contactez l\'administrateur.</p>'+otpBoutonsBas());});
+}
+function otpChargerQR(cb){
+  if(window.qrcode)return cb();
+  var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';
+  s.onload=function(){cb();};s.onerror=function(){cb();};document.head.appendChild(s);
+}
+function otpEcranTotp(secret,config){
+  var html='<h2>🔐 Vérification en deux étapes</h2>';
+  if(config){
+    var uri='otpauth://totp/'+encodeURIComponent('NICO MULTISERVICES:'+(_otp.user.email||''))+'?secret='+secret+'&issuer='+encodeURIComponent('NICO MULTISERVICES')+'&algorithm=SHA1&digits=6&period=30';
+    html+='<p><b>Première configuration.</b> Dans une application d\'authentification (Google Authenticator, Authy, Microsoft Authenticator…), ajoutez un compte en scannant ce QR code ou en saisissant la clé, puis tapez le code à 6 chiffres affiché.</p>'+
+      '<div id="otp-qr" style="text-align:center;margin-bottom:6px"></div><div style="font-size:11.5px;color:#94A3B8">Clé de configuration manuelle :</div><div class="otp-key">'+otpEsc(secret.replace(/(.{4})/g,'$1 ').trim())+'</div>';
+    otpCorps(html+otpSaisie('otpValiderTotp')+'<div class="otp-row"><button type="button" onclick="otpValiderTotp()">Activer et continuer</button><button type="button" class="sec" onclick="otpDeconnexion()">Se déconnecter</button></div>');
+    otpChargerQR(function(){
+      var h=document.getElementById('otp-qr');if(!h||!window.qrcode)return;
+      try{var q=qrcode(0,'M');q.addData(uri);q.make();h.innerHTML='<div style="display:inline-block;background:#fff;padding:8px;border-radius:8px">'+q.createImgTag(4,0)+'</div>';}catch(e){}
+    });
+  }else{
+    otpCorps(html+'<p>Saisissez le code à 6 chiffres affiché dans votre application d\'authentification.</p>'+otpSaisie('otpValiderTotp')+'<div class="otp-row"><button type="button" onclick="otpValiderTotp()">Valider</button><button type="button" class="sec" onclick="otpDeconnexion()">Se déconnecter</button></div><p style="margin-top:14px;font-size:12px">Téléphone perdu ? Demandez à l\'administrateur de réinitialiser votre double authentification.</p>');
+  }
+  var i=document.getElementById('otp-code');if(i)i.focus();
+}
+function otpValiderTotp(){
+  var code=(document.getElementById('otp-code').value||'').replace(/\D/g,'');
+  if(Date.now()<_otp.blocJusqua){otpErr('Trop d\'essais : patientez '+Math.ceil((_otp.blocJusqua-Date.now())/1000)+' s.');return;}
+  if(code.length!==6){otpErr('Saisissez les 6 chiffres.');return;}
+  var secret=_otpSecretNouveau;
+  var pSecret=secret?Promise.resolve(secret):_otp.db.collection('otpSecrets').doc(_otp.user.uid).get().then(function(d){return d.data().secret;});
+  pSecret.then(function(s){secret=s;return otpVerifTotp(s,code);}).then(function(ok){
+    if(!ok){_otp.tentTotp++;if(_otp.tentTotp>=5){_otp.tentTotp=0;_otp.blocJusqua=Date.now()+30000;}otpErr('Code incorrect.');return;}
+    _otp.tentTotp=0;
+    if(_otpSecretNouveau){
+      return _otp.db.collection('otpSecrets').doc(_otp.user.uid).set({secret:_otpSecretNouveau,date:firebase.firestore.FieldValue.serverTimestamp()}).then(function(){
+        return _otp.db.collection('otpUsers').doc(_otp.user.uid).update({totpOk:true}).catch(function(){});
+      }).then(function(){_otpSecretNouveau=null;otpReussi();});
+    }
+    otpReussi();
+  }).catch(function(e){console.error('OTP:',e);otpErr('Erreur : '+(e&&(e.code||e.message)||'inconnue'));});
+}
+// ─── Code envoyé (boîte mail interne, sinon e-mail EmailJS) ───
+function otpEtapeCode(){
+  otpCorps('<h2>🔐 Vérification en deux étapes</h2><p id="otp-info">Envoi du code…</p>'+otpSaisie('otpValiderCode')+
+    '<div class="otp-row"><button type="button" onclick="otpValiderCode()">Valider</button><button type="button" class="sec" id="otp-btn-boite" style="display:none" onclick="window.open(\'messagerie.html\',\'_blank\')">📬 Ouvrir la messagerie</button>'+
+    '<button type="button" class="sec" id="otp-btn-email" style="display:none" onclick="otpEnvoyerEmail(true)">📧 Recevoir par e-mail</button>'+
+    '<button type="button" class="sec" id="otp-btn-renvoi" style="display:none" onclick="otpEnvoyerCode()">↻ Renvoyer</button>'+
+    '<button type="button" class="sec" onclick="otpDeconnexion()">Se déconnecter</button></div>');
+  otpEnvoyerCode();
+}
+function otpInfo(h){var e=document.getElementById('otp-info');if(e)e.innerHTML=h;}
+function otpMontrer(id,on){var e=document.getElementById(id);if(e)e.style.display=on?'':'none';}
+function otpEnvoyerCode(){
+  otpArreterTimers();
+  var a=new Uint32Array(1);crypto.getRandomValues(a);
+  _otp.code=('000000'+(a[0]%1000000)).slice(-6);_otp.codeExp=Date.now()+5*60000;_otp.essais=0;_otp.lu=false;_otp.emailEnvoye=false;
+  otpErr('');otpMontrer('otp-btn-email',false);otpMontrer('otp-btn-renvoi',false);otpMontrer('otp-btn-boite',false);
+  var boite=_otp.cfg.boite;
+  if(!boite){otpEnvoyerEmail(false);return;}
+  otpInfo('Envoi du code dans votre boîte mail interne…');
+  var u=_otp.user,ts=firebase.firestore.FieldValue.serverTimestamp();
+  _otp.db.collection('messagerieInterne').add({fromUid:u.uid,fromEmail:(u.email||'').toLowerCase(),fromNom:'Sécurité',toEmail:String(boite).toLowerCase(),otp:true,sansReponse:true,
+    subject:'🔐 Code de connexion',body:'Votre code de connexion : '+_otp.code+'\n\nValable 5 minutes. Ne le communiquez à personne.\nSi vous n\'êtes pas à l\'origine de cette connexion, prévenez l\'administrateur.',
+    lu:false,supprimeExp:true,supprimeDest:false,date:ts}).then(function(ref){
+    _otp.msgId=ref.id;
+    otpInfo('Un code à 6 chiffres vient d\'être déposé dans votre boîte mail interne <b>'+otpEsc(boite)+'</b>. Ouvrez la messagerie, lisez le message puis saisissez le code ci-dessous.');
+    otpMontrer('otp-btn-boite',true);
+    _otp.unsubLu=_otp.db.collection('messagerieInterne').doc(ref.id).onSnapshot(function(s){
+      if(s.exists&&s.data().lu){_otp.lu=true;otpInfo('✓ Code lu dans votre boîte mail interne. Saisissez-le ci-dessous.');otpMontrer('otp-btn-email',false);}
+    },function(){});
+    // Pas lu dans la minute : on propose l'envoi par e-mail (EmailJS)
+    _otp.timers.push(setTimeout(function(){
+      if(_otp.lu||_otp.emailEnvoye)return;
+      otpInfo('Vous n\'êtes pas connecté à votre boîte mail interne ? Le code n\'a pas été lu. Vous pouvez le recevoir par e-mail à <b>'+otpEsc(otpMasque(_otp.cfg.emailPerso||_otp.user.email))+'</b>.');
+      otpMontrer('otp-btn-email',true);otpMontrer('otp-btn-renvoi',true);
+    },60000));
+  }).catch(function(e){
+    console.warn('OTP boîte interne:',e);
+    otpInfo('Dépôt dans la boîte mail interne impossible. Vous pouvez recevoir le code par e-mail.');otpMontrer('otp-btn-email',true);
+  });
+}
+function otpEnvoyerEmail(manuel){
+  var dest=String(_otp.cfg.emailPerso||_otp.user.email||'').trim();
+  if(!dest){otpInfo('Aucune adresse e-mail enregistrée : contactez l\'administrateur.');return;}
+  otpInfo('Envoi du code par e-mail à <b>'+otpEsc(otpMasque(dest))+'</b>…');otpMontrer('otp-btn-email',false);
+  _otp.db.collection('siteConfig').doc('main').get().then(function(d){
+    var cfg=d.exists?(d.data().emailjsConfig||null):null;
+    if(!cfg||!cfg.actif||!cfg.publicKey||!cfg.serviceId||!cfg.templateId)throw new Error('EmailJS non configuré');
+    if(typeof emailjs==='undefined')throw new Error('EmailJS indisponible');
+    var ent=cfg.nomEntreprise||'NICO MULTISERVICES';
+    return emailjs.send(cfg.serviceId,cfg.templateId,{to_email:dest,to_name:dest,cc_email:'',subject:'Votre code de connexion',
+      message:'Votre code de connexion '+ent+' : '+_otp.code+'\n\nValable 5 minutes. Ne le communiquez à personne.\nSi vous n\'êtes pas à l\'origine de cette connexion, prévenez l\'administrateur.',
+      from_name:ent,reply_to:cfg.emailEntreprise||''},{publicKey:cfg.publicKey});
+  }).then(function(){
+    _otp.emailEnvoye=true;otpInfo('Code envoyé par e-mail à <b>'+otpEsc(otpMasque(dest))+'</b>. Saisissez-le ci-dessous (valable 5 minutes).');
+    otpMontrer('otp-btn-renvoi',true);
+  }).catch(function(e){
+    console.warn('OTP e-mail:',e);otpInfo('❌ Envoi par e-mail impossible : '+otpEsc((e&&(e.text||e.message))||'erreur')+'. Contactez l\'administrateur.');otpMontrer('otp-btn-renvoi',true);
+  });
+}
+function otpValiderCode(){
+  var code=(document.getElementById('otp-code').value||'').replace(/\D/g,'');
+  if(!_otp.code){otpErr('Aucun code en cours : cliquez sur Renvoyer.');return;}
+  if(code.length!==6){otpErr('Saisissez les 6 chiffres.');return;}
+  if(Date.now()>_otp.codeExp){otpErr('Code expiré : cliquez sur Renvoyer.');otpMontrer('otp-btn-renvoi',true);return;}
+  if(_otp.essais>=5){otpErr('Trop d\'essais : cliquez sur Renvoyer pour obtenir un nouveau code.');otpMontrer('otp-btn-renvoi',true);return;}
+  if(code!==_otp.code){_otp.essais++;otpErr('Code incorrect ('+(5-_otp.essais)+' essai(s) restant(s)).');return;}
+  otpReussi();
+}
+
 function showAuthScreen(){
   document.body.classList.add('auth-locked');
   var authContainer=document.getElementById('auth-screen');
@@ -3981,6 +4197,7 @@ function checkAuthStatus(){
       return;
     }
       console.log('Utilisateur connecté:',user.email);
+      otpGarde(user,fbDb,fbAuth);
       traceEvent('page_vue','Connexion gestion — '+user.email);
       hideAuthScreen();
       verifierVerrouillageCompteActuel();
@@ -3997,6 +4214,7 @@ function checkAuthStatus(){
     }else{
       console.log('Pas de session active');
       showAuthScreen();
+      otpFermer();
       msgiFermerSession();
       isAdmin=false;
       userRole='employe';
@@ -7650,6 +7868,7 @@ function renderDevis(){
     return '<tr'+(enMaintenance?' style="background:#2A1416"':'')+'><td><strong>'+esc(d.numero)+'</strong></td><td>'+(c?esc(c.nom):'—')+associesBadge+'</td><td>'+fmtDate(d.date)+'</td><td><strong>'+fmt(d.totalHT)+' €</strong></td><td>'+statutBadge+'</td><td style="display:flex;gap:3px;flex-wrap:wrap">'+
       '<button class="btn btn-ghost btn-sm" onclick="showPv('+d.id+')">👁</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="openDocModal(\'devis\','+d.id+')">✏️</button>'+
+      '<button class="btn btn-ghost btn-sm" title="Préparer un mail avec toutes les infos" onclick="msgiBrouillonDepuisDocument('+d.id+')">✉️</button>'+
       (d.convertiEnFacture?'':'<button class="btn btn-ghost btn-sm" onclick="openModalScanSignature('+d.id+')" title="Scanner le devis signé à la main">📷</button>')+
       signMobileBtn+convertBtn+acompteBtn+soldeBtn+histBtn+consultBtn+
       '<button class="btn btn-primary btn-sm" onclick="downloadPDF('+d.id+',true)">⬇</button>'+
@@ -7836,6 +8055,7 @@ function renderFactures(){
     return '<tr'+(enMaintenance?' style="background:#2A1416"':'')+'><td><strong>'+esc(d.numero)+'</strong>'+acompteTag+'</td><td>'+(c?esc(c.nom):'—')+associesBadge+'</td><td>'+fmtDate(d.date)+'</td><td><strong>'+fmt(d.totalHT)+' €</strong></td><td>'+maintBadge+'<span class="badge '+bc+'">'+lb+'</span></td><td style="display:flex;gap:3px;flex-wrap:wrap">'+
       '<button class="btn btn-ghost btn-sm" onclick="showPv('+d.id+')">👁</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="openDocModal(\'facture\','+d.id+')">✏️</button>'+
+      '<button class="btn btn-ghost btn-sm" title="Préparer un mail avec toutes les infos" onclick="msgiBrouillonDepuisDocument('+d.id+')">✉️</button>'+
       (!paid?'<button class="btn btn-accent btn-sm" onclick="openReceiptModal('+d.id+')">💰</button>':'<button class="btn btn-ghost btn-sm" onclick="downloadReceiptPDF('+d.id+')" title="Recu">🧾</button>')+
       (!paid&&d.statut!=='annulee'?'<button class="btn btn-ghost btn-sm" style="color:#B91C1C" onclick="ouvrirMiseEnDemeure('+d.id+')" title="Générer une mise en demeure">✉️</button>':'')+
       ((d.paiements&&d.paiements.length)?'<button class="btn btn-ghost btn-sm" style="color:#B45309" onclick="openRefundModal('+d.id+')" title="Rembourser">↩️</button>':'')+
@@ -12898,7 +13118,7 @@ function msgiSurChangementAuth(user){
     }
     _msgiBoite=doc.data();
     if(_msgiBoite.mdpProvisoire===true){_msgiEtat='chmdp';msgiRendre();return;}
-    _msgiEtat='ok';msgiDemarrerEcoute();msgiRendre();
+    _msgiEtat='ok';msgiDemarrerEcoute();msgiRendre();msgiAppliquerDocEnAttente();
   }).catch(function(e){
     console.error('Lecture boîte:',e);
     _msgiLoginErr='Accès refusé : règle Firestore « boitesMail » manquante ou compte invalide.';
@@ -12936,6 +13156,34 @@ function msgiMemoriserMdp(mdp){
     });
   }).catch(function(e){console.warn('Coffre des mots de passe:',e);return detruire();});
 }
+// ─── Changement de mot de passe a tout moment par le proprietaire de la boite ───
+function msgiOuvrirMonMdp(){_msgiEtat='monmdp';var r=document.getElementById('msgi-root');if(r)r.innerHTML='';msgiRendre();}
+function msgiAnnulerMonMdp(){_msgiEtat='ok';msgiRendre();}
+function msgiMonMdp(){
+  var cur=document.getElementById('msgi-cur').value,a=document.getElementById('msgi-new2').value,b=document.getElementById('msgi-conf2').value;
+  var st=document.getElementById('msgi-monmdp-status');st.style.color='var(--danger)';
+  if(!cur){st.textContent='Saisissez votre mot de passe actuel.';return;}
+  if(a.length<8){st.textContent='8 caractères minimum.';return;}
+  if(a.length>100){st.textContent='100 caractères maximum.';return;}
+  if(a!==b){st.textContent='Les deux mots de passe ne correspondent pas.';return;}
+  if(a===cur){st.textContent='Le nouveau mot de passe doit être différent de l\'actuel.';return;}
+  st.style.color='var(--muted)';st.textContent='Vérification…';
+  msgUser.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(msgUser.email,cur)).then(function(){
+    return msgUser.updatePassword(a);
+  }).then(function(){
+    return msgDb.collection('boitesMail').doc(msgiMonEmail()).update({mdpChangeLe:firebase.firestore.FieldValue.serverTimestamp()});
+  }).then(function(){
+    return msgiMemoriserMdp(a);
+  }).then(function(){
+    _msgiEtat='ok';msgiRendre();alert('✅ Mot de passe modifié.');
+  }).catch(function(e){
+    st.style.color='var(--danger)';
+    if(e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'||e.code==='auth/invalid-login-credentials')st.textContent='Mot de passe actuel incorrect.';
+    else if(e.code==='auth/too-many-requests')st.textContent='Trop de tentatives, réessayez dans quelques minutes.';
+    else if(e.code==='auth/weak-password')st.textContent='Mot de passe trop faible.';
+    else st.textContent='Erreur : '+(e.message||e.code);
+  });
+}
 function msgiChangerMdp(){
   var a=document.getElementById('msgi-new').value,b=document.getElementById('msgi-conf').value;
   var st=document.getElementById('msgi-chmdp-status');st.style.color='var(--danger)';
@@ -12958,37 +13206,304 @@ function msgiChangerMdp(){
 }
 
 // Ecoute temps reel. Pas d'orderBy : tri cote client (aucun index composite a creer).
+var _msgiSrcRecus={}, _msgiUnsubP=[], _msgiPartagees=[], _msgiUnsubB=null, _msgiBrouillons=[], _msgiUnsubT=[], _msgiTachesSrc={}, _msgiTaches=[], _msgiBrouillonId=null, _msgiTachePre=null, _msgiDocEnAttente=null, _msgiDocListe=[];
+function msgiRecomposerRecus(){
+  var a=[];Object.keys(_msgiSrcRecus).forEach(function(k){a=a.concat(_msgiSrcRecus[k]);});
+  _msgiRecus=a.sort(msgiTri);msgiMajBadge();msgiRendre();
+}
+function msgiEcouterBoite(adr){
+  return msgDb.collection('messagerieInterne').where('toEmail','==',adr).onSnapshot(function(snap){
+    _msgiSrcRecus[adr]=snap.docs.map(function(d){var o=d.data();o.id=d.id;return o;}).filter(function(m){return !m.supprimeDest;});
+    msgiRecomposerRecus();
+  },function(e){console.error('Messagerie (réception '+adr+'):',e);_msgiErreurRegles=true;msgiRendre();});
+}
+function msgiRecomposerTaches(){
+  var m={};Object.keys(_msgiTachesSrc).forEach(function(k){_msgiTachesSrc[k].forEach(function(t){m[t.id]=t;});});
+  var ordre={a_faire:0,en_cours:1,fait:2};
+  _msgiTaches=Object.keys(m).map(function(k){return m[k];}).sort(function(a,b){
+    var d=(ordre[a.statut]||0)-(ordre[b.statut]||0);if(d)return d;
+    if(a.echeance&&b.echeance&&a.echeance!==b.echeance)return a.echeance<b.echeance?-1:1;
+    if(a.echeance&&!b.echeance)return -1;if(!a.echeance&&b.echeance)return 1;
+    return msgiTri(a,b);
+  });
+  msgiRendre();
+}
 function msgiDemarrerEcoute(){
   msgiArreterEcoute();
   msgiChargerExt();
   var moi=msgiMonEmail();
-  _msgiUnsubR=msgDb.collection('messagerieInterne').where('toEmail','==',moi).onSnapshot(function(snap){
-    _msgiRecus=snap.docs.map(function(d){var o=d.data();o.id=d.id;return o;}).filter(function(m){return !m.supprimeDest;}).sort(msgiTri);
-    msgiMajBadge();msgiRendre();
-  },function(e){console.error('Messagerie (réception):',e);_msgiErreurRegles=true;msgiRendre();});
+  _msgiUnsubR=msgiEcouterBoite(moi);
+  // Boites partagees dont je suis membre : leurs messages arrivent dans ma reception
+  msgDb.collection('boitesMail').where('membres','array-contains',moi).get().then(function(s){
+    if(msgiMonEmail()!==moi)return;
+    _msgiPartagees=s.docs.map(function(d){var x=d.data();return {email:(x.adresse||d.id).toLowerCase(),nom:x.nom||''};});
+    _msgiPartagees.forEach(function(p){_msgiUnsubP.push(msgiEcouterBoite(p.email));});
+    msgiRendre();
+  }).catch(function(e){console.warn('Boîtes partagées:',e.code);});
   _msgiUnsubE=msgDb.collection('messagerieInterne').where('fromUid','==',msgUser.uid).onSnapshot(function(snap){
     _msgiEnvoyes=snap.docs.map(function(d){var o=d.data();o.id=d.id;return o;}).filter(function(m){return !m.supprimeExp;}).sort(msgiTri);
     msgiRendre();
   },function(e){console.error('Messagerie (envoyés):',e);});
+  _msgiUnsubB=msgDb.collection('messagerieBrouillons').where('fromUid','==',msgUser.uid).onSnapshot(function(snap){
+    _msgiBrouillons=snap.docs.map(function(d){var o=d.data();o.id=d.id;return o;}).sort(msgiTri);
+    msgiRendre();
+  },function(e){console.warn('Brouillons:',e.code);});
+  [['a','assigneA'],['c','creePar']].forEach(function(q){
+    _msgiUnsubT.push(msgDb.collection('messagerieTaches').where(q[1],'==',moi).onSnapshot(function(snap){
+      _msgiTachesSrc[q[0]]=snap.docs.map(function(d){var o=d.data();o.id=d.id;return o;});
+      msgiRecomposerTaches();
+    },function(e){console.warn('Tâches:',e.code);}));
+  });
 }
 function msgiArreterEcoute(){
   if(_msgiUnsubR){_msgiUnsubR();_msgiUnsubR=null;}
   if(_msgiUnsubE){_msgiUnsubE();_msgiUnsubE=null;}
+  if(_msgiUnsubB){_msgiUnsubB();_msgiUnsubB=null;}
+  _msgiUnsubP.forEach(function(f){try{f();}catch(e){}});_msgiUnsubP=[];
+  _msgiUnsubT.forEach(function(f){try{f();}catch(e){}});_msgiUnsubT=[];
+  _msgiSrcRecus={};_msgiPartagees=[];_msgiBrouillons=[];_msgiTachesSrc={};_msgiTaches=[];_msgiBrouillonId=null;_msgiTachePre=null;
   _msgiRecus=[];_msgiEnvoyes=[];_msgiOuvert=null;_msgiAdressesChargees=false;_msgiAdresses=[];
 }
+
+// ═══ SIGNATURE AUTOMATIQUE (boitesMail/{adresse}.signature / signatureOff) ═══
+function msgiSignatureDefaut(){
+  var cfg=_msgiEjCfg||{};var nom=(_msgiBoite&&_msgiBoite.nom)||msgiMonEmail();
+  return 'Cordialement,\n'+nom+'\n'+(cfg.nomEntreprise||'NICO MULTISERVICES')+(cfg.telEntreprise?'\nTél. : '+cfg.telEntreprise:'');
+}
+function msgiSignature(){
+  if(!_msgiBoite||_msgiBoite.signatureOff===true)return '';
+  return (typeof _msgiBoite.signature==='string'&&_msgiBoite.signature.trim())?_msgiBoite.signature.trim():msgiSignatureDefaut();
+}
+function msgiSignatureATexte(){
+  var c=document.getElementById('msgi-sig-on'),s=msgiSignature();
+  return (s&&(!c||c.checked))?'\n\n'+s:'';
+}
+function msgiHtmlSig(){
+  var s=msgiSignature();
+  return '<div class="msgi-f"><label style="text-transform:none;display:flex;gap:8px;align-items:flex-start;font-size:12.5px;font-weight:400"><input type="checkbox" id="msgi-sig-on" style="width:auto;margin-top:3px"'+(s?' checked':' disabled')+'><span>✍️ Ajouter ma signature automatiquement'+(s?'<br><span style="color:var(--muted);white-space:pre-wrap">'+msgiEsc(s)+'</span>':' (désactivée)')+' — <a href="#" onclick="msgiOnglet(\'signature\');return false">modifier</a></span></label></div>';
+}
+function msgiHtmlSignature(){
+  var b=_msgiBoite||{};var txt=(typeof b.signature==='string'&&b.signature.trim())?b.signature:msgiSignatureDefaut();
+  return '<div class="msgi-box" style="padding:18px;max-width:560px">'+
+    '<div style="font-size:15px;font-weight:700;margin-bottom:4px">✍️ Ma signature</div>'+
+    '<p style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Ajoutée automatiquement à la fin de vos messages, internes et externes. Vous pouvez la décocher message par message.</p>'+
+    '<div class="msgi-f"><label style="text-transform:none;display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" id="msgi-sig-actif" style="width:auto"'+(b.signatureOff===true?'':' checked')+'> Activer la signature automatique</label></div>'+
+    '<div class="msgi-f"><label>Texte de la signature</label><textarea id="msgi-sig-txt" rows="6" maxlength="600">'+msgiEsc(txt)+'</textarea></div>'+
+    '<div id="msgi-sig-status" style="font-size:12.5px;min-height:16px;margin-bottom:10px"></div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="msgi-btn" onclick="msgiEnregistrerSignature()">Enregistrer</button><button class="msgi-btn sec" onclick="document.getElementById(\'msgi-sig-txt\').value=msgiSignatureDefaut()">Modèle par défaut</button><button class="msgi-btn sec" onclick="msgiOnglet(\'recus\')">Annuler</button></div></div>';
+}
+function msgiEnregistrerSignature(){
+  var txt=document.getElementById('msgi-sig-txt').value.trim().slice(0,600),on=document.getElementById('msgi-sig-actif').checked;
+  var st=document.getElementById('msgi-sig-status');st.style.color='var(--muted)';st.textContent='Enregistrement…';
+  msgDb.collection('boitesMail').doc(msgiMonEmail()).update({signature:txt,signatureOff:!on}).then(function(){
+    _msgiBoite.signature=txt;_msgiBoite.signatureOff=!on;_msgiOnglet='recus';msgiRendre();
+  }).catch(function(e){st.style.color='var(--danger)';st.textContent='❌ Enregistrement impossible'+(e.code==='permission-denied'?' : mettez à jour les règles Firestore (fichier firestore.rules).':'.');});
+}
+
+// ═══ EXPEDITEUR : boite personnelle ou boite partagee dont on est membre ═══
+function msgiExpediteur(){
+  var sel=document.getElementById('msgi-de'),moi=msgiMonEmail(),nomMoi=(_msgiBoite&&_msgiBoite.nom)||'';
+  if(sel&&sel.value&&sel.value!==moi){
+    var p=_msgiPartagees.filter(function(x){return x.email===sel.value;})[0];
+    if(p)return {email:p.email,nom:p.nom||p.email,parEmail:moi,parNom:nomMoi,partagee:true};
+  }
+  return {email:moi,nom:nomMoi,partagee:false};
+}
+function msgiHtmlDe(){
+  if(!_msgiPartagees.length)return '';
+  return '<div class="msgi-f"><label>De</label><select id="msgi-de" style="padding:9px;border:1.5px solid var(--border);border-radius:9px;background:transparent;color:var(--text);font-family:inherit;font-size:13px"><option value="'+msgiEsc(msgiMonEmail())+'">'+msgiEsc(msgiMonEmail())+' (ma boîte)</option>'+
+    _msgiPartagees.map(function(p){return '<option value="'+msgiEsc(p.email)+'">'+msgiEsc(p.email)+' — '+msgiEsc(p.nom)+' (boîte partagée)</option>';}).join('')+'</select></div>';
+}
+
+// ═══ BROUILLONS (messagerieBrouillons : visibles uniquement par leur auteur) ═══
+function msgiSauverBrouillon(){
+  if(!msgUser)return;
+  var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
+  var ext=!!(document.getElementById('msgi-ext')&&document.getElementById('msgi-ext').checked);
+  var o={fromUid:msgUser.uid,fromEmail:msgiMonEmail(),ext:ext,to:g('msgi-to').trim(),nom:g('msgi-ext-nom').trim(),cc:g('msgi-ext-cc').trim(),subject:g('msgi-subject').trim(),body:g('msgi-body'),pieces:_msgiPieces.slice(),de:g('msgi-de'),date:firebase.firestore.FieldValue.serverTimestamp()};
+  if(!o.to&&!o.subject&&!o.body.trim()){msgiStatus('Le brouillon est vide.',true);return;}
+  var col=msgDb.collection('messagerieBrouillons');
+  var p=_msgiBrouillonId?col.doc(_msgiBrouillonId).set(o).then(function(){return null;}):col.add(o);
+  p.then(function(r){if(r&&r.id)_msgiBrouillonId=r.id;msgiStatus('💾 Brouillon enregistré (onglet Brouillons).',false);})
+   .catch(function(e){console.error('Brouillon:',e);msgiStatus('❌ Enregistrement impossible'+(e.code==='permission-denied'?' : règle Firestore « messagerieBrouillons » manquante.':'.'),true);});
+}
+function msgiOuvrirBrouillon(id){
+  var b=_msgiBrouillons.filter(function(x){return x.id===id;})[0];if(!b)return;
+  msgiNouveau({to:b.to,subject:b.subject,body:b.body,pieces:b.pieces||[],ext:!!b.ext,nom:b.nom,cc:b.cc,de:b.de,brouillonId:id});
+}
+function msgiSupprimerBrouillon(id){
+  if(!confirm('Supprimer ce brouillon ?'))return;
+  msgDb.collection('messagerieBrouillons').doc(id).delete().catch(function(e){console.error(e);alert('⚠️ Suppression impossible.');});
+}
+function msgiPurgerBrouillon(){
+  if(_msgiBrouillonId){msgDb.collection('messagerieBrouillons').doc(_msgiBrouillonId).delete().catch(function(){});_msgiBrouillonId=null;}
+}
+function msgiHtmlBrouillons(){
+  if(!_msgiBrouillons.length)return '<div class="msgi-box" style="padding:30px;text-align:center;color:var(--muted);font-size:13px">Aucun brouillon. Dans « Nouveau message », le bouton 💾 Brouillon enregistre ce que vous avez commencé.</div>';
+  return '<div class="msgi-box">'+_msgiBrouillons.map(function(b){
+    return '<div class="msgi-row" onclick="msgiOuvrirBrouillon(\''+b.id+'\')"><span class="msgi-who">'+(b.ext?'↗ ':'')+msgiEsc(b.to||'(sans destinataire)')+'</span>'+
+      '<span class="msgi-sub"><b>'+msgiEsc(b.subject||'(sans objet)')+'</b> — '+msgiEsc(String(b.body||'').replace(/\s+/g,' ').substring(0,90))+'</span>'+
+      '<span class="msgi-dt">'+msgiDate(b.date)+'</span>'+
+      '<button class="msgi-btn dg" style="padding:4px 9px" onclick="event.stopPropagation();msgiSupprimerBrouillon(\''+b.id+'\')">🗑</button></div>';
+  }).join('')+'</div>';
+}
+
+// ═══ BROUILLON PRE-REMPLI DEPUIS UN DEVIS / UNE FACTURE ═══
+function msgiMontant(n){return (Number(n)||0).toFixed(2).replace('.',',')+' €';}
+function msgiDateFr(s){var m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(s||''));return m?m[3]+'/'+m[2]+'/'+m[1]:String(s||'');}
+function msgiTexteDocument(d,c){
+  var devis=d.type==='devis',L=[];
+  var adr=function(a,b,v){return [a,b,v].filter(Boolean).join(' ');};
+  L.push('Bonjour '+(c.contact||c.nom||'Madame, Monsieur')+',','');
+  L.push(devis?'Veuillez trouver ci-dessous le détail de notre devis.':'Veuillez trouver ci-dessous le détail de votre facture.','');
+  L.push((devis?'Devis':'Facture')+' n° '+(d.numero||'')+(d.date?' du '+msgiDateFr(d.date):''));
+  if(d.objet)L.push('Objet : '+d.objet);
+  if(c.nom)L.push('Client : '+c.nom+(adr(c.adresse,c.cp,c.ville)?' — '+adr(c.adresse,c.cp,c.ville):''));
+  if(adr(d.chAdr,d.chCp,d.chVille))L.push('Lieu des travaux : '+adr(d.chAdr,d.chCp,d.chVille));
+  if(d.d2)L.push(devis?'Validité du devis : '+d.d2+' jours':'Délai de paiement : '+d.d2+' jours');
+  L.push('','Détail :');
+  (d.lignes||[]).forEach(function(l){
+    var q=Number(l.qty)||0,p=Number(l.prix)||0,r=Number(l.remise)||0;
+    if(!q&&!p){if(l.desc)L.push('  '+l.desc);return;}
+    L.push('• '+(l.desc||'')+' — '+q+' × '+msgiMontant(p)+(r?' (remise '+r+' %)':'')+' = '+msgiMontant(q*p*(1-r/100)));
+  });
+  L.push('');
+  if(d.promoPourcentage)L.push('Sous-total HT : '+msgiMontant(d.sousTotalHT),'Réduction'+(d.promoCode?' « '+d.promoCode+' »':'')+' : -'+d.promoPourcentage+' %');
+  L.push('Total HT : '+msgiMontant(d.totalHT),'TVA non applicable, art. 293 B du CGI',(devis?'Total : ':'Net à payer : ')+msgiMontant(d.totalHT));
+  if(d.notes)L.push('','Remarques : '+d.notes);
+  L.push('',devis?'Nous restons à votre disposition pour toute question.':'Merci de bien vouloir procéder au règlement dans le délai indiqué.');
+  if(!msgiSignature())L.push('','Cordialement,',(_msgiBoite&&_msgiBoite.nom)||'');
+  return {sujet:(devis?'Devis':'Facture')+' n° '+(d.numero||'')+(d.objet?' — '+d.objet:''),corps:L.join('\n')};
+}
+function msgiDepuisDocument(docId){
+  var src=msgiSource();var d=src.docs.filter(function(x){return String(x.id)===String(docId);})[0];
+  if(!d){alert('Document introuvable.');return;}
+  var c=src.clients.filter(function(x){return x.id===d.clientId;})[0]||{};
+  var t=msgiTexteDocument(d,c);
+  msgiNouveau({to:c.email||'',subject:t.sujet,body:t.corps,ext:!!c.email,nom:c.contact||c.nom||''});
+  if(!c.email)msgiStatus('Ce client n\'a pas d\'adresse e-mail enregistrée : saisissez le destinataire.',true);
+}
+function msgiBrouillonDepuisDocument(id){
+  _msgiDocEnAttente=id;
+  if(typeof showPage==='function')showPage('messagerie');
+  else if(typeof changerVueDash==='function')changerVueDash('view-messagerie');
+  msgiAppliquerDocEnAttente();
+}
+function msgiAppliquerDocEnAttente(){
+  if(_msgiDocEnAttente===null||_msgiEtat!=='ok')return;
+  var id=_msgiDocEnAttente;_msgiDocEnAttente=null;msgiDepuisDocument(id);
+}
+function msgiHtmlDoc(){
+  var st='padding:9px;border:1.5px solid var(--border);border-radius:9px;background:transparent;color:var(--text);font-family:inherit;font-size:13px';
+  return '<div class="msgi-f" style="border:1px dashed var(--border);border-radius:9px;padding:10px"><label>📄 Pré-remplir depuis un devis ou une facture (toutes les infos)</label><div style="display:flex;gap:6px;flex-wrap:wrap">'+
+    '<select id="msgi-doc-type" onchange="msgiChoixTypeDoc()" style="'+st+'"><option value="">— Choisir —</option><option value="devis">Devis</option><option value="facture">Facture</option></select>'+
+    '<select id="msgi-doc-item" style="'+st+';flex:1;min-width:180px"><option value="">—</option></select>'+
+    '<button class="msgi-btn sec" type="button" onclick="msgiPrerempliDoc()">Pré-remplir</button></div></div>';
+}
+function msgiChoixTypeDoc(){
+  var t=document.getElementById('msgi-doc-type').value,sel=document.getElementById('msgi-doc-item');
+  _msgiDocListe=t?msgiPiecesDisponibles(t):[];
+  sel.innerHTML=_msgiDocListe.length?_msgiDocListe.map(function(p,i){return '<option value="'+i+'">'+msgiEsc(p.label)+'</option>';}).join(''):'<option value="">'+(t?'Aucun élément disponible':'—')+'</option>';
+}
+function msgiPrerempliDoc(){
+  var i=document.getElementById('msgi-doc-item').value;if(i===''||!_msgiDocListe[i])return;
+  if((document.getElementById('msgi-body').value.trim()||document.getElementById('msgi-subject').value.trim())&&!confirm('Remplacer l\'objet et le message actuels ?'))return;
+  msgiDepuisDocument(_msgiDocListe[i].id);
+}
+
+// ═══ TACHES ET TICKETS (messagerieTaches) ═══
+function msgiTacheDepuisMail(id){
+  var m=_msgiRecus.concat(_msgiEnvoyes).filter(function(x){return x.id===id;})[0];if(!m)return;
+  var sujet=String(m.subject||'').replace(/\[NM-\d{6}-[A-Z0-9]{4}\]\s*/g,'').replace(/^((re|tr)\s*:\s*)+/i,'');
+  msgiNouvelleTache({titre:sujet.slice(0,120),description:'Mail de '+(m.fromNom||m.fromEmail)+' du '+msgiDate(m.date)+(m.ref?' (N° de suivi '+m.ref+')':'')+' :\n'+String(m.body||'').slice(0,800),msgId:m.id,ref:m.ref||''});
+}
+function msgiNouvelleTache(pre){
+  _msgiTachePre=pre||{};_msgiOnglet='tache';_msgiOuvert=null;
+  var r=document.getElementById('msgi-root');if(r)r.innerHTML='';
+  msgiRendre();msgiChargerAdresses();
+}
+function msgiHtmlFormTache(){
+  var p=_msgiTachePre||{};
+  var st='padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;background:transparent;color:var(--text);font-family:inherit;font-size:13px';
+  return '<div class="msgi-box" style="padding:18px;max-width:620px">'+
+    '<div style="font-size:15px;font-weight:700;margin-bottom:12px">✅ Nouvelle tâche / ticket</div>'+
+    '<div class="msgi-f"><label>Type</label><select id="msgi-t-type" style="'+st+'"><option value="tache">✅ Tâche</option><option value="ticket">🎫 Ticket (problème à traiter)</option></select></div>'+
+    '<div class="msgi-f"><label>Titre</label><input id="msgi-t-titre" type="text" maxlength="150" value="'+msgiEsc(p.titre||'')+'"></div>'+
+    '<div class="msgi-f"><label>Description</label><textarea id="msgi-t-desc" rows="6">'+msgiEsc(p.description||'')+'</textarea></div>'+
+    '<div class="msgi-f"><label>Assignée à (boîte mail interne)</label><input id="msgi-t-assigne" type="text" list="msgi-datalist" value="'+msgiEsc(msgiMonEmail())+'" autocomplete="off"><datalist id="msgi-datalist"></datalist></div>'+
+    '<div class="msgi-f"><label>Échéance (optionnelle)</label><input id="msgi-t-ech" type="date"></div>'+
+    '<div class="msgi-f"><label>N° de devis / facture concerné (optionnel)</label><input id="msgi-t-num" type="text" maxlength="40" autocomplete="off"></div>'+
+    '<div id="msgi-t-status" style="font-size:12.5px;min-height:16px;margin-bottom:10px"></div>'+
+    '<div style="display:flex;gap:8px"><button class="msgi-btn" onclick="msgiCreerTache()">Créer</button><button class="msgi-btn sec" onclick="msgiOnglet(\'taches\')">Annuler</button></div></div>';
+}
+function msgiCreerTache(){
+  var st=document.getElementById('msgi-t-status');st.style.color='var(--danger)';
+  var moi=msgiMonEmail(),nom=(_msgiBoite&&_msgiBoite.nom)||'',pre=_msgiTachePre||{};
+  var titre=document.getElementById('msgi-t-titre').value.trim();
+  var desc=document.getElementById('msgi-t-desc').value.trim().slice(0,4000);
+  var type=document.getElementById('msgi-t-type').value;
+  var ass=(document.getElementById('msgi-t-assigne').value||moi).trim().toLowerCase();
+  var ech=document.getElementById('msgi-t-ech').value,num=document.getElementById('msgi-t-num').value.trim();
+  if(!titre){st.textContent='Le titre est obligatoire.';return;}
+  if(_msgiAdressesChargees&&!_msgiAdresses.some(function(a){return a.email===ass&&!a.partagee;})){st.textContent='Assignation impossible : boîte personnelle inconnue « '+ass+' ».';return;}
+  st.style.color='var(--muted)';st.textContent='Création…';
+  var ts=firebase.firestore.FieldValue.serverTimestamp();
+  msgDb.collection('messagerieTaches').add({type:type,titre:titre,description:desc,statut:'a_faire',creePar:moi,creeParNom:nom,fromUid:msgUser.uid,assigneA:ass,echeance:ech||'',numeroDoc:num,msgId:pre.msgId||'',ref:pre.ref||'',date:ts,dateMaj:ts}).then(function(){
+    if(ass===moi)return;
+    return msgDb.collection('messagerieInterne').add({fromUid:msgUser.uid,fromEmail:moi,fromNom:nom,toEmail:ass,tache:true,
+      subject:(type==='ticket'?'🎫 Nouveau ticket : ':'✅ Nouvelle tâche : ')+titre,
+      body:'Assigné par '+(nom||moi)+(ech?'\nÉchéance : '+msgiDateFr(ech):'')+(num?'\nDevis / facture : '+num:'')+(desc?'\n\n'+desc:'')+'\n\n(à retrouver dans l\'onglet Tâches)',
+      lu:false,supprimeExp:true,supprimeDest:false,date:ts}).catch(function(e){console.warn('Notification tâche:',e);});
+  }).then(function(){_msgiTachePre=null;_msgiOnglet='taches';msgiRendre();}).catch(function(e){
+    console.error('Création tâche:',e);st.style.color='var(--danger)';
+    st.textContent='❌ Création impossible'+(e.code==='permission-denied'?' : règle Firestore « messagerieTaches » manquante.':'.');
+  });
+}
+function msgiStatutTache(id,s){
+  msgDb.collection('messagerieTaches').doc(id).update({statut:s,dateMaj:firebase.firestore.FieldValue.serverTimestamp()}).catch(function(e){console.error(e);alert('⚠️ Modification impossible.');});
+}
+function msgiSupprimerTache(id){
+  if(!confirm('Supprimer cette tâche ?'))return;
+  msgDb.collection('messagerieTaches').doc(id).delete().catch(function(e){console.error(e);alert('⚠️ Suppression impossible.');});
+}
+function msgiNbTaches(){var moi=msgiMonEmail();return _msgiTaches.filter(function(t){return t.assigneA===moi&&t.statut!=='fait';}).length;}
+function msgiHtmlTaches(){
+  var moi=msgiMonEmail(),auj=new Date().toISOString().slice(0,10);
+  var bloc=function(titre,arr){
+    if(!arr.length)return '';
+    return '<div style="font-size:12px;font-weight:700;color:var(--muted);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.04em">'+titre+' ('+arr.length+')</div><div class="msgi-box">'+arr.map(function(t){
+      var late=t.echeance&&t.statut!=='fait'&&t.echeance<auj;
+      var sb=function(s,l){return '<button class="msgi-btn'+(t.statut===s?'':' sec')+'" style="padding:4px 10px;font-size:12px" onclick="msgiStatutTache(\''+t.id+'\',\''+s+'\')">'+l+'</button>';};
+      return '<div style="padding:11px 14px;border-bottom:1px solid var(--border);'+(t.statut==='fait'?'opacity:.6':'')+'">'+
+        '<details><summary style="cursor:pointer;font-size:13.5px;font-weight:700">'+(t.type==='ticket'?'🎫 ':'✅ ')+msgiEsc(t.titre)+'</summary>'+
+        '<div style="font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;margin:8px 0;color:var(--muted)">'+msgiEsc(t.description||'(aucune description)')+'</div></details>'+
+        '<div style="font-size:11.5px;color:var(--muted);margin:4px 0 8px">Assignée à <b>'+msgiEsc(t.assigneA)+'</b> · par '+msgiEsc(t.creeParNom||t.creePar)+(t.echeance?' · échéance <b'+(late?' style="color:var(--danger)"':'')+'>'+msgiDateFr(t.echeance)+(late?' (en retard)':'')+'</b>':'')+(t.numeroDoc?' · doc '+msgiEsc(t.numeroDoc):'')+(t.ref?' · '+msgiEsc(t.ref):'')+'</div>'+
+        '<div style="display:flex;gap:6px;flex-wrap:wrap">'+sb('a_faire','À faire')+sb('en_cours','En cours')+sb('fait','Fait')+
+        (t.creePar===moi?'<button class="msgi-btn dg" style="padding:4px 10px;font-size:12px" onclick="msgiSupprimerTache(\''+t.id+'\')">🗑</button>':'')+'</div></div>';
+    }).join('')+'</div>';
+  };
+  var mes=_msgiTaches.filter(function(t){return t.assigneA===moi;}),cre=_msgiTaches.filter(function(t){return t.creePar===moi&&t.assigneA!==moi;});
+  return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="font-size:15px;font-weight:700">✅ Tâches et tickets</div><button class="msgi-btn" onclick="msgiNouvelleTache()">➕ Nouvelle</button></div>'+
+    ((mes.length||cre.length)?bloc('Qui me sont assignées',mes)+bloc('Que j\'ai assignées à d\'autres',cre):'<div class="msgi-box" style="padding:30px;text-align:center;color:var(--muted);font-size:13px;margin-top:10px">Aucune tâche. Ouvrez un message et cliquez « Créer une tâche / un ticket », ou ➕ Nouvelle.</div>');
+}
+
 function msgiMajBadge(){
   var n=_msgiRecus.filter(function(m){return !m.lu;}).length;
   document.querySelectorAll('.msgi-badge').forEach(function(b){b.textContent=n;b.style.display=n>0?'inline-block':'none';});
 }
 
 // Annuaire = boites mail internes existantes (autocompletion + refus d'une adresse inconnue)
+function msgiRemplirDatalist(){
+  var dl=document.getElementById('msgi-datalist');
+  if(dl)dl.innerHTML=_msgiAdresses.filter(function(a){return a.email!==msgiMonEmail();}).map(function(a){return '<option value="'+msgiEsc(a.email)+'">'+msgiEsc(a.nom)+(a.partagee?' (boîte partagée)':'')+'</option>';}).join('');
+}
 function msgiChargerAdresses(){
-  if(_msgiAdressesChargees||!msgDb||_msgiEtat!=='ok')return;
+  if(!msgDb||_msgiEtat!=='ok')return;
+  if(_msgiAdressesChargees){msgiRemplirDatalist();return;}
   msgDb.collection('boitesMail').get().then(function(s){
-    _msgiAdresses=s.docs.map(function(d){var x=d.data();return {email:(x.adresse||d.id).toLowerCase(),nom:x.nom||''};});
+    _msgiAdresses=s.docs.map(function(d){var x=d.data();return {email:(x.adresse||d.id).toLowerCase(),nom:x.nom||'',partagee:!!x.partagee};});
     _msgiAdressesChargees=_msgiAdresses.length>0;
-    var dl=document.getElementById('msgi-datalist');
-    if(dl)dl.innerHTML=_msgiAdresses.filter(function(a){return a.email!==msgiMonEmail();}).map(function(a){return '<option value="'+msgiEsc(a.email)+'">'+msgiEsc(a.nom)+'</option>';}).join('');
+    msgiRemplirDatalist();
   }).catch(function(e){console.warn('Annuaire boîtes indisponible:',e.code);});
 }
 
@@ -13025,6 +13540,9 @@ function msgiRendre(){
   // Ne pas ecraser un formulaire en cours de saisie (connexion, mdp, nouveau message)
   if(_msgiEtat==='login'&&document.getElementById('msgi-login-adr'))return;
   if(_msgiEtat==='chmdp'&&document.getElementById('msgi-new'))return;
+  if(_msgiEtat==='monmdp'&&document.getElementById('msgi-cur'))return;
+  if(_msgiEtat==='ok'&&_msgiOnglet==='signature'&&document.getElementById('msgi-sig-txt'))return;
+  if(_msgiEtat==='ok'&&_msgiOnglet==='tache'&&document.getElementById('msgi-t-titre'))return;
   if(_msgiEtat==='ok'&&_msgiOnglet==='nouveau'&&document.getElementById('msgi-to'))return;
   var h=MSGI_CSS;
   if(_msgiEtat==='init'){root.innerHTML=h+'<div style="color:var(--muted);font-size:13px">Chargement…</div>';return;}
@@ -13048,12 +13566,25 @@ function msgiRendre(){
       '<div style="display:flex;gap:8px"><button class="msgi-btn" onclick="msgiChangerMdp()">Valider</button><button class="msgi-btn sec" onclick="msgiDeconnexion()">Se déconnecter</button></div></div>';
     return;
   }
+  if(_msgiEtat==='monmdp'){
+    root.innerHTML=h+'<div class="msgi-box" style="padding:22px;max-width:420px">'+
+      '<div style="font-size:15px;font-weight:700;margin-bottom:4px">🔑 Changer mon mot de passe</div>'+
+      '<p style="font-size:12.5px;color:var(--muted);margin-bottom:16px">Boîte : <b>'+msgiEsc(msgiMonEmail())+'</b></p>'+
+      '<div class="msgi-f"><label>Mot de passe actuel</label><input id="msgi-cur" type="password" autocomplete="current-password"></div>'+
+      '<div class="msgi-f"><label>Nouveau mot de passe (8 caractères min.)</label><input id="msgi-new2" type="password" autocomplete="new-password"></div>'+
+      '<div class="msgi-f"><label>Confirmer</label><input id="msgi-conf2" type="password" autocomplete="new-password" onkeydown="if(event.key===\'Enter\')msgiMonMdp()"></div>'+
+      '<div id="msgi-monmdp-status" style="font-size:12.5px;min-height:16px;margin-bottom:10px"></div>'+
+      '<div style="display:flex;gap:8px"><button class="msgi-btn" onclick="msgiMonMdp()">Valider</button><button class="msgi-btn sec" onclick="msgiAnnulerMonMdp()">Annuler</button></div></div>';
+    return;
+  }
   var nonLus=_msgiRecus.filter(function(m){return !m.lu;}).length;
-  h+='<div style="font-size:12px;color:var(--muted);margin-bottom:12px">🔒 Messagerie interne : vos messages restent dans l\'entreprise. Boîte : <b>'+msgiEsc(msgiMonEmail())+'</b> <a href="#" style="margin-left:8px;color:var(--danger)" onclick="msgiDeconnexion();return false">Se déconnecter de la boîte</a></div>'+
+  h+='<div style="font-size:12px;color:var(--muted);margin-bottom:12px">🔒 Messagerie interne : vos messages restent dans l\'entreprise. Boîte : <b>'+msgiEsc(msgiMonEmail())+'</b> <a href="#" style="margin-left:8px" onclick="msgiOnglet(\'signature\');return false">✍️ Ma signature</a> <a href="#" style="margin-left:8px" onclick="msgiOuvrirMonMdp();return false">🔑 Changer mon mot de passe</a> <a href="#" style="margin-left:8px;color:var(--danger)" onclick="msgiDeconnexion();return false">Se déconnecter de la boîte</a></div>'+
     '<div class="msgi-tabs">'+
       '<button class="msgi-tab'+(_msgiOnglet==='recus'?' on':'')+'" onclick="msgiOnglet(\'recus\')">📥 Réception'+(nonLus?'<span class="msgi-badge" style="display:inline-block">'+nonLus+'</span>':'')+'</button>'+
       '<button class="msgi-tab'+(_msgiOnglet==='envoyes'?' on':'')+'" onclick="msgiOnglet(\'envoyes\')">📤 Envoyés</button>'+
       '<button class="msgi-tab'+(_msgiOnglet==='nouveau'?' on':'')+'" onclick="msgiNouveau()">✏️ Nouveau message</button>'+
+      '<button class="msgi-tab'+(_msgiOnglet==='brouillons'?' on':'')+'" onclick="msgiOnglet(\'brouillons\')">📝 Brouillons'+(_msgiBrouillons.length?' ('+_msgiBrouillons.length+')':'')+'</button>'+
+      '<button class="msgi-tab'+((_msgiOnglet==='taches'||_msgiOnglet==='tache')?' on':'')+'" onclick="msgiOnglet(\'taches\')">✅ Tâches'+(msgiNbTaches()?'<span class="msgi-badge" style="display:inline-block">'+msgiNbTaches()+'</span>':'')+'</button>'+
     '</div>';
   if(_msgiErreurRegles)h+='<div style="padding:10px 12px;border:1px solid var(--danger);border-radius:9px;color:var(--danger);font-size:12.5px;margin-bottom:12px">⚠️ Accès refusé par Firestore : ajoutez les règles <code>boitesMail</code> et <code>messagerieInterne</code> (voir le commentaire « MESSAGERIE INTERNE » dans le code).</div>';
   if(_msgiOuvert){
@@ -13063,13 +13594,14 @@ function msgiRendre(){
       var recu=_msgiOnglet!=='envoyes';
       h+='<div class="msgi-box" style="padding:18px">'+
         '<div style="font-size:16px;font-weight:700;margin-bottom:6px">'+(m.annonce?'📢 ':'')+(m.transfert?'↪️ ':'')+(m.copie?'📋 ':'')+msgiEsc(m.subject||'(sans objet)')+'</div>'+
-        '<div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">'+(recu?'De : <b>'+msgiEsc(m.fromNom?m.fromNom+' — ':'')+msgiEsc(m.fromEmail)+'</b>':'À : <b>'+msgiEsc(m.toEmail)+'</b>'+((m.cc&&m.cc.length)?' · Copie interne : <b>'+msgiEsc(m.cc.join(', '))+'</b>':''))+(m.ref?' · N° de suivi <b>'+msgiEsc(m.ref)+'</b>':'')+' · '+msgiDate(m.date)+'</div>'+
+        '<div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">'+(recu?'De : <b>'+msgiEsc(m.fromNom?m.fromNom+' — ':'')+msgiEsc(m.fromEmail)+'</b>':'À : <b>'+msgiEsc(m.toEmail)+'</b>'+((m.cc&&m.cc.length)?' · Copie interne : <b>'+msgiEsc(m.cc.join(', '))+'</b>':''))+(m.ref?' · N° de suivi <b>'+msgiEsc(m.ref)+'</b>':'')+(m.classification?' · 🏷 Classification : <b>'+msgiEsc(String(m.classification).charAt(0).toUpperCase()+String(m.classification).slice(1))+'</b>':'')+((recu&&m.toEmail&&m.toEmail!==msgiMonEmail())?' · 📬 Boîte partagée : <b>'+msgiEsc(m.toEmail)+'</b>':'')+((recu&&m.parNom)?' · Envoyé par <b>'+msgiEsc(m.parNom)+'</b>':'')+' · '+msgiDate(m.date)+'</div>'+
         '<div style="font-size:13.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;margin-bottom:18px">'+msgiEsc(m.body)+'</div>'+
         ((m.pieces&&m.pieces.length)?'<div style="margin-bottom:18px">'+m.pieces.map(function(p,i){return '<button class="msgi-btn sec" style="margin:0 6px 6px 0" onclick="msgiOuvrirPiece(\''+m.id+'\','+i+')">🔗 '+msgiEsc(p.label)+'</button>';}).join('')+'</div>':'')+
         '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
           '<button class="msgi-btn sec" onclick="msgiOuvert(null)">← Retour</button>'+
           (recu&&!m.annonce&&!m.sansReponse?'<button class="msgi-btn" onclick="msgiRepondre(\''+m.id+'\')">↩️ Répondre</button>':'')+
           (recu&&m.clientEmail?'<button class="msgi-btn" onclick="msgiRepondreClient(\''+m.id+'\')">📤 Répondre au client</button>':'')+
+          '<button class="msgi-btn sec" onclick="msgiTacheDepuisMail(\''+m.id+'\')">✅ Créer une tâche / un ticket</button>'+
           '<button class="msgi-btn dg" onclick="msgiSupprimer(\''+m.id+'\','+(recu?'true':'false')+')">🗑 Supprimer</button>'+
         '</div></div>';
     }else{_msgiOuvert=null;}
@@ -13077,16 +13609,20 @@ function msgiRendre(){
   if(!_msgiOuvert){
     if(_msgiOnglet==='nouveau'){
       h+='<div class="msgi-box" style="padding:18px">'+
-        '<div class="msgi-f"><label style="text-transform:none;display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" id="msgi-ext" style="width:auto" onchange="msgiToggleExt()"> 📤 Envoyer à une adresse e-mail externe<span id="msgi-ext-note" style="color:var(--muted);font-weight:400"></span></label></div>'+
-        '<div class="msgi-f"><label>À (adresse mail interne du destinataire)</label><input id="msgi-to" type="text" list="msgi-datalist" placeholder="prenom.nom@… — plusieurs : séparer par une virgule" autocomplete="off"><datalist id="msgi-datalist"></datalist></div>'+
+        msgiHtmlDoc()+'<div class="msgi-f"><label style="text-transform:none;display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" id="msgi-ext" style="width:auto" onchange="msgiToggleExt()"> 📤 Envoyer à une adresse e-mail externe<span id="msgi-ext-note" style="color:var(--muted);font-weight:400"></span></label></div>'+
+        msgiHtmlDe()+'<div class="msgi-f"><label>À (adresse mail interne du destinataire)</label><input id="msgi-to" type="text" list="msgi-datalist" placeholder="prenom.nom@… — plusieurs : séparer par une virgule" autocomplete="off"><datalist id="msgi-datalist"></datalist></div>'+
         '<div class="msgi-f"><label>Objet</label><input id="msgi-subject" type="text" maxlength="150"></div>'+
         '<div class="msgi-f"><label>Message</label><textarea id="msgi-body" rows="9"></textarea></div>'+
         '<div class="msgi-f"><label>🔗 Joindre un lien (devis, facture, client, chantier)</label><div style="display:flex;gap:6px;flex-wrap:wrap"><select id="msgi-piece-type" onchange="msgiChoixTypePiece()" style="padding:9px;border:1.5px solid var(--border);border-radius:9px;background:transparent;color:var(--text);font-family:inherit"><option value="">Type…</option><option value="devis">Devis</option><option value="facture">Facture</option><option value="client">Client</option><option value="chantier">Chantier</option></select><select id="msgi-piece-item" style="flex:1;min-width:160px;padding:9px;border:1.5px solid var(--border);border-radius:9px;background:transparent;color:var(--text);font-family:inherit"><option value="">—</option></select><button class="msgi-btn sec" type="button" onclick="msgiAjouterPiece()">Ajouter</button></div><div id="msgi-pieces" style="margin-top:8px"></div></div>'+
         '<div class="msgi-f" id="msgi-ext-extra" style="display:none"><label>Nom du destinataire externe (optionnel)</label><input id="msgi-ext-nom" type="text" autocomplete="off"><label style="margin-top:6px">Modèle de mail</label><select id="msgi-modele" onchange="msgiAppliquerModele()" style="padding:9px;border:1.5px solid var(--border);border-radius:9px;background:transparent;color:var(--text);font-family:inherit"></select></div>'+
         '<div class="msgi-f" id="msgi-ext-cc-wrap" style="display:none"><label>Copie interne (adresses mail internes, séparées par une virgule)</label><input id="msgi-ext-cc" type="text" list="msgi-datalist" autocomplete="off" placeholder="prenom.nom@…"></div>'+
         '<div class="msgi-f" id="msgi-ext-code-wrap" style="display:none"><label>Code de validation (envoi externe)</label><input id="msgi-ext-code" type="password" autocomplete="off"></div>'+
-        '<div id="msgi-status" style="font-size:12.5px;margin-bottom:10px;display:none"></div>'+
-        '<div style="display:flex;gap:8px"><button class="msgi-btn" id="msgi-send" onclick="msgiEnvoyer()">📨 Envoyer</button><button class="msgi-btn sec" onclick="msgiOnglet(\'recus\')">Annuler</button></div></div>';
+        msgiHtmlSig()+'<div id="msgi-status" style="font-size:12.5px;margin-bottom:10px;display:none"></div>'+
+        '<div style="display:flex;gap:8px"><button class="msgi-btn" id="msgi-send" onclick="msgiEnvoyer()">📨 Envoyer</button><button class="msgi-btn sec" onclick="msgiSauverBrouillon()">💾 Brouillon</button><button class="msgi-btn sec" onclick="msgiOnglet(\'recus\')">Annuler</button></div></div>';
+    }else if(_msgiOnglet==='signature'){h+=msgiHtmlSignature();
+    }else if(_msgiOnglet==='tache'){h+=msgiHtmlFormTache();
+    }else if(_msgiOnglet==='taches'){h+=msgiHtmlTaches();
+    }else if(_msgiOnglet==='brouillons'){h+=msgiHtmlBrouillons();
     }else{
       var L=(_msgiOnglet==='envoyes'?_msgiEnvoyes:_msgiRecus);
       if(!L.length)h+='<div class="msgi-box" style="padding:30px;text-align:center;color:var(--muted);font-size:13px">'+(_msgiOnglet==='envoyes'?'Aucun message envoyé.':'Aucun message reçu.')+'</div>';
@@ -13094,7 +13630,7 @@ function msgiRendre(){
         var recu=_msgiOnglet!=='envoyes',nl=recu&&!m.lu;
         return '<div class="msgi-row'+(nl?' nl':'')+'" onclick="msgiOuvert(\''+m.id+'\')">'+
           (recu?'<span class="msgi-dot'+(nl?'':' lu')+'"></span>':'')+
-          '<span class="msgi-who">'+(m.externe?'↗ ':'')+msgiEsc(recu?(m.fromNom||m.fromEmail):m.toEmail)+'</span>'+
+          '<span class="msgi-who">'+(m.externe?'↗ ':'')+((recu&&m.toEmail!==msgiMonEmail())?'📬 ':'')+(m.tache?'✅ ':'')+msgiEsc(recu?(m.fromNom||m.fromEmail):m.toEmail)+'</span>'+
           '<span class="msgi-sub">'+(m.ref?'<span style="color:var(--copper,var(--accent))">['+msgiEsc(m.ref)+']</span> ':'')+'<b>'+msgiEsc(m.subject||'(sans objet)')+'</b> — '+msgiEsc((m.body||'').replace(/\s+/g,' ').substring(0,90))+'</span>'+
           '<span class="msgi-dt">'+msgiDate(m.date)+'</span></div>';
       }).join('')+'</div>';
@@ -13232,6 +13768,7 @@ function msgiAppliquerModele(){
   var m=msgiListeModeles()[i];if(!m)return;
   document.getElementById('msgi-subject').value=msgiRempl(m.objet);
   document.getElementById('msgi-body').value=msgiRempl(m.corps);
+  var cs=document.getElementById('msgi-sig-on');if(cs)cs.checked=false; // le modèle contient déjà sa formule de politesse
 }
 // Reponse a un client depuis un message transfere : prepare un envoi externe vers son adresse
 function msgiRepondreClient(id){
@@ -13250,6 +13787,7 @@ function msgiNouvelleRef(){
 }
 function msgiEnvoyerExterne(brut,sujet,corps){
   var btn=document.getElementById('msgi-send');
+  var exp=msgiExpediteur();
   if(!_msgiExt||!_msgiExt.actif||!_msgiExt.codeHash){msgiStatus('L\'envoi externe n\'est pas activé par l\'administrateur.',true);return;}
   var dest=brut.trim().toLowerCase();
   if(!/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(dest)){msgiStatus('Saisissez une seule adresse e-mail externe valide.',true);return;}
@@ -13281,18 +13819,18 @@ function msgiEnvoyerExterne(brut,sujet,corps){
     _msgiEchecsCode=0;msgiStatus('Envoi…',false);
     var nom=(_msgiBoite&&_msgiBoite.nom)||'';var ent=cfg.nomEntreprise||'NICO MULTISERVICES';
     var ref=msgiNouvelleRef();
-    var pied='\n\n————————————————\nEnvoyé par : '+(nom||msgiMonEmail())+' ('+ent+')\nBoîte mail interne : '+msgiMonEmail()+'\nN° de suivi : '+ref+'\nMerci de conserver ce n° de suivi dans l\'objet de votre réponse.';
+    var pied='\n\n————————————————\nEnvoyé par : '+(nom||msgiMonEmail())+' ('+ent+')\nBoîte mail interne : '+exp.email+(exp.partagee?' (envoyé par '+(nom||msgiMonEmail())+')':'')+'\nClassification : INTERNE — réservé au destinataire, ne pas diffuser.\nN° de suivi : '+ref+'\nMerci de conserver ce n° de suivi dans l\'objet de votre réponse.';
     var params={to_email:dest,to_name:((document.getElementById('msgi-ext-nom')&&document.getElementById('msgi-ext-nom').value.trim())||dest),cc_email:'',subject:'['+ref+'] '+sujet,
-      message:corps+pied,
+      message:'Classification : INTERNE\n\n'+corps+pied,
       from_name:(nom?nom+' — ':'')+ent,reply_to:cfg.emailEntreprise||''};
     return emailjs.send(cfg.serviceId,cfg.templateId,params,{publicKey:cfg.publicKey}).then(function(){
       // Journal de suivi : permet a l'administrateur de retrouver expediteur + boite interne a partir du n° ou du destinataire
-      msgDb.collection('messagerieExternes').doc(ref).set({ref:ref,fromUid:msgUser.uid,fromEmail:msgiMonEmail(),fromNom:nom,toExterne:dest,subject:sujet,date:firebase.firestore.FieldValue.serverTimestamp()}).catch(function(e){
+      msgDb.collection('messagerieExternes').doc(ref).set({ref:ref,fromUid:msgUser.uid,fromEmail:exp.email,fromNom:nom,toExterne:dest,classification:'interne',subject:sujet,date:firebase.firestore.FieldValue.serverTimestamp()}).catch(function(e){
         console.error('Journal de suivi:',e);
         alert('⚠️ Mail envoyé (n° '+ref+') mais le suivi n\'a pas pu être enregistré : règle Firestore « messagerieExternes » manquante.');
       });
       return msgDb.collection('messagerieInterne').add({
-        fromUid:msgUser.uid,fromEmail:msgiMonEmail(),fromNom:nom,toEmail:dest,externe:true,ref:ref,cc:ccs,
+        fromUid:msgUser.uid,fromEmail:exp.email,fromNom:nom,toEmail:dest,externe:true,classification:'interne',ref:ref,cc:ccs,
         subject:sujet,body:corps,lu:true,supprimeExp:false,supprimeDest:true,
         date:firebase.firestore.FieldValue.serverTimestamp()
       });
@@ -13306,14 +13844,14 @@ function msgiEnvoyerExterne(brut,sujet,corps){
           lu:false,supprimeExp:true,supprimeDest:false,date:firebase.firestore.FieldValue.serverTimestamp()
         });
       })).catch(function(e){console.error('Copies internes:',e);alert('⚠️ Mail envoyé, mais les copies internes n\'ont pas pu être remises.');});
-    }).then(function(){_msgiOnglet='envoyes';_msgiOuvert=null;msgiRendre();});
+    }).then(function(){msgiPurgerBrouillon();_msgiOnglet='envoyes';_msgiOuvert=null;msgiRendre();});
   }).catch(function(e){
     console.error('Envoi externe:',e);btn.disabled=false;
     msgiStatus('❌ Envoi impossible : '+((e&&(e.text||e.message))||'erreur inconnue'),true);
   });
 }
 function msgiNouveau(prefill){
-  _msgiOnglet='nouveau';_msgiOuvert=null;_msgiPieces=[];
+  _msgiOnglet='nouveau';_msgiOuvert=null;_msgiPieces=(prefill&&prefill.pieces)?prefill.pieces.slice():[];_msgiBrouillonId=(prefill&&prefill.brouillonId)||null;
   var r=document.getElementById('msgi-root');if(r)r.innerHTML='';
   msgiRendre();
   msgiMajPieces();
@@ -13321,6 +13859,15 @@ function msgiNouveau(prefill){
     document.getElementById('msgi-to').value=prefill.to||'';
     document.getElementById('msgi-subject').value=prefill.subject||'';
     document.getElementById('msgi-body').value=prefill.body||'';
+    var de=document.getElementById('msgi-de');if(de&&prefill.de)de.value=prefill.de;
+    if(prefill.ext){
+      var cb=document.getElementById('msgi-ext');
+      if(cb&&!cb.disabled){
+        cb.checked=true;msgiToggleExt();
+        if(prefill.nom)document.getElementById('msgi-ext-nom').value=prefill.nom;
+        if(prefill.cc)document.getElementById('msgi-ext-cc').value=prefill.cc;
+      }else msgiStatus('L\'envoi externe n\'est pas activé : demandez à l\'administrateur.',true);
+    }
   }
 }
 function msgiOuvert(id){
@@ -13338,7 +13885,7 @@ function msgiOuvert(id){
 function msgiRepondre(id){
   var m=_msgiRecus.filter(function(x){return x.id===id;})[0];if(!m)return;
   var sujet=/^re\s*:/i.test(m.subject||'')?m.subject:'Re : '+(m.subject||'');
-  msgiNouveau({to:m.fromEmail,subject:sujet,body:'\n\n————————\nLe '+msgiDate(m.date)+', '+(m.fromNom||m.fromEmail)+' a écrit :\n'+(m.body||'')});
+  msgiNouveau({de:(m.toEmail&&m.toEmail!==msgiMonEmail())?m.toEmail:'',to:m.fromEmail,subject:sujet,body:'\n\n————————\nLe '+msgiDate(m.date)+', '+(m.fromNom||m.fromEmail)+' a écrit :\n'+(m.body||'')});
 }
 function msgiSupprimer(id,recu){
   if(!confirm('Supprimer ce message de votre boîte ?'))return;
@@ -13353,24 +13900,27 @@ function msgiEnvoyer(){
   var brut=document.getElementById('msgi-to').value;
   var sujet=document.getElementById('msgi-subject').value.trim();
   var corps=document.getElementById('msgi-body').value.trim();
-  if(document.getElementById('msgi-ext')&&document.getElementById('msgi-ext').checked){msgiEnvoyerExterne(brut,msgiRempl(sujet),msgiRempl(corps));return;}
+  var sigt=msgiSignatureATexte();
+  if(document.getElementById('msgi-ext')&&document.getElementById('msgi-ext').checked){msgiEnvoyerExterne(brut,msgiRempl(sujet),corps?msgiRempl(corps)+sigt:'');return;}
   var dests=[];brut.split(/[,;\s]+/).forEach(function(x){x=x.trim().toLowerCase();if(x&&dests.indexOf(x)===-1)dests.push(x);});
   if(!dests.length){msgiStatus('Saisissez l\'adresse mail interne du destinataire.',true);return;}
   var re=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   for(var i=0;i<dests.length;i++){if(!re.test(dests[i])){msgiStatus('Adresse invalide : '+dests[i],true);return;}}
   if(!corps){msgiStatus('Le message est vide.',true);return;}
+  corps=corps+sigt;
   if(_msgiAdressesChargees){
     var inconnues=dests.filter(function(d){return !_msgiAdresses.some(function(a){return a.email===d;});});
     if(inconnues.length){msgiStatus('Boîte mail interne inconnue : '+inconnues.join(', ')+'. Elle doit d\'abord être créée dans le dashboard.',true);return;}
   }
   var btn=document.getElementById('msgi-send');btn.disabled=true;msgiStatus('Envoi…',false);
+  var exp=msgiExpediteur();
   Promise.all(dests.map(function(d){
-    return msgDb.collection('messagerieInterne').add({
-      fromUid:msgUser.uid,fromEmail:msgiMonEmail(),fromNom:(_msgiBoite&&_msgiBoite.nom)||'',toEmail:d,
+    var doc={fromUid:msgUser.uid,fromEmail:exp.email,fromNom:exp.nom,toEmail:d,
       subject:sujet,body:corps,pieces:_msgiPieces.slice(),lu:false,supprimeExp:false,supprimeDest:false,
-      date:firebase.firestore.FieldValue.serverTimestamp()
-    });
-  })).then(function(){_msgiPieces=[];_msgiOnglet='envoyes';_msgiOuvert=null;msgiRendre();
+      date:firebase.firestore.FieldValue.serverTimestamp()};
+    if(exp.partagee){doc.parEmail=exp.parEmail;doc.parNom=exp.parNom;}
+    return msgDb.collection('messagerieInterne').add(doc);
+  })).then(function(){msgiPurgerBrouillon();_msgiPieces=[];_msgiOnglet='envoyes';_msgiOuvert=null;msgiRendre();
   }).catch(function(e){
     console.error('Envoi message interne:',e);btn.disabled=false;
     msgiStatus('❌ Envoi impossible'+(e.code==='permission-denied'?' : règle Firestore « messagerieInterne » manquante.':'.'),true);
